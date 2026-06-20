@@ -1,7 +1,9 @@
 from functools import lru_cache
 
 from pydantic import Field, field_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from typing import Annotated
+
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -20,7 +22,7 @@ class Settings(BaseSettings):
 
     mini_app_url: str = "http://localhost:5173"
     api_base_url: str = "http://localhost:8000"
-    admin_telegram_ids: list[int] = Field(default_factory=list)
+    admin_telegram_ids: Annotated[list[int], NoDecode] = Field(default_factory=list)
 
     app_env: str = "development"
     log_level: str = "INFO"

@@ -1,17 +1,17 @@
-# Overlay для dev/staging VPS (Linux), в т.ч. SHARED VPS с vspomni_bot + 3X-UI.
-# Запуск:
+# Overlay for dev/staging VPS (Linux), including SHARED VPS with vspomni_bot + 3X-UI.
+# Run:
 #   COMPOSE_PROJECT_NAME=outstaffingbot docker compose \
 #     -f docker-compose.yml -f docker-compose.staging.yml up -d
 #
-# Отличия от локальной разработки:
-# - postgres/redis без публикации на 0.0.0.0 (конфликт с host :5432/:6379 маловероятен, но безопаснее)
-# - пароли из .env (не дефолтные outstaffing/outstaffing в production)
-# - отдельная Docker-сеть outstaffing_internal (не default bridge)
+# Differences from local dev:
+# - postgres/redis not published on 0.0.0.0
+# - credentials from .env
+# - dedicated Docker network outstaffing_internal
 #
-# Карта портов shared VPS (89.125.25.99) — см. docs/SERVER_SECURITY.md §5:
-#   ЗАНЯТО vspomni/3x-ui: 443, 433, 2096, 8443-8449, 8765, 8088, 25855 (localhost)
-#   OutstaffingBot API: 127.0.0.1:8000 (nginx upstream) — 8000 на host свободен
-#   Postgres/Redis: только internal; для dev-туннеля — раскомментировать ports ниже
+# Port map shared VPS (89.125.25.99) — see docs/SERVER_SECURITY.md section 5:
+#   TAKEN vspomni/3x-ui: 443, 433, 2096, 8443-8449, 8765, 8088, 25855 (localhost)
+#   OutstaffingBot API: 127.0.0.1:8000 (nginx upstream)
+#   Postgres/Redis: internal only; for dev tunnel uncomment ports below
 
 name: outstaffingbot
 
@@ -36,23 +36,38 @@ services:
     networks:
       - outstaffing_internal
 
-  # Раскомментировать по мере добавления Dockerfile для backend (Phase 1+)
-  # api:
-  #   build: ./backend
-  #   env_file: .env
-  #   depends_on:
-  #     postgres: { condition: service_healthy }
-  #     redis: { condition: service_healthy }
-  #   networks: [outstaffing_internal]
-  #   restart: unless-stopped
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    env_file: .env
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - outstaffing_internal
+    restart: unless-stopped
 
-  # bot:
-  #   build: ./backend
-  #   command: python -m app.bot.main
-  #   env_file: .env
-  #   depends_on: [postgres, redis, api]
-  #   networks: [outstaffing_internal]
-  #   restart: unless-stopped
+  bot:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    command: python -m app.bot.main
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      api:
+        condition: service_started
+    networks:
+      - outstaffing_internal
+    restart: unless-stopped
 
 networks:
   outstaffing_internal:

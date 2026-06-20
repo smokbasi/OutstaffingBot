@@ -28,11 +28,11 @@
 - [ ] Dev2 добавлен как collaborator
 - [x] VPS (2 vCPU, 4 GB, Ubuntu 24.04) — shared `89.125.25.99` (vspomni) — Hetzner / Timeweb / Selectel
 - [ ] `scripts/deploy/bootstrap-server.sh` на сервере
-- [x] Server `.env` на `/opt/outstaffingbot` (POSTGRES/WEBHOOK_SECRET сгенерированы; **BOT_TOKEN пустой** — добавить вручную)
+- [x] Server `.env` на `/opt/outstaffingbot` (POSTGRES/WEBHOOK_SECRET сгенерированы; **BOT_TOKEN задан** на staging)
 - [x] SSH-ключ `id_vspomni` → пользователь `deploy` (Dev2: добавить pubkey в `/home/deploy/.ssh/authorized_keys`)
 - [x] `docker compose -f docker-compose.yml -f docker-compose.staging.yml up -d` на `/opt/outstaffingbot` (`COMPOSE_PROJECT_NAME=outstaffingbot`)
-- [ ] Миграции + seed на staging
-- [ ] Bot `/start` на staging (polling или webhook с доменом)
+- [x] Миграции + seed на staging
+- [x] Bot `/start` на staging (polling; webhook — позже с доменом)
 - [ ] Договорённость: PR review (1 approve), кто деплоит
 - [ ] (Опционально) поддомен + TLS для webhook / Mini App
 - [ ] (Опционально) GitHub Actions CI зелёный на PR
