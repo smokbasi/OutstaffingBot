@@ -7,6 +7,7 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 
 from app.bot.handlers.start import router as start_router
+from app.bot.menu_setup import setup_default_mini_app_menu
 from app.core.config import get_settings
 
 logger = logging.getLogger(__name__)
@@ -33,6 +34,7 @@ async def run_bot() -> None:
         default=DefaultBotProperties(parse_mode=ParseMode.HTML),
     )
     dp = create_dispatcher()
+    dp.startup.register(setup_default_mini_app_menu)
 
     logger.info("Starting bot polling...")
     await dp.start_polling(bot)

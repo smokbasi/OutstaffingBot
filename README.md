@@ -1,5 +1,7 @@
 # OutstaffingBot
 
+> **Онбординг Dev2:** [docs/ONBOARDING_DEV2.md](docs/ONBOARDING_DEV2.md)
+
 Telegram-бот + Mini App для подбора временного персонала (аутстаффинг).
 
 ## Быстрый старт (локально)
@@ -85,6 +87,7 @@ docker compose -f docker-compose.yml -f docker-compose.staging.yml up -d
 
 ## Документация
 
+- [ONBOARDING_DEV2.md](docs/ONBOARDING_DEV2.md) — онбординг второго разработчика
 - [TASKS.md](docs/TASKS.md) — чеклист фаз (в т.ч. Phase 0.5 — dev server)
 - [SERVER_AND_TEAM.md](docs/SERVER_AND_TEAM.md) — staging VPS, команда, деплой
 - [PLAN.md](docs/PLAN.md) — архитектура и схема БД

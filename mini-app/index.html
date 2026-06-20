@@ -1,14 +1,138 @@
 <!doctype html>
-<html lang="en">
+<html lang="ru">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>OutstaffingBot Mini App</title>
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <title>OutstaffingBot</title>
+    <link rel="preconnect" href="https://telegram.org" crossorigin />
+    <link rel="dns-prefetch" href="https://telegram.org" />
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --tg-theme-bg-color: #ffffff;
+        --tg-theme-text-color: #000000;
+        --tg-theme-hint-color: #707579;
+        --tg-theme-secondary-bg-color: #f4f4f5;
+        --tg-theme-border-color: #e5e5ea;
+        font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      }
+      html,
+      body {
+        margin: 0;
+        min-height: 100%;
+        background: var(--tg-theme-bg-color);
+        color: var(--tg-theme-text-color);
+      }
+      #root {
+        max-width: 720px;
+        margin: 0 auto;
+        min-height: 100svh;
+        box-sizing: border-box;
+      }
+      .app-shell {
+        padding: 1.5rem;
+        min-height: 100svh;
+        box-sizing: border-box;
+      }
+      .app-shell h1 {
+        font-size: 1.75rem;
+        font-weight: 600;
+        margin: 0 0 0.25rem;
+        color: var(--tg-theme-text-color);
+      }
+      .app-shell .subtitle {
+        color: var(--tg-theme-hint-color);
+        font-size: 0.95rem;
+        margin: 0;
+      }
+      .app-shell .status {
+        color: var(--tg-theme-hint-color);
+        font-size: 0.875rem;
+        margin-top: 1rem;
+      }
+      .app-shell .card {
+        margin-top: 1.5rem;
+        padding: 1rem 1.25rem;
+        border-radius: 12px;
+        background: var(--tg-theme-secondary-bg-color);
+        border: 1px solid var(--tg-theme-border-color);
+      }
+      .app-shell .card ul {
+        margin: 0.75rem 0 0;
+        padding-left: 1.25rem;
+      }
+      .app-shell .card li {
+        margin-bottom: 0.5rem;
+      }
+      .spinner {
+        display: inline-block;
+        width: 1rem;
+        height: 1rem;
+        border: 2px solid var(--tg-theme-hint-color);
+        border-top-color: var(--tg-theme-text-color);
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+        vertical-align: middle;
+        margin-right: 0.5rem;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+    </style>
+    <script>
+      (function () {
+        var tg = window.Telegram && window.Telegram.WebApp;
+        if (!tg) return;
+        tg.ready();
+        tg.expand();
+        function applyTheme() {
+          var p = tg.themeParams || {};
+          var root = document.documentElement.style;
+          if (p.bg_color) root.setProperty("--tg-theme-bg-color", p.bg_color);
+          if (p.text_color) root.setProperty("--tg-theme-text-color", p.text_color);
+          if (p.hint_color) root.setProperty("--tg-theme-hint-color", p.hint_color);
+          if (p.secondary_bg_color) {
+            root.setProperty("--tg-theme-secondary-bg-color", p.secondary_bg_color);
+          }
+          if (p.section_separator_color) {
+            root.setProperty("--tg-theme-border-color", p.section_separator_color);
+          }
+        }
+        applyTheme();
+        if (tg.onEvent) tg.onEvent("themeChanged", applyTheme);
+      })();
+    </script>
   </head>
   <body>
-    <div id="root"></div>
+    <noscript>
+      <div style="padding: 1.5rem; font-family: system-ui, sans-serif">
+        <h1>OutstaffingBot</h1>
+        <p>Для работы Mini App нужен JavaScript.</p>
+      </div>
+    </noscript>
+    <div id="root">
+      <main class="app-shell" id="app-shell">
+        <h1>OutstaffingBot</h1>
+        <p class="subtitle">Telegram Mini App</p>
+        <p class="status">
+          <span class="spinner" aria-hidden="true"></span>Загрузка…
+        </p>
+        <section class="card">
+          <ul>
+            <li>👷 Профиль работника</li>
+            <li>🏢 Заявки работодателя</li>
+            <li>🔍 Поиск вакансий</li>
+          </ul>
+        </section>
+      </main>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

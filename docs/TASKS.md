@@ -1,5 +1,6 @@
 ﻿# Задачи OutstaffingBot
 
+> **Онбординг Dev2:** [ONBOARDING_DEV2.md](./ONBOARDING_DEV2.md)  
 > **Единый чеклист** всех фаз разработки. Детали архитектуры — в [PLAN.md](./PLAN.md), как выполнять каждую фазу — в [DEVELOPMENT_WORKFLOW.md § E](./DEVELOPMENT_WORKFLOW.md#e-workflow-по-фазам-planmd).
 
 ## Как пользоваться этим файлом
@@ -199,6 +200,7 @@
 | [ECC_STRATEGY.md § 9](./ECC_STRATEGY.md#9-чеклист-phase-0-ecc) | Чеклист установки ECC (Phase 0) |
 | [GIT_WORKFLOW.md § 12](./GIT_WORKFLOW.md#12-чеклист-перед-pr) | Чеклист перед PR (git-процесс) |
 | [SERVER_AND_TEAM.md](./SERVER_AND_TEAM.md) | Dev/staging VPS, Git для 2 разработчиков, деплой |
+| [ONBOARDING_DEV2.md](./ONBOARDING_DEV2.md) | Онбординг второго разработчика |
 
 ---
 
