@@ -1,0 +1,59 @@
+# Overlay для dev/staging VPS (Linux), в т.ч. SHARED VPS с vspomni_bot + 3X-UI.
+# Запуск:
+#   COMPOSE_PROJECT_NAME=outstaffingbot docker compose \
+#     -f docker-compose.yml -f docker-compose.staging.yml up -d
+#
+# Отличия от локальной разработки:
+# - postgres/redis без публикации на 0.0.0.0 (конфликт с host :5432/:6379 маловероятен, но безопаснее)
+# - пароли из .env (не дефолтные outstaffing/outstaffing в production)
+# - отдельная Docker-сеть outstaffing_internal (не default bridge)
+#
+# Карта портов shared VPS (89.125.25.99) — см. docs/SERVER_SECURITY.md §5:
+#   ЗАНЯТО vspomni/3x-ui: 443, 433, 2096, 8443-8449, 8765, 8088, 25855 (localhost)
+#   OutstaffingBot API: 127.0.0.1:8000 (nginx upstream) — 8000 на host свободен
+#   Postgres/Redis: только internal; для dev-туннеля — раскомментировать ports ниже
+
+name: outstaffingbot
+
+services:
+  postgres:
+    ports: !reset []
+    # Dev SSH tunnel only — bind localhost, NOT 0.0.0.0:
+    # ports:
+    #   - "127.0.0.1:5433:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-outstaffing}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-outstaffing}
+      POSTGRES_DB: ${POSTGRES_DB:-outstaffing}
+    networks:
+      - outstaffing_internal
+
+  redis:
+    ports: !reset []
+    # Dev SSH tunnel only:
+    # ports:
+    #   - "127.0.0.1:6380:6379"
+    networks:
+      - outstaffing_internal
+
+  # Раскомментировать по мере добавления Dockerfile для backend (Phase 1+)
+  # api:
+  #   build: ./backend
+  #   env_file: .env
+  #   depends_on:
+  #     postgres: { condition: service_healthy }
+  #     redis: { condition: service_healthy }
+  #   networks: [outstaffing_internal]
+  #   restart: unless-stopped
+
+  # bot:
+  #   build: ./backend
+  #   command: python -m app.bot.main
+  #   env_file: .env
+  #   depends_on: [postgres, redis, api]
+  #   networks: [outstaffing_internal]
+  #   restart: unless-stopped
+
+networks:
+  outstaffing_internal:
+    driver: bridge

@@ -1,0 +1,42 @@
+---
+description: Git workflow OutstaffingBot — обязательные правила для агентов
+alwaysApply: true
+---
+
+# Git Workflow (OutstaffingBot)
+
+Полная документация: `docs/GIT_WORKFLOW.md`. Следуй при **каждом** взаимодействии с Git.
+
+## Базовые параметры
+
+- Базовая ветка: `main`
+- Ветки: `feature/`, `fix/`, `docs/`, `chore/` + kebab-case
+- Коммиты: `type(scope): описание на русском` (feat, fix, docs, chore, refactor, test, ci)
+- Merge PR: **squash merge** через `gh pr merge --squash`
+
+## Запрещено
+
+- Force push в `main` / `master` и на shared-ветки без явного запроса
+- `--no-verify`, пропуск hooks
+- Изменение `git config`
+- Коммит/push/PR без явного запроса пользователя (или пункта задачи)
+
+## Перед коммитом
+
+1. `git status` + `git diff` (+ `git diff --staged`)
+2. Не коммитить: `.env`, секреты, `__pycache__`, `node_modules`, `.venv`, дампы ECC agent memory (`%USERPROFILE%\.cursor\ecc\`)
+3. PowerShell: `git commit -m @"..."@` для многострочного сообщения
+
+## Amend — только если
+
+Пользователь явно попросил **и** коммит не запушен **и** создан в текущей сессии.
+
+## Параллельная работа
+
+- Одна ветка = одна задача
+- `git fetch origin; git rebase origin/main` перед push
+- Координация через описание PR (scope, test plan)
+
+## Workflow
+
+`pull main → checkout -b feature/... → work → commit → rebase → push → gh pr create`

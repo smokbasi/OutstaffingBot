@@ -1,0 +1,38 @@
+---
+description: OutstaffingBot — Karpathy + ECC workflow для каждой сессии агента
+alwaysApply: true
+---
+
+# Project Workflow (OutstaffingBot)
+
+Полное руководство: `docs/DEVELOPMENT_WORKFLOW.md`. **Чеклист задач:** `docs/TASKS.md` (Phase 0–10, отмечай прогресс). Стратегия ECC: `docs/ECC_STRATEGY.md`. Git: `docs/GIT_WORKFLOW.md`.
+
+## Karpathy (всегда)
+
+- Читай код **до** правок; одна задача = один concern.
+- Минимальный diff; без спекулятивных абстракций.
+- Критерий готовности **до** кода: тест/команда verify.
+- Не коммить/push/PR без явного запроса пользователя.
+- **Прогресс по фазам:** сверяйся с `docs/TASKS.md`; после выполнения пункта — отметь `[x]` там (и в `PLAN.md § F`, если правишь roadmap).
+
+## ECC — когда что
+
+| Задача | Действие |
+|--------|----------|
+| ≤3 файла, один слой | Solo Agent + domain skill |
+| bot + API + Mini App | `/plan` → confirm → subagents по папкам → reviewers |
+| Pre-deploy / auth | `/security-scan`, `ecc-security-reviewer` |
+| После реализации | `verification-loop`, `/code-review` |
+
+**Orchestration module не установлен** — `/orch-*` без skill; используй ручной pipeline из DEVELOPMENT_WORKFLOW § D.
+
+## Skills по слою
+
+- Backend/bot: `python-patterns`, `tdd-workflow`
+- API: `fastapi-patterns`, `ecc-fastapi-reviewer`
+- БД: `postgres-patterns`, `ecc-database-reviewer`
+- Mini App: `frontend-patterns`, `ecc-react-reviewer`
+
+## Запрещено
+
+Оркестрация мелких fix; parallel agents на одном файле; `ecc-install --profile full`; `--no-verify`.

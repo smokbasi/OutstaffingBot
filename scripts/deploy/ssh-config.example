@@ -1,0 +1,41 @@
+# OutstaffingBot + shared VPS (vspomni)
+# Установка:
+#   Windows: скопировать блоки в %USERPROFILE%\.ssh\config
+#   Linux/macOS: Include или cat >> ~/.ssh/config
+#
+# Пути к ключам — на ВАШЕЙ машине, не в git.
+
+# --- OutstaffingBot staging (Docker Compose) ---
+Host outstaffing-staging
+  HostName 89.125.25.99
+  User deploy
+  IdentityFile ~/.ssh/id_vspomni
+  IdentitiesOnly yes
+  # IdentityFile ~/.ssh/id_outstaffing   # альтернатива: отдельный ключ для OutstaffingBot
+
+# --- vspomni prod + 3x-ui (root — только администрирование) ---
+Host vspomni-prod
+  HostName 89.125.25.99
+  User root
+  IdentityFile ~/.ssh/id_vspomni
+  IdentitiesOnly yes
+
+# --- Туннель к 3x-ui panel (localhost на сервере) ---
+# Использование: ssh vspomni-xui-tunnel
+# Браузер: http://127.0.0.1:25855/<webBasePath>
+Host vspomni-xui-tunnel
+  HostName 89.125.25.99
+  User root
+  IdentityFile ~/.ssh/id_vspomni
+  IdentitiesOnly yes
+  LocalForward 25855 127.0.0.1:25855
+
+# --- Dev: PostgreSQL + Redis OutstaffingBot через SSH ---
+# Локально: DATABASE_URL=...@127.0.0.1:5433, REDIS_URL=redis://127.0.0.1:6380/0
+Host outstaffing-db-tunnel
+  HostName 89.125.25.99
+  User deploy
+  IdentityFile ~/.ssh/id_vspomni
+  IdentitiesOnly yes
+  LocalForward 5433 127.0.0.1:5433
+  LocalForward 6380 127.0.0.1:6379

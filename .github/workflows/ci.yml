@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  backend-tests:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: outstaffing
+          POSTGRES_PASSWORD: outstaffing
+          POSTGRES_DB: outstaffing
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U outstaffing -d outstaffing"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql+asyncpg://outstaffing:outstaffing@localhost:5432/outstaffing
+      REDIS_URL: redis://localhost:6379/0
+      APP_ENV: test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/pyproject.toml
+
+      - name: Install backend
+        run: pip install -e ".[dev]"
+
+      - name: Pytest
+        run: pytest -q
