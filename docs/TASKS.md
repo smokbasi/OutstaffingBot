@@ -6,7 +6,7 @@
 ## Как пользоваться этим файлом
 
 1. **Открывайте этот файл первым**, когда ищете «что делать дальше» — здесь все checkbox-задачи Phase 0–10 в одном месте.
-2. **Текущая фаза** — та, где есть незакрытые пункты. Сейчас это **Phase 0**.
+2. **Текущая фаза** — та, где есть незакрытые пункты. Сейчас это **Phase 2**.
 3. **Отмечайте прогресс** — меняйте `[ ]` на `[x]` по мере выполнения (и синхронизируйте с [PLAN.md § F](./PLAN.md#f-roadmap--фазы-реализации), если правите roadmap там).
 4. **Перед началом фазы** — прочитайте строку для этой фазы в [DEVELOPMENT_WORKFLOW.md § E](./DEVELOPMENT_WORKFLOW.md#e-workflow-по-фазам-planmd): solo vs оркестрация, skills, verification.
 5. **Для ECC/setup** — дополнительный чеклист Phase 0 в [ECC_STRATEGY.md § 9](./ECC_STRATEGY.md#9-чеклист-phase-0-ecc).
@@ -15,7 +15,7 @@
 
 ## Текущая фаза: Phase 2 — Employer + Job Requests
 
-**Следующий шаг:** FSM создание заявки (бот) + API CRUD jobs + Mini App форма заявки.
+**Следующий шаг:** API CRUD jobs + shift_slots (backend), затем FSM (бот) и Mini App форма заявки.
 
 **Verification Phase 0:** локально (Docker Desktop) **или** на dev/staging VPS — см. [SERVER_AND_TEAM.md](./SERVER_AND_TEAM.md).
 
@@ -26,11 +26,12 @@
 > **Зачем:** обойти проблемы Docker/WSL на Windows; общая среда для двух разработчиков. Подробно: [SERVER_AND_TEAM.md](./SERVER_AND_TEAM.md).
 
 - [x] Public GitHub repo + push `main` — https://github.com/smokbasi/OutstaffingBot
-- [ ] Dev2 добавлен как collaborator
+- [x] Dev2 добавлен как collaborator
 - [x] VPS (2 vCPU, 4 GB, Ubuntu 24.04) — shared `89.125.25.99` (vspomni) — Hetzner / Timeweb / Selectel
-- [ ] `scripts/deploy/bootstrap-server.sh` на сервере
+- [x] `scripts/deploy/bootstrap-server.sh` на сервере
 - [x] Server `.env` на `/opt/outstaffingbot` (POSTGRES/WEBHOOK_SECRET сгенерированы; **BOT_TOKEN задан** на staging)
-- [x] SSH-ключ `id_vspomni` → пользователь `deploy` (Dev2: добавить pubkey в `/home/deploy/.ssh/authorized_keys`)
+- [x] SSH-ключ `id_vspomni` → пользователь `deploy`
+- [x] SSH pubkey Dev2 на сервере (`/home/deploy/.ssh/authorized_keys`, проверено)
 - [x] `docker compose -f docker-compose.yml -f docker-compose.staging.yml up -d` на `/opt/outstaffingbot` (`COMPOSE_PROJECT_NAME=outstaffingbot`)
 - [x] Миграции + seed на staging
 - [x] Bot `/start` на staging (polling; webhook — позже с доменом)
@@ -51,7 +52,7 @@
 - [x] Seed: metro, categories
 - [x] FastAPI skeleton + health check
 - [x] aiogram skeleton + /start + главное меню
-- [ ] **Ручная проверка:** `docker compose up` + migrations apply + bot `/start` (нужны Docker + `BOT_TOKEN`)
+- [x] **Ручная проверка:** `docker compose up` + migrations apply + bot `/start` (staging: docker + bot `/start` OK)
 
 #### Phase 0 — ECC setup (дополнительно, из ECC_STRATEGY)
 
@@ -80,6 +81,8 @@
 ---
 
 ### Phase 2 — Employer + Job Requests (2 недели) [P0]
+
+> **В работе:** backend API CRUD jobs + shift_slots (ветка `feature/phase-2-employer-jobs`).
 
 - [ ] FSM создание заявки (бот)
 - [ ] API: CRUD jobs, shift_slots
