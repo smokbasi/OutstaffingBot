@@ -58,6 +58,28 @@ function readTelegramContext(): TelegramContext {
   };
 }
 
+const VACANCY_DEEP_LINK_RE = /^\/vacancy\/([0-9a-f-]{36})$/i;
+
+function parseVacancyDeepLink(): string | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+  const match = window.location.pathname.match(VACANCY_DEEP_LINK_RE);
+  return match?.[1] ?? null;
+}
+
+function readInitialWorkerRoute(): {
+  appMode: AppMode | null;
+  workerView: WorkerView;
+  vacancyId: string | null;
+} {
+  const vacancyId = parseVacancyDeepLink();
+  if (vacancyId) {
+    return { appMode: "worker", workerView: "vacancy-detail", vacancyId };
+  }
+  return { appMode: null, workerView: "vacancies", vacancyId: null };
+}
+
 function RolePicker({
   onSelect,
 }: {
@@ -144,11 +166,12 @@ function EmployerSetupPrompt({
 
 function App() {
   const [telegram] = useState(readTelegramContext);
+  const [initialRoute] = useState(readInitialWorkerRoute);
   const [meState, setMeState] = useState<MeState>({ status: "loading" });
-  const [appMode, setAppMode] = useState<AppMode | null>(null);
+  const [appMode, setAppMode] = useState<AppMode | null>(initialRoute.appMode);
   const [employerView, setEmployerView] = useState<EmployerView>("jobs");
-  const [workerView, setWorkerView] = useState<WorkerView>("vacancies");
-  const [selectedVacancyId, setSelectedVacancyId] = useState<string | null>(null);
+  const [workerView, setWorkerView] = useState<WorkerView>(initialRoute.workerView);
+  const [selectedVacancyId, setSelectedVacancyId] = useState<string | null>(initialRoute.vacancyId);
   const [jobsReloadKey, setJobsReloadKey] = useState(0);
 
   useEffect(() => {
