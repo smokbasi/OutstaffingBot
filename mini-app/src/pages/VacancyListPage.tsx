@@ -7,6 +7,7 @@ import {
   type MetroStation,
   type VacancyListItem,
 } from "../api/client";
+import { formatHourlyRate } from "../utils/formatRate";
 
 type VacancyListPageProps = {
   initData: string;
@@ -34,11 +35,6 @@ function formatTime(value: string | null): string {
     return "";
   }
   return value.slice(0, 5);
-}
-
-function formatRate(rate: string): string {
-  const num = Number(rate);
-  return Number.isNaN(num) ? rate : `${num.toLocaleString("ru-RU")} ₽/час`;
 }
 
 export function VacancyListPage({ initData, onOpenVacancy }: VacancyListPageProps) {
@@ -228,7 +224,7 @@ export function VacancyListPage({ initData, onOpenVacancy }: VacancyListPageProp
                 <p className="hint">
                   {item.category_name ?? "—"} · {item.metro_station_name ?? "—"}
                 </p>
-                <p>{formatRate(item.hourly_rate)}</p>
+                <p>{formatHourlyRate(item.hourly_rate)}</p>
                 <p className="hint">
                   Ближайшая смена: {formatDate(item.next_shift_date)}
                   {item.next_shift_start ? ` ${formatTime(item.next_shift_start)}` : ""}

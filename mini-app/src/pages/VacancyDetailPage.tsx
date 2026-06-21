@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { getWorkerVacancy, type VacancyDetail } from "../api/client";
+import { formatHourlyRate } from "../utils/formatRate";
 
 type VacancyDetailPageProps = {
   initData: string;
@@ -22,11 +23,6 @@ function formatDate(iso: string): string {
 
 function formatTime(value: string): string {
   return value.slice(0, 5);
-}
-
-function formatRate(rate: string): string {
-  const num = Number(rate);
-  return Number.isNaN(num) ? rate : `${num.toLocaleString("ru-RU")} ₽/час`;
 }
 
 export function VacancyDetailPage({ initData, vacancyId, onBack }: VacancyDetailPageProps) {
@@ -82,7 +78,7 @@ export function VacancyDetailPage({ initData, vacancyId, onBack }: VacancyDetail
       <p className="hint">
         {vacancy.category_name ?? "—"} · {vacancy.metro_station_name ?? "—"}
       </p>
-      <p>{formatRate(vacancy.hourly_rate)}</p>
+      <p>{formatHourlyRate(vacancy.hourly_rate)}</p>
       {vacancy.address ? <p className="hint">Адрес: {vacancy.address}</p> : null}
       <p>{vacancy.description}</p>
       {vacancy.dress_code ? <p className="hint">Дресс-код: {vacancy.dress_code}</p> : null}

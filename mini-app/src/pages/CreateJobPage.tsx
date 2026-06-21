@@ -10,6 +10,7 @@ import {
   type MetroStation,
   type RequiredGender,
 } from "../api/client";
+import { preventNumberInputWheel } from "../utils/formatRate";
 
 type CreateJobPageProps = {
   initData: string;
@@ -446,8 +447,10 @@ export function CreateJobPage({ initData, onCreated, onCancel }: CreateJobPagePr
             min={0}
             max={MAX_HOURLY_RATE}
             step="0.01"
+            inputMode="decimal"
             value={form.hourly_rate}
             disabled={isSaving}
+            onWheel={preventNumberInputWheel}
             onChange={(e) => updateField("hourly_rate", clampHourlyRateInput(e.target.value))}
             onBlur={(e) => updateField("hourly_rate", clampHourlyRateInput(e.target.value))}
           />
@@ -460,8 +463,10 @@ export function CreateJobPage({ initData, onCreated, onCancel }: CreateJobPagePr
             type="number"
             min={1}
             max={100}
+            inputMode="numeric"
             value={form.workers_needed}
             disabled={isSaving}
+            onWheel={preventNumberInputWheel}
             onChange={(e) => updateField("workers_needed", e.target.value)}
           />
           {formErrors.workers_needed ? (

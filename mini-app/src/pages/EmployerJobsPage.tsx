@@ -6,6 +6,7 @@ import {
   type JobRequest,
   type JobRequestStatus,
 } from "../api/client";
+import { formatHourlyRate } from "../utils/formatRate";
 
 type EmployerJobsPageProps = {
   initData: string;
@@ -28,11 +29,6 @@ function formatDate(iso: string): string {
 
 function formatTime(value: string): string {
   return value.slice(0, 5);
-}
-
-function formatRate(rate: string): string {
-  const num = Number(rate);
-  return Number.isNaN(num) ? rate : `${num.toLocaleString("ru-RU")} ₽/час`;
 }
 
 export function EmployerJobsPage({ initData, onCreateClick, reloadKey = 0 }: EmployerJobsPageProps) {
@@ -139,7 +135,7 @@ export function EmployerJobsPage({ initData, onCreateClick, reloadKey = 0 }: Emp
               </div>
               <p className="hint">
                 {job.category_name ?? "Категория"} · {job.metro_station_name ?? "Метро"} ·{" "}
-                {formatRate(job.hourly_rate)} · {job.workers_needed} чел.
+                {formatHourlyRate(job.hourly_rate)} · {job.workers_needed} чел.
               </p>
               {job.shift_slots.length > 0 ? (
                 <ul className="job-shifts">
