@@ -4,6 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.core.arq_pool import enqueue_job
 from app.db.models import JobCategory, JobRequest, JobRequestStatus, MetroStation, ShiftSlot
 from app.schemas.job_request import JobRequestCreate, JobRequestRead, JobRequestUpdate
 
@@ -171,6 +172,7 @@ async def update_job_request(
     if job is None:
         raise ValueError("Job request not found")
 
+    previous_status = job.status
     if data.status is not None:
         _validate_status_transition(job.status, data.status)
         job.status = data.status
@@ -178,4 +180,12 @@ async def update_job_request(
     await session.flush()
     job = await session.scalar(await _get_job_stmt(job_id, employer_id))
     assert job is not None
+
+    if (
+        previous_status != JobRequestStatus.active
+        and job.status == JobRequestStatus.active
+        and job.notify_matching_workers
+    ):
+        await enqueue_job("match_workers_for_job", str(job.id))
+
     return _job_to_read(job)
