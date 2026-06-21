@@ -85,6 +85,53 @@ export type ShiftSlot = {
   slots_filled: number;
 };
 
+export type VacancyListItem = {
+  id: string;
+  category_id: number;
+  category_name: string | null;
+  title: string;
+  metro_station_id: number;
+  metro_station_name: string | null;
+  hourly_rate: string;
+  workers_needed: number;
+  next_shift_date: string | null;
+  next_shift_start: string | null;
+  next_shift_end: string | null;
+  available_slots: number;
+};
+
+export type VacancyListResponse = {
+  items: VacancyListItem[];
+  total: number;
+  page: number;
+  limit: number;
+};
+
+export type VacancyDetail = {
+  id: string;
+  category_id: number;
+  category_name: string | null;
+  title: string;
+  description: string;
+  metro_station_id: number;
+  metro_station_name: string | null;
+  address: string | null;
+  hourly_rate: string;
+  workers_needed: number;
+  min_experience_months: number | null;
+  dress_code: string | null;
+  shift_slots: ShiftSlot[];
+  created_at: string;
+};
+
+export type VacancyListParams = {
+  category_id?: number;
+  metro_station_id?: number;
+  min_hourly_rate?: string;
+  page?: number;
+  limit?: number;
+};
+
 export type JobRequest = {
   id: string;
   category_id: number;
@@ -231,6 +278,34 @@ export function updateJobStatus(
     method: "PATCH",
     body: JSON.stringify({ status }),
   });
+}
+
+export function listWorkerVacancies(
+  initData: string,
+  params: VacancyListParams = {},
+): Promise<VacancyListResponse> {
+  const search = new URLSearchParams();
+  if (params.category_id !== undefined) {
+    search.set("category_id", String(params.category_id));
+  }
+  if (params.metro_station_id !== undefined) {
+    search.set("metro_station_id", String(params.metro_station_id));
+  }
+  if (params.min_hourly_rate) {
+    search.set("min_hourly_rate", params.min_hourly_rate);
+  }
+  if (params.page !== undefined) {
+    search.set("page", String(params.page));
+  }
+  if (params.limit !== undefined) {
+    search.set("limit", String(params.limit));
+  }
+  const query = search.toString();
+  return apiFetch<VacancyListResponse>(`/worker/vacancies${query ? `?${query}` : ""}`, initData);
+}
+
+export function getWorkerVacancy(initData: string, id: string): Promise<VacancyDetail> {
+  return apiFetch<VacancyDetail>(`/worker/vacancies/${id}`, initData);
 }
 
 export async function searchMetroStations(q: string): Promise<MetroStation[]> {

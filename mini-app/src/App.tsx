@@ -4,6 +4,8 @@ import { getMe, upsertEmployerProfile, type MeResponse } from "./api/client";
 import { CreateJobPage } from "./pages/CreateJobPage";
 import { EmployerJobsPage } from "./pages/EmployerJobsPage";
 import { ProfilePage } from "./pages/ProfilePage";
+import { VacancyDetailPage } from "./pages/VacancyDetailPage";
+import { VacancyListPage } from "./pages/VacancyListPage";
 
 declare global {
   interface Window {
@@ -26,6 +28,7 @@ type TelegramContext = {
 
 type AppMode = "worker" | "employer";
 type EmployerView = "jobs" | "create";
+type WorkerView = "profile" | "vacancies" | "vacancy-detail";
 
 type MeState =
   | { status: "loading" }
@@ -139,6 +142,8 @@ function App() {
   const [meState, setMeState] = useState<MeState>({ status: "loading" });
   const [appMode, setAppMode] = useState<AppMode | null>(null);
   const [employerView, setEmployerView] = useState<EmployerView>("jobs");
+  const [workerView, setWorkerView] = useState<WorkerView>("vacancies");
+  const [selectedVacancyId, setSelectedVacancyId] = useState<string | null>(null);
   const [jobsReloadKey, setJobsReloadKey] = useState(0);
 
   useEffect(() => {
@@ -171,6 +176,10 @@ function App() {
     setAppMode(mode);
     if (mode === "employer") {
       setEmployerView("jobs");
+    }
+    if (mode === "worker") {
+      setWorkerView("vacancies");
+      setSelectedVacancyId(null);
     }
   }
 
@@ -228,7 +237,27 @@ function App() {
     }
 
     if (appMode === "worker") {
-      return <ProfilePage initData={telegram.initData} />;
+      if (workerView === "profile") {
+        return <ProfilePage initData={telegram.initData} />;
+      }
+      if (workerView === "vacancy-detail" && selectedVacancyId) {
+        return (
+          <VacancyDetailPage
+            initData={telegram.initData}
+            vacancyId={selectedVacancyId}
+            onBack={() => setWorkerView("vacancies")}
+          />
+        );
+      }
+      return (
+        <VacancyListPage
+          initData={telegram.initData}
+          onOpenVacancy={(id) => {
+            setSelectedVacancyId(id);
+            setWorkerView("vacancy-detail");
+          }}
+        />
+      );
     }
 
     if (!me.has_employer_profile) {
@@ -272,6 +301,12 @@ function App() {
     appMode === "employer" &&
     meState.me.has_employer_profile;
 
+  const showWorkerNav =
+    telegram.inTelegram &&
+    telegram.initData &&
+    meState.status === "ready" &&
+    appMode === "worker";
+
   return (
     <main className="app">
       <div className="app-header">
@@ -287,6 +322,28 @@ function App() {
           </button>
         ) : null}
       </div>
+
+      {showWorkerNav ? (
+        <nav className="app-nav">
+          <button
+            type="button"
+            className={`nav-btn${workerView === "vacancies" || workerView === "vacancy-detail" ? " active" : ""}`}
+            onClick={() => {
+              setWorkerView("vacancies");
+              setSelectedVacancyId(null);
+            }}
+          >
+            Поиск
+          </button>
+          <button
+            type="button"
+            className={`nav-btn${workerView === "profile" ? " active" : ""}`}
+            onClick={() => setWorkerView("profile")}
+          >
+            Профиль
+          </button>
+        </nav>
+      ) : null}
 
       {showEmployerNav ? (
         <nav className="app-nav">

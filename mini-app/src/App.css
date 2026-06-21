@@ -406,3 +406,34 @@
   font-size: 0.9rem;
   color: var(--tg-theme-hint-color, #707579);
 }
+
+.filters-form {
+  margin-bottom: 1rem;
+}
+
+.metro-selected {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.pagination {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.pagination .btn {
+  margin-top: 0;
+}
+
+.back-link {
+  margin: 0 0 0.75rem;
+  display: inline-block;
+}
+
+.vacancy-detail h3 {
+  margin: 1rem 0 0.5rem;
+  font-size: 1rem;
+}
