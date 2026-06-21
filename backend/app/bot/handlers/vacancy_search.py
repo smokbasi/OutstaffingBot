@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.bot.keyboards.main_menu import main_menu_keyboard
 from app.bot.keyboards.vacancy_search import (
     vacancy_categories_keyboard,
+    vacancy_conflict_keyboard,
     vacancy_detail_keyboard,
     vacancy_filters_keyboard,
     vacancy_list_keyboard,
@@ -18,7 +19,7 @@ from app.bot.keyboards.vacancy_search import (
 from app.bot.states.vacancy_search import VacancySearch
 from app.reference.spb_metro import SPB_METRO_LINE_BY_ID
 from app.schemas.vacancy import VacancyFilters
-from app.services import matching_service, user_service, worker_service
+from app.services import application_service, matching_service, user_service, worker_service
 
 router = Router(name="vacancy_search")
 
@@ -408,18 +409,35 @@ async def vacancy_detail(callback: CallbackQuery, session: AsyncSession, state: 
         f"{vacancy.description}"
     )
     if vacancy.dress_code:
-        text += f"\nДресс-код: {vacancy.dress_code}"
+        text += f"
+Дресс-код: {vacancy.dress_code}"
     if vacancy.includes_lunch:
-        text += "\n🍽 Обед включён"
+        text += "
+🍽 Обед включён"
 
     text += (
-        f"\n\n<b>Смены:</b>\n{shifts_text}\n\n"
-        "<i>Отклик на смену будет доступен в следующей версии.</i>"
+        f"
+
+<b>Смены:</b>
+{shifts_text}
+
+"
+        "Выберите смену для отклика:"
     )
+    await state.update_data(current_vacancy_id=str(vacancy.id))
     await state.set_state(VacancySearch.detail)
+    slot_payload = [
+        {
+            "id": str(slot.id),
+            "shift_date": slot.shift_date,
+            "start_time": slot.start_time,
+            "end_time": slot.end_time,
+        }
+        for slot in vacancy.shift_slots
+    ]
     await callback.message.edit_text(
         text,
-        reply_markup=vacancy_detail_keyboard(str(vacancy.id)),
+        reply_markup=vacancy_detail_keyboard(str(vacancy.id), slot_payload),
     )
     await callback.answer()
 
@@ -439,3 +457,179 @@ async def back_to_list(callback: CallbackQuery, session: AsyncSession, state: FS
     page = data.get("vacancy_page", 1)
     await _show_vacancy_list(callback.message, session, worker, state, page=page, edit=True)
     await callback.answer()
+
+
+async def _render_vacancy_detail(
+    message: Message,
+    session: AsyncSession,
+    worker,
+    state: FSMContext,
+    job_id,
+) -> None:
+    data = await state.get_data()
+    filters = _build_filters(data, page=data.get("vacancy_page", 1))
+    vacancy = await matching_service.get_vacancy_for_worker(session, worker, job_id, filters)
+    if vacancy is None:
+        await message.edit_text("Вакансия недоступна.")
+        return
+
+    shift_lines = []
+    for slot in vacancy.shift_slots:
+        shift_lines.append(
+            f"• {slot.shift_date.strftime('%d.%m.%Y')} "
+            f"{slot.start_time.strftime('%H:%M')}–{slot.end_time.strftime('%H:%M')} "
+            f"(свободно {slot.slots_total - slot.slots_filled}/{slot.slots_total})"
+        )
+    shifts_text = "\n".join(shift_lines) if shift_lines else "—"
+
+    text = (
+        f"<b>{vacancy.title}</b>\n"
+        f"{vacancy.category_name or '—'} · {vacancy.metro_station_name or '—'}\n"
+        f"{_format_rate(vacancy.hourly_rate)}\n\n"
+        f"{vacancy.description}\n\n"
+        f"<b>Смены:</b>\n{shifts_text}\n\n"
+        "Выберите смену для отклика:"
+    )
+    await state.update_data(current_vacancy_id=str(vacancy.id))
+    await state.set_state(VacancySearch.detail)
+    slot_payload = [
+        {
+            "id": str(slot.id),
+            "shift_date": slot.shift_date,
+            "start_time": slot.start_time,
+            "end_time": slot.end_time,
+        }
+        for slot in vacancy.shift_slots
+    ]
+    await message.edit_text(
+        text,
+        reply_markup=vacancy_detail_keyboard(str(vacancy.id), slot_payload),
+    )
+
+
+@router.callback_query(F.data == "vacback:detail", StateFilter(VacancySearch.conflict))
+async def back_to_detail(callback: CallbackQuery, session: AsyncSession, state: FSMContext) -> None:
+    if callback.message is None:
+        return
+    from uuid import UUID
+
+    data = await state.get_data()
+    vacancy_id = data.get("current_vacancy_id")
+    if not vacancy_id:
+        await callback.answer("Вакансия не найдена", show_alert=True)
+        return
+
+    user = await _ensure_user_from_callback(callback, session)
+    if user is None:
+        return
+    worker = await worker_service.get_worker_by_user_id(session, user.id)
+    if worker is None:
+        await callback.answer("Профиль не найден", show_alert=True)
+        return
+
+    await _render_vacancy_detail(callback.message, session, worker, state, UUID(vacancy_id))
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("vacslot:"), StateFilter(VacancySearch.detail))
+async def apply_to_shift(callback: CallbackQuery, session: AsyncSession, state: FSMContext) -> None:
+    if callback.data is None or callback.message is None:
+        return
+    from uuid import UUID
+
+    slot_id = UUID(callback.data.split(":", 1)[1])
+    user = await _ensure_user_from_callback(callback, session)
+    if user is None:
+        return
+    worker = await worker_service.get_worker_by_user_id(session, user.id)
+    if worker is None:
+        await callback.answer("Профиль не найден", show_alert=True)
+        return
+
+    try:
+        result = await application_service.apply_to_shift(session, worker, slot_id)
+        await session.commit()
+    except application_service.ShiftConflictError as exc:
+        conflict = exc.conflicting_application
+        slot = conflict.shift_slot
+        await state.update_data(pending_slot_id=str(slot_id))
+        await state.set_state(VacancySearch.conflict)
+        text = (
+            f"⚠️ <b>Конфликт смен</b>\n\n"
+            f"У вас уже есть смена {slot.shift_date.strftime('%d.%m.%Y')} "
+            f"{slot.start_time.strftime('%H:%M')}–{slot.end_time.strftime('%H:%M')} "
+            f"({conflict.job_request.title if conflict.job_request else '—'}).\n\n"
+            "Отмените её, чтобы откликнуться на новую."
+        )
+        await callback.message.edit_text(
+            text,
+            reply_markup=vacancy_conflict_keyboard(str(conflict.id), str(slot_id)),
+        )
+        await callback.answer()
+        return
+    except application_service.AlreadyAppliedError:
+        await callback.answer("Вы уже откликались на эту смену", show_alert=True)
+        return
+    except application_service.SlotUnavailableError as exc:
+        await callback.answer(str(exc), show_alert=True)
+        return
+    except application_service.ApplicationNotFoundError:
+        await callback.answer("Смена не найдена", show_alert=True)
+        return
+
+    await callback.message.edit_text(
+        f"✅ <b>Отклик отправлен!</b>\n\n"
+        f"{result.job_title}\n"
+        f"{result.shift_date.strftime('%d.%m.%Y')} "
+        f"{result.start_time.strftime('%H:%M')}–{result.end_time.strftime('%H:%M')}\n\n"
+        "Статус: на рассмотрении.",
+    )
+    await callback.answer("Отклик отправлен")
+
+
+@router.callback_query(F.data.startswith("vacapply:swap:"), StateFilter(VacancySearch.conflict))
+async def apply_with_cancel_previous(callback: CallbackQuery, session: AsyncSession, state: FSMContext) -> None:
+    if callback.data is None or callback.message is None:
+        return
+    from uuid import UUID
+
+    parts = callback.data.split(":")
+    if len(parts) != 4:
+        await callback.answer("Ошибка данных", show_alert=True)
+        return
+    conflicting_id = UUID(parts[2])
+    slot_id = UUID(parts[3])
+
+    user = await _ensure_user_from_callback(callback, session)
+    if user is None:
+        return
+    worker = await worker_service.get_worker_by_user_id(session, user.id)
+    if worker is None:
+        await callback.answer("Профиль не найден", show_alert=True)
+        return
+
+    try:
+        result = await application_service.apply_to_shift(
+            session,
+            worker,
+            slot_id,
+            cancel_conflicting_id=conflicting_id,
+        )
+        await session.commit()
+    except application_service.ShiftConflictError:
+        await callback.answer("Конфликт не удалось разрешить", show_alert=True)
+        return
+    except (application_service.SlotUnavailableError, application_service.AlreadyAppliedError) as exc:
+        await callback.answer(str(exc), show_alert=True)
+        return
+
+    await state.set_state(VacancySearch.detail)
+    await callback.message.edit_text(
+        f"✅ <b>Отклик отправлен!</b>\n\n"
+        f"Предыдущая смена отменена.\n\n"
+        f"{result.job_title}\n"
+        f"{result.shift_date.strftime('%d.%m.%Y')} "
+        f"{result.start_time.strftime('%H:%M')}–{result.end_time.strftime('%H:%M')}\n\n"
+        "Статус: на рассмотрении.",
+    )
+    await callback.answer("Отклик отправлен")

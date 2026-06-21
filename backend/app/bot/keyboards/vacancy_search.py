@@ -71,10 +71,46 @@ def vacancy_list_keyboard(
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
-def vacancy_detail_keyboard(vacancy_id: str) -> InlineKeyboardMarkup:
+def vacancy_detail_keyboard(vacancy_id: str, shift_slots: list[dict] | None = None) -> InlineKeyboardMarkup:
+    rows: list[list[InlineKeyboardButton]] = []
+    if shift_slots:
+        for slot in shift_slots:
+            slot_id = slot["id"]
+            date_str = slot.get("shift_date", "")
+            if hasattr(date_str, "strftime"):
+                date_str = date_str.strftime("%d.%m")
+            start = slot.get("start_time", "")
+            end = slot.get("end_time", "")
+            if hasattr(start, "strftime"):
+                start = start.strftime("%H:%M")
+            if hasattr(end, "strftime"):
+                end = end.strftime("%H:%M")
+            label = f"✅ Откликнуться · {date_str} {start}–{end}"
+            rows.append([InlineKeyboardButton(text=label, callback_data=f"vacslot:{slot_id}")])
+    rows.append([InlineKeyboardButton(text="◀️ К списку", callback_data="vacback:list")])
+    rows.append([InlineKeyboardButton(text="❌ Закрыть", callback_data="vacfilter:cancel")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def vacancy_conflict_keyboard(conflicting_id: str, new_slot_id: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="◀️ К списку", callback_data="vacback:list")],
-            [InlineKeyboardButton(text="❌ Закрыть", callback_data="vacfilter:cancel")],
+            [
+                InlineKeyboardButton(
+                    text="🔄 Отменить предыдущую и откликнуться",
+                    callback_data=f"vacapply:swap:{conflicting_id}:{new_slot_id}",
+                )
+            ],
+            [InlineKeyboardButton(text="◀️ Назад", callback_data="vacback:detail")],
         ]
     )
+
+
+def my_applications_keyboard(application_ids: list[str]) -> InlineKeyboardMarkup:
+    rows: list[list[InlineKeyboardButton]] = []
+    for app_id in application_ids:
+        rows.append(
+            [InlineKeyboardButton(text="❌ Отменить отклик", callback_data=f"vaccancel:{app_id}")]
+        )
+    rows.append([InlineKeyboardButton(text="◀️ Главное меню", callback_data="vacapps:close")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)

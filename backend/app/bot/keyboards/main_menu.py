@@ -6,6 +6,7 @@ def main_menu_keyboard() -> ReplyKeyboardMarkup:
         keyboard=[
             [KeyboardButton(text="👷 Работник"), KeyboardButton(text="🏢 Работодатель")],
             [KeyboardButton(text="🔍 Найти вакансии")],
+            [KeyboardButton(text="📋 Мои отклики")],
             [KeyboardButton(text="📝 Заполнить профиль")],
         ],
         resize_keyboard=True,
