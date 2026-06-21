@@ -7,7 +7,17 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.db.models import Gender, JobRequest, JobRequestStatus, MetroStation, RequiredGender, ShiftSlot, Worker
+from app.db.models import (
+    Gender,
+    JobRequest,
+    JobRequestStatus,
+    MetroStation,
+    RequiredGender,
+    ShiftSlot,
+    User,
+    Worker,
+    WorkerPreferences,
+)
 from app.schemas.vacancy import VacancyDetail, VacancyFilters, VacancyListItem, VacancyListResponse
 
 
@@ -281,3 +291,109 @@ async def get_metro_stations_on_same_line(
         )
     )
     return list(result.all())
+
+
+def _worker_effective_min_rate(worker: Worker, preferences: WorkerPreferences | None) -> Decimal:
+    if preferences is not None and preferences.min_hourly_rate is not None:
+        return preferences.min_hourly_rate
+    if worker.min_hourly_rate is not None:
+        return worker.min_hourly_rate
+    return Decimal(0)
+
+
+def _worker_push_category_ids(worker: Worker, preferences: WorkerPreferences | None) -> list[int]:
+    experience_ids = worker_category_ids(worker)
+    if not experience_ids:
+        return []
+    if preferences is not None and preferences.category_ids:
+        return [cat_id for cat_id in preferences.category_ids if cat_id in experience_ids]
+    return experience_ids
+
+
+def _worker_matches_job_gender(worker: Worker, job: JobRequest) -> bool:
+    if job.required_gender is None or job.required_gender == RequiredGender.any:
+        return True
+    if worker.gender is None:
+        return True
+    gender_map = {
+        Gender.male: RequiredGender.male,
+        Gender.female: RequiredGender.female,
+    }
+    mapped = gender_map.get(worker.gender)
+    if mapped is None:
+        return True
+    return job.required_gender == mapped
+
+
+def _worker_matches_job_age(worker: Worker, job: JobRequest) -> bool:
+    min_age = job.min_age if job.min_age is not None else 16
+    max_age = job.max_age if job.max_age is not None else 70
+    return min_age <= worker.age <= max_age
+
+
+async def _worker_matches_job_metro(
+    session: AsyncSession,
+    worker: Worker,
+    preferences: WorkerPreferences | None,
+    job: JobRequest,
+) -> bool:
+    if preferences is not None and preferences.metro_station_ids:
+        preferred_ids = set(preferences.metro_station_ids)
+        if job.metro_station_id in preferred_ids:
+            return True
+        for station_id in preferences.metro_station_ids:
+            same_line = await get_metro_stations_on_same_line(session, station_id)
+            if job.metro_station_id in same_line:
+                return True
+        return False
+    return True
+
+
+def _job_has_available_slots(job: JobRequest) -> bool:
+    today = date.today()
+    return any(
+        slot.shift_date >= today and slot.slots_filled < slot.slots_total for slot in job.shift_slots
+    )
+
+
+async def find_workers_for_job(session: AsyncSession, job: JobRequest) -> list[Worker]:
+    if job.status != JobRequestStatus.active or not job.notify_matching_workers:
+        return []
+    if not _job_has_available_slots(job):
+        return []
+
+    stmt = (
+        select(Worker)
+        .join(User, Worker.user_id == User.id)
+        .outerjoin(WorkerPreferences, WorkerPreferences.user_id == User.id)
+        .options(
+            selectinload(Worker.experiences),
+            selectinload(Worker.user).selectinload(User.preferences),
+            selectinload(Worker.metro_station),
+        )
+        .where(
+            User.is_blocked.is_(False),
+            Worker.notifications_enabled.is_(True),
+            or_(WorkerPreferences.push_enabled.is_(True), WorkerPreferences.id.is_(None)),
+        )
+    )
+    workers = list(await session.scalars(stmt))
+
+    matched: list[Worker] = []
+    for worker in workers:
+        if not worker.notifications_enabled:
+            continue
+        preferences = worker.user.preferences if worker.user else None
+        category_ids = _worker_push_category_ids(worker, preferences)
+        if job.category_id not in category_ids:
+            continue
+        if job.hourly_rate < _worker_effective_min_rate(worker, preferences):
+            continue
+        if not _worker_matches_job_gender(worker, job):
+            continue
+        if not _worker_matches_job_age(worker, job):
+            continue
+        if not await _worker_matches_job_metro(session, worker, preferences, job):
+            continue
+        matched.append(worker)
+    return matched

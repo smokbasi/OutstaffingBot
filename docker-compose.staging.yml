@@ -74,6 +74,21 @@ services:
       - outstaffing_internal
     restart: always
 
+  worker:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    command: python -m app.worker.main
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - outstaffing_internal
+    restart: unless-stopped
+
 networks:
   outstaffing_internal:
     driver: bridge
