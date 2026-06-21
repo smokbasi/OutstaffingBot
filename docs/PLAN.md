@@ -1032,9 +1032,9 @@ Ruflo удалён. Агентный harness — **ECC** ([github.com/affaan-m/E
 
 ### Phase 3: Matching + Search (1–2 недели) — P0
 
-- [ ] Matching service + SQL queries
-- [ ] Manual search filters (бот + API + Mini App)
-- [ ] Список вакансий с пагинацией
+- [x] Matching service + SQL queries
+- [x] Manual search filters (бот + API + Mini App)
+- [x] Список вакансий с пагинацией
 
 **Verification:** worker с категорией «официант» видит только релевантные вакансии.
 

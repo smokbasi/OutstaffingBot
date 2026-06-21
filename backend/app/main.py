@@ -6,6 +6,7 @@ from app.api.routes.health import router as health_router
 from app.api.routes.me import router as me_router
 from app.api.routes.reference import router as reference_router
 from app.api.routes.worker import router as worker_router
+from app.api.routes.worker_vacancies import router as worker_vacancies_router
 from app.core.config import get_settings
 
 settings = get_settings()
@@ -28,6 +29,7 @@ app.include_router(health_router, tags=["health"])
 for api_prefix in ("/api/v1", "/v1"):
     app.include_router(me_router, prefix=api_prefix)
     app.include_router(worker_router, prefix=api_prefix)
+    app.include_router(worker_vacancies_router, prefix=api_prefix)
     app.include_router(employer_router, prefix=api_prefix)
     app.include_router(reference_router, prefix=api_prefix)
 

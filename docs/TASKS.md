@@ -13,9 +13,9 @@
 
 ---
 
-## Текущая фаза: Phase 2 — Employer + Job Requests
+## Текущая фаза: Phase 3 — Matching + Search
 
-**Следующий шаг:** API CRUD jobs + shift_slots (backend), затем FSM (бот) и Mini App форма заявки.
+**Следующий шаг:** Phase 4 — Applications + Conflict Prevention.
 
 **Verification Phase 0:** локально (Docker Desktop) **или** на dev/staging VPS — см. [SERVER_AND_TEAM.md](./SERVER_AND_TEAM.md).
 
@@ -97,9 +97,9 @@
 
 ### Phase 3 — Matching + Search (1–2 недели) [P0]
 
-- [ ] Matching service + SQL queries
-- [ ] Manual search filters (бот + API + Mini App)
-- [ ] Список вакансий с пагинацией
+- [x] Matching service + SQL queries
+- [x] Manual search filters (бот + API + Mini App)
+- [x] Список вакансий с пагинацией
 
 **Verification:** worker с категорией «официант» видит только релевантные вакансии.
 
