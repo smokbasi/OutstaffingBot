@@ -1052,10 +1052,10 @@ Ruflo удалён. Агентный harness — **ECC** ([github.com/affaan-m/E
 
 ### Phase 5: Notifications + Background Jobs (1–2 недели) — P1
 
-- [ ] ARQ worker setup
-- [ ] Push при новой заявке
-- [ ] Worker preferences (категории, ставка, metro)
-- [ ] Global notification toggle
+- [x] ARQ worker setup
+- [x] Push при новой заявке
+- [x] Worker preferences (категории, ставка, metro)
+- [x] Global notification toggle
 
 **Verification:** новая заявка → push matching workers within 30s.
 
