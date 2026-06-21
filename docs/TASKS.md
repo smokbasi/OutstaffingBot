@@ -6,16 +6,16 @@
 ## Как пользоваться этим файлом
 
 1. **Открывайте этот файл первым**, когда ищете «что делать дальше» — здесь все checkbox-задачи Phase 0–10 в одном месте.
-2. **Текущая фаза** — та, где есть незакрытые пункты. Сейчас это **Phase 2**.
+2. **Текущая фаза** — та, где есть незакрытые пункты. Сейчас это **Phase 4**.
 3. **Отмечайте прогресс** — меняйте `[ ]` на `[x]` по мере выполнения (и синхронизируйте с [PLAN.md § F](./PLAN.md#f-roadmap--фазы-реализации), если правите roadmap там).
 4. **Перед началом фазы** — прочитайте строку для этой фазы в [DEVELOPMENT_WORKFLOW.md § E](./DEVELOPMENT_WORKFLOW.md#e-workflow-по-фазам-planmd): solo vs оркестрация, skills, verification.
 5. **Для ECC/setup** — дополнительный чеклист Phase 0 в [ECC_STRATEGY.md § 9](./ECC_STRATEGY.md#9-чеклист-phase-0-ecc).
 
 ---
 
-## Текущая фаза: Phase 3 — Matching + Search
+## Текущая фаза: Phase 4 — Applications + Conflict Prevention
 
-**Следующий шаг:** Phase 4 — Applications + Conflict Prevention.
+**Следующий шаг:** Apply / cancel application, shift overlap check, UX ошибки конфликта (Phase 4).
 
 **Verification Phase 0:** локально (Docker Desktop) **или** на dev/staging VPS — см. [SERVER_AND_TEAM.md](./SERVER_AND_TEAM.md).
 
@@ -82,12 +82,10 @@
 
 ### Phase 2 — Employer + Job Requests (2 недели) [P0]
 
-> **В работе:** backend API CRUD jobs + shift_slots (ветка `feature/phase-2-employer-jobs`).
-
 - [x] FSM создание заявки (бот)
 - [x] API: CRUD jobs, shift_slots
 - [x] Mini App: форма создания заявки
-- [ ] Статусы draft/active/cancelled
+- [x] Статусы draft/active/cancelled
 
 **Verification:** employer создаёт заявку через Mini App → видна в боте.
 
