@@ -58,6 +58,8 @@ services:
       dockerfile: backend/Dockerfile
     command: python -m app.bot.main
     env_file: .env
+    environment:
+      BOT_RELEASE_NOTES: ${BOT_RELEASE_NOTES:-}
     depends_on:
       postgres:
         condition: service_healthy

@@ -1,48 +1,370 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import "./App.css";
+import { getMe, upsertEmployerProfile, type MeResponse } from "./api/client";
+import { CreateJobPage } from "./pages/CreateJobPage";
+import { EmployerJobsPage } from "./pages/EmployerJobsPage";
+import { ProfilePage } from "./pages/ProfilePage";
+import { VacancyDetailPage } from "./pages/VacancyDetailPage";
+import { VacancyListPage } from "./pages/VacancyListPage";
 
 declare global {
   interface Window {
     Telegram?: {
       WebApp?: {
+        initData: string;
         initDataUnsafe: { user?: { first_name?: string; username?: string } };
+        ready: () => void;
+        expand: () => void;
       };
     };
   }
 }
 
-function App() {
-  const [userLabel, setUserLabel] = useState("гость");
-  const [inTelegram, setInTelegram] = useState(false);
+type TelegramContext = {
+  inTelegram: boolean;
+  initData: string;
+  userLabel: string;
+};
 
-  useEffect(() => {
-    const webApp = window.Telegram?.WebApp;
-    if (!webApp) {
+type AppMode = "worker" | "employer";
+type EmployerView = "jobs" | "create";
+type WorkerView = "profile" | "vacancies" | "vacancy-detail";
+
+type MeState =
+  | { status: "loading" }
+  | { status: "error"; message: string }
+  | { status: "ready"; me: MeResponse };
+
+function readTelegramContext(): TelegramContext {
+  const webApp = typeof window !== "undefined" ? window.Telegram?.WebApp : undefined;
+  if (!webApp) {
+    return { inTelegram: false, initData: "", userLabel: "гость" };
+  }
+  webApp.ready();
+  webApp.expand();
+  const user = webApp.initDataUnsafe?.user;
+  const userLabel = user?.username
+    ? `@${user.username}`
+    : user?.first_name ?? "гость";
+  return {
+    inTelegram: true,
+    initData: webApp.initData ?? "",
+    userLabel,
+  };
+}
+
+function RolePicker({
+  onSelect,
+}: {
+  onSelect: (mode: AppMode) => void;
+}) {
+  return (
+    <section className="card role-picker">
+      <h2>Кто вы?</h2>
+      <p className="hint">Выберите режим — профиль работника и заявки работодателя показываются отдельно.</p>
+      <div className="role-cards">
+        <button type="button" className="role-card" onClick={() => onSelect("worker")}>
+          <span className="role-card-icon">👷</span>
+          <span className="role-card-title">Я ищу работу</span>
+          <span className="role-card-desc">Профиль, опыт и настройки для поиска смен</span>
+        </button>
+        <button type="button" className="role-card" onClick={() => onSelect("employer")}>
+          <span className="role-card-icon">🏢</span>
+          <span className="role-card-title">Я работодатель</span>
+          <span className="role-card-desc">Заявки на персонал и создание новых смен</span>
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function EmployerSetupPrompt({
+  initData,
+  onRegistered,
+}: {
+  initData: string;
+  onRegistered: () => void;
+}) {
+  const [companyName, setCompanyName] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function handleSubmit(event: FormEvent) {
+    event.preventDefault();
+    const trimmed = companyName.trim();
+    if (!trimmed) {
+      setError("Укажите название компании");
       return;
     }
-    setInTelegram(true);
-    const user = webApp.initDataUnsafe?.user;
-    if (user?.first_name) {
-      setUserLabel(user.username ? `@${user.username}` : user.first_name);
+    setBusy(true);
+    setError(null);
+    try {
+      await upsertEmployerProfile(initData, { company_name: trimmed });
+      onRegistered();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Не удалось сохранить профиль";
+      setError(message);
+    } finally {
+      setBusy(false);
     }
-  }, []);
+  }
+
+  return (
+    <section className="card">
+      <h2>Профиль работодателя</h2>
+      <p className="hint">
+        Зарегистрируйтесь как работодатель в боте (🏢) или укажите название компании ниже.
+      </p>
+      <form className="profile-form" onSubmit={handleSubmit}>
+        <label className="form-field">
+          <span>Название компании</span>
+          <input
+            type="text"
+            value={companyName}
+            onChange={(event) => setCompanyName(event.target.value)}
+            placeholder="ООО «Пример»"
+            disabled={busy}
+          />
+        </label>
+        {error ? <p className="error">{error}</p> : null}
+        <div className="form-actions">
+          <button type="submit" className="btn" disabled={busy}>
+            {busy ? "Сохранение…" : "Сохранить"}
+          </button>
+        </div>
+      </form>
+    </section>
+  );
+}
+
+function App() {
+  const [telegram] = useState(readTelegramContext);
+  const [meState, setMeState] = useState<MeState>({ status: "loading" });
+  const [appMode, setAppMode] = useState<AppMode | null>(null);
+  const [employerView, setEmployerView] = useState<EmployerView>("jobs");
+  const [workerView, setWorkerView] = useState<WorkerView>("vacancies");
+  const [selectedVacancyId, setSelectedVacancyId] = useState<string | null>(null);
+  const [jobsReloadKey, setJobsReloadKey] = useState(0);
+
+  useEffect(() => {
+    if (!telegram.inTelegram || !telegram.initData) {
+      return;
+    }
+
+    let cancelled = false;
+    void getMe(telegram.initData)
+      .then((me) => {
+        if (cancelled) {
+          return;
+        }
+        setMeState({ status: "ready", me });
+      })
+      .catch((err) => {
+        if (cancelled) {
+          return;
+        }
+        const message = err instanceof Error ? err.message : "Не удалось загрузить профиль";
+        setMeState({ status: "error", message });
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [telegram.inTelegram, telegram.initData]);
+
+  function handleSelectMode(mode: AppMode) {
+    setAppMode(mode);
+    if (mode === "employer") {
+      setEmployerView("jobs");
+    }
+    if (mode === "worker") {
+      setWorkerView("vacancies");
+      setSelectedVacancyId(null);
+    }
+  }
+
+  function handleSwitchRole() {
+    setAppMode(null);
+  }
+
+  function handleEmployerRegistered() {
+    setMeState((prev) => {
+      if (prev.status !== "ready") {
+        return prev;
+      }
+      return {
+        status: "ready",
+        me: { ...prev.me, has_employer_profile: true },
+      };
+    });
+    setJobsReloadKey((key) => key + 1);
+  }
+
+  function handleJobCreated() {
+    setJobsReloadKey((key) => key + 1);
+    setEmployerView("jobs");
+  }
+
+  function renderContent() {
+    if (!telegram.inTelegram || !telegram.initData) {
+      return (
+        <section className="card">
+          <p>
+            {telegram.inTelegram
+              ? "Нет initData — откройте приложение через синюю кнопку бота."
+              : "Откройте через бота (WebApp) для просмотра профиля."}
+          </p>
+        </section>
+      );
+    }
+
+    if (meState.status === "loading") {
+      return <p className="status">Загрузка…</p>;
+    }
+
+    if (meState.status === "error") {
+      return (
+        <section className="card">
+          <p className="error">{meState.message}</p>
+        </section>
+      );
+    }
+
+    const { me } = meState;
+
+    if (appMode === null) {
+      return <RolePicker onSelect={handleSelectMode} />;
+    }
+
+    if (appMode === "worker") {
+      if (workerView === "profile") {
+        return <ProfilePage initData={telegram.initData} />;
+      }
+      if (workerView === "vacancy-detail" && selectedVacancyId) {
+        return (
+          <VacancyDetailPage
+            initData={telegram.initData}
+            vacancyId={selectedVacancyId}
+            onBack={() => setWorkerView("vacancies")}
+          />
+        );
+      }
+      return (
+        <VacancyListPage
+          initData={telegram.initData}
+          onOpenVacancy={(id) => {
+            setSelectedVacancyId(id);
+            setWorkerView("vacancy-detail");
+          }}
+        />
+      );
+    }
+
+    if (!me.has_employer_profile) {
+      return (
+        <EmployerSetupPrompt
+          initData={telegram.initData}
+          onRegistered={handleEmployerRegistered}
+        />
+      );
+    }
+
+    if (employerView === "create") {
+      return (
+        <CreateJobPage
+          initData={telegram.initData}
+          onCreated={handleJobCreated}
+          onCancel={() => setEmployerView("jobs")}
+        />
+      );
+    }
+
+    return (
+      <EmployerJobsPage
+        initData={telegram.initData}
+        reloadKey={jobsReloadKey}
+        onCreateClick={() => setEmployerView("create")}
+      />
+    );
+  }
+
+  const showSwitchRole =
+    telegram.inTelegram &&
+    telegram.initData &&
+    meState.status === "ready" &&
+    appMode !== null;
+
+  const showEmployerNav =
+    telegram.inTelegram &&
+    telegram.initData &&
+    meState.status === "ready" &&
+    appMode === "employer" &&
+    meState.me.has_employer_profile;
+
+  const showWorkerNav =
+    telegram.inTelegram &&
+    telegram.initData &&
+    meState.status === "ready" &&
+    appMode === "worker";
 
   return (
     <main className="app">
-      <h1>OutstaffingBot</h1>
-      <p className="subtitle">Telegram Mini App</p>
-      <section className="card">
-        <p>
-          {inTelegram
-            ? `Открыто в Telegram: ${userLabel}`
-            : "Откройте через бота (WebApp) для initData auth в Phase 1."}
-        </p>
-        <ul>
-          <li>👷 Профиль работника — Phase 1</li>
-          <li>🏢 Заявки работодателя — Phase 2</li>
-          <li>🔍 Поиск вакансий — Phase 3</li>
-        </ul>
-      </section>
+      <div className="app-header">
+        <div>
+          <h1>OutstaffingBot</h1>
+          <p className="subtitle">
+            {telegram.inTelegram ? `Telegram: ${telegram.userLabel}` : "Telegram Mini App"}
+          </p>
+        </div>
+        {showSwitchRole ? (
+          <button type="button" className="link-btn switch-role-btn" onClick={handleSwitchRole}>
+            Сменить роль
+          </button>
+        ) : null}
+      </div>
+
+      {showWorkerNav ? (
+        <nav className="app-nav">
+          <button
+            type="button"
+            className={`nav-btn${workerView === "vacancies" || workerView === "vacancy-detail" ? " active" : ""}`}
+            onClick={() => {
+              setWorkerView("vacancies");
+              setSelectedVacancyId(null);
+            }}
+          >
+            Поиск
+          </button>
+          <button
+            type="button"
+            className={`nav-btn${workerView === "profile" ? " active" : ""}`}
+            onClick={() => setWorkerView("profile")}
+          >
+            Профиль
+          </button>
+        </nav>
+      ) : null}
+
+      {showEmployerNav ? (
+        <nav className="app-nav">
+          <button
+            type="button"
+            className={`nav-btn${employerView === "jobs" ? " active" : ""}`}
+            onClick={() => setEmployerView("jobs")}
+          >
+            Заявки
+          </button>
+          <button
+            type="button"
+            className={`nav-btn${employerView === "create" ? " active" : ""}`}
+            onClick={() => setEmployerView("create")}
+          >
+            Создать
+          </button>
+        </nav>
+      ) : null}
+
+      {renderContent()}
     </main>
   );
 }

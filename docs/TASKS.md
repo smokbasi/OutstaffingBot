@@ -6,16 +6,16 @@
 ## Как пользоваться этим файлом
 
 1. **Открывайте этот файл первым**, когда ищете «что делать дальше» — здесь все checkbox-задачи Phase 0–10 в одном месте.
-2. **Текущая фаза** — та, где есть незакрытые пункты. Сейчас это **Phase 0**.
+2. **Текущая фаза** — та, где есть незакрытые пункты. Сейчас это **Phase 4**.
 3. **Отмечайте прогресс** — меняйте `[ ]` на `[x]` по мере выполнения (и синхронизируйте с [PLAN.md § F](./PLAN.md#f-roadmap--фазы-реализации), если правите roadmap там).
 4. **Перед началом фазы** — прочитайте строку для этой фазы в [DEVELOPMENT_WORKFLOW.md § E](./DEVELOPMENT_WORKFLOW.md#e-workflow-по-фазам-planmd): solo vs оркестрация, skills, verification.
 5. **Для ECC/setup** — дополнительный чеклист Phase 0 в [ECC_STRATEGY.md § 9](./ECC_STRATEGY.md#9-чеклист-phase-0-ecc).
 
 ---
 
-## Текущая фаза: Phase 1 — Worker Core
+## Текущая фаза: Phase 4 — Applications + Conflict Prevention
 
-**Следующий шаг:** FSM регистрация работника (бот) + API профиля + Mini App страница.
+**Следующий шаг:** Apply / cancel application, shift overlap check, UX ошибки конфликта (Phase 4).
 
 **Verification Phase 0:** локально (Docker Desktop) **или** на dev/staging VPS — см. [SERVER_AND_TEAM.md](./SERVER_AND_TEAM.md).
 
@@ -26,11 +26,12 @@
 > **Зачем:** обойти проблемы Docker/WSL на Windows; общая среда для двух разработчиков. Подробно: [SERVER_AND_TEAM.md](./SERVER_AND_TEAM.md).
 
 - [x] Public GitHub repo + push `main` — https://github.com/smokbasi/OutstaffingBot
-- [ ] Dev2 добавлен как collaborator
+- [x] Dev2 добавлен как collaborator
 - [x] VPS (2 vCPU, 4 GB, Ubuntu 24.04) — shared `89.125.25.99` (vspomni) — Hetzner / Timeweb / Selectel
-- [ ] `scripts/deploy/bootstrap-server.sh` на сервере
+- [x] `scripts/deploy/bootstrap-server.sh` на сервере
 - [x] Server `.env` на `/opt/outstaffingbot` (POSTGRES/WEBHOOK_SECRET сгенерированы; **BOT_TOKEN задан** на staging)
-- [x] SSH-ключ `id_vspomni` → пользователь `deploy` (Dev2: добавить pubkey в `/home/deploy/.ssh/authorized_keys`)
+- [x] SSH-ключ `id_vspomni` → пользователь `deploy`
+- [x] SSH pubkey Dev2 на сервере (`/home/deploy/.ssh/authorized_keys`, проверено)
 - [x] `docker compose -f docker-compose.yml -f docker-compose.staging.yml up -d` на `/opt/outstaffingbot` (`COMPOSE_PROJECT_NAME=outstaffingbot`)
 - [x] Миграции + seed на staging
 - [x] Bot `/start` на staging (polling; webhook — позже с доменом)
@@ -51,7 +52,7 @@
 - [x] Seed: metro, categories
 - [x] FastAPI skeleton + health check
 - [x] aiogram skeleton + /start + главное меню
-- [ ] **Ручная проверка:** `docker compose up` + migrations apply + bot `/start` (нужны Docker + `BOT_TOKEN`)
+- [x] **Ручная проверка:** `docker compose up` + migrations apply + bot `/start` (staging: docker + bot `/start` OK)
 
 #### Phase 0 — ECC setup (дополнительно, из ECC_STRATEGY)
 
@@ -68,12 +69,12 @@
 
 ### Phase 1 — Worker Core (2 недели) [P0]
 
-- [ ] FSM регистрация работника (бот)
-- [ ] API: GET/PUT worker profile, experiences
-- [ ] Mini App: страница профиля
-- [ ] initData auth middleware
+- [x] FSM регистрация работника (бот)
+- [x] API: GET/PUT worker profile, experiences
+- [x] Mini App: страница профиля (просмотр + редактирование)
+- [x] initData auth middleware
 
-**Verification:** профиль создаётся в боте → виден в Mini App.
+**Verification:** профиль создаётся в боте → виден в Mini App → редактируется в Mini App.
 
 **Как выполнять:** оркестрация (3 слоя) — `tdd-workflow`, `fastapi-patterns`, `security-review` с Phase 2 для auth.
 
@@ -81,10 +82,10 @@
 
 ### Phase 2 — Employer + Job Requests (2 недели) [P0]
 
-- [ ] FSM создание заявки (бот)
-- [ ] API: CRUD jobs, shift_slots
-- [ ] Mini App: форма создания заявки
-- [ ] Статусы draft/active/cancelled
+- [x] FSM создание заявки (бот)
+- [x] API: CRUD jobs, shift_slots
+- [x] Mini App: форма создания заявки
+- [x] Статусы draft/active/cancelled
 
 **Verification:** employer создаёт заявку через Mini App → видна в боте.
 
@@ -94,9 +95,9 @@
 
 ### Phase 3 — Matching + Search (1–2 недели) [P0]
 
-- [ ] Matching service + SQL queries
-- [ ] Manual search filters (бот + API + Mini App)
-- [ ] Список вакансий с пагинацией
+- [x] Matching service + SQL queries
+- [x] Manual search filters (бот + API + Mini App)
+- [x] Список вакансий с пагинацией
 
 **Verification:** worker с категорией «официант» видит только релевантные вакансии.
 
