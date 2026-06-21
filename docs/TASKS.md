@@ -13,9 +13,9 @@
 
 ---
 
-## Текущая фаза: Phase 4 — Applications + Conflict Prevention
+## Текущая фаза: Phase 5 — Notifications + Background Jobs
 
-**Следующий шаг:** Apply / cancel application, shift overlap check, UX ошибки конфликта (Phase 4).
+**Следующий шаг:** ARQ worker, push при новой заявке, worker preferences (Phase 5).
 
 **Verification Phase 0:** локально (Docker Desktop) **или** на dev/staging VPS — см. [SERVER_AND_TEAM.md](./SERVER_AND_TEAM.md).
 
@@ -107,9 +107,9 @@
 
 ### Phase 4 — Applications + Conflict Prevention (1 неделя) [P0]
 
-- [ ] Apply / cancel application
-- [ ] Shift overlap check
-- [ ] UX ошибки конфликта
+- [x] Apply / cancel application
+- [x] Shift overlap check
+- [x] UX ошибки конфликта
 
 **Verification:** нельзя принять 2 пересекающиеся смены без отмены.
 

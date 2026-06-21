@@ -1042,9 +1042,9 @@ Ruflo удалён. Агентный harness — **ECC** ([github.com/affaan-m/E
 
 ### Phase 4: Applications + Conflict Prevention (1 неделя) — P0
 
-- [ ] Apply / cancel application
-- [ ] Shift overlap check
-- [ ] UX ошибки конфликта
+- [x] Apply / cancel application
+- [x] Shift overlap check
+- [x] UX ошибки конфликта
 
 **Verification:** нельзя принять 2 пересекающиеся смены без отмены.
 
