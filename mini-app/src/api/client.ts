@@ -54,6 +54,18 @@ export type JobCategory = {
 
 export type JobRequestStatus = "draft" | "active" | "filled" | "cancelled" | "expired";
 
+export const JOB_REQUEST_STATUS_LABELS: Record<JobRequestStatus, string> = {
+  draft: "Черновик",
+  active: "Активна",
+  filled: "Закрыта",
+  cancelled: "Отменена",
+  expired: "Истекла",
+};
+
+export function formatJobRequestStatus(status: JobRequestStatus): string {
+  return JOB_REQUEST_STATUS_LABELS[status] ?? status;
+}
+
 export type RequiredGender = "any" | "male" | "female";
 
 export type ShiftSlotCreate = {

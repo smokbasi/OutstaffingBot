@@ -12,6 +12,21 @@
   margin: 0 0 0.25rem;
 }
 
+.app-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.switch-role-btn {
+  flex-shrink: 0;
+  margin: 0.25rem 0 0;
+  padding: 0.35rem 0;
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
 .subtitle {
   color: var(--tg-theme-hint-color, #707579);
   font-size: 0.95rem;
@@ -351,4 +366,43 @@
 
 .job-actions .btn {
   margin-top: 0;
+}
+
+.role-picker h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1.2rem;
+}
+
+.role-cards {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.role-card {
+  display: grid;
+  gap: 0.35rem;
+  width: 100%;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--tg-theme-border-color, #e5e5ea);
+  border-radius: 12px;
+  background: var(--tg-theme-bg-color, #ffffff);
+  color: var(--tg-theme-text-color, #000000);
+  text-align: left;
+  cursor: pointer;
+}
+
+.role-card-icon {
+  font-size: 1.75rem;
+  line-height: 1;
+}
+
+.role-card-title {
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.role-card-desc {
+  font-size: 0.9rem;
+  color: var(--tg-theme-hint-color, #707579);
 }

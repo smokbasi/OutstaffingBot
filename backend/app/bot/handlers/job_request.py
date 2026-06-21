@@ -30,6 +30,7 @@ from app.bot.validators.job_request import (
     validate_shift_times,
 )
 from app.db.models import JobRequestStatus, RequiredGender
+from app.reference.job_request_status import job_request_status_label
 from app.reference.spb_metro import SPB_METRO_LINE_BY_ID
 from app.schemas.employer import EmployerProfileUpdate
 from app.schemas.job_request import JobRequestCreate, JobRequestUpdate, ShiftSlotCreate
@@ -907,7 +908,7 @@ async def process_confirm(callback: CallbackQuery, state: FSMContext, session: A
     if callback.message:
         await callback.message.edit_text(
             f"✅ Заявка «{job.title}» {status_label}!\n\n"
-            f"Статус: {job.status.value}\n"
+            f"Статус: {job_request_status_label(job.status)}\n"
             f"Смен: {len(job.shift_slots)}"
         )
         await callback.message.answer("Главное меню:", reply_markup=main_menu_keyboard())

@@ -24,12 +24,15 @@ type TelegramContext = {
   userLabel: string;
 };
 
-type AppView = "profile" | "jobs" | "create";
+type AppMode = "worker" | "employer";
+type EmployerView = "jobs" | "create";
 
 type MeState =
   | { status: "loading" }
   | { status: "error"; message: string }
   | { status: "ready"; me: MeResponse };
+
+const ROLE_STORAGE_KEY = "outstaffingbot:app-mode";
 
 function readTelegramContext(): TelegramContext {
   const webApp = typeof window !== "undefined" ? window.Telegram?.WebApp : undefined;
@@ -49,18 +52,79 @@ function readTelegramContext(): TelegramContext {
   };
 }
 
-function isEmployerRole(role: MeResponse["role"]): boolean {
+function hasWorkerAccess(role: MeResponse["role"]): boolean {
+  return role === "worker" || role === "both";
+}
+
+function hasEmployerAccess(role: MeResponse["role"]): boolean {
   return role === "employer" || role === "both";
 }
 
-function isWorkerRole(role: MeResponse["role"]): boolean {
-  return role === "worker" || role === "both";
+function needsRolePicker(role: MeResponse["role"]): boolean {
+  return role === "both";
+}
+
+function resolveInitialMode(role: MeResponse["role"]): AppMode | null {
+  if (role === "worker") {
+    return "worker";
+  }
+  if (role === "employer") {
+    return "employer";
+  }
+  if (typeof sessionStorage === "undefined") {
+    return null;
+  }
+  const stored = sessionStorage.getItem(ROLE_STORAGE_KEY);
+  if (stored === "worker" && hasWorkerAccess(role)) {
+    return "worker";
+  }
+  if (stored === "employer" && hasEmployerAccess(role)) {
+    return "employer";
+  }
+  return null;
+}
+
+function persistMode(mode: AppMode | null) {
+  if (typeof sessionStorage === "undefined") {
+    return;
+  }
+  if (mode === null) {
+    sessionStorage.removeItem(ROLE_STORAGE_KEY);
+    return;
+  }
+  sessionStorage.setItem(ROLE_STORAGE_KEY, mode);
+}
+
+function RolePicker({
+  onSelect,
+}: {
+  onSelect: (mode: AppMode) => void;
+}) {
+  return (
+    <section className="card role-picker">
+      <h2>Кто вы?</h2>
+      <p className="hint">Выберите режим — профиль работника и заявки работодателя показываются отдельно.</p>
+      <div className="role-cards">
+        <button type="button" className="role-card" onClick={() => onSelect("worker")}>
+          <span className="role-card-icon">👷</span>
+          <span className="role-card-title">Я ищу работу</span>
+          <span className="role-card-desc">Профиль, опыт и настройки для поиска смен</span>
+        </button>
+        <button type="button" className="role-card" onClick={() => onSelect("employer")}>
+          <span className="role-card-icon">🏢</span>
+          <span className="role-card-title">Я работодатель</span>
+          <span className="role-card-desc">Заявки на персонал и создание новых смен</span>
+        </button>
+      </div>
+    </section>
+  );
 }
 
 function App() {
   const [telegram] = useState(readTelegramContext);
   const [meState, setMeState] = useState<MeState>({ status: "loading" });
-  const [view, setView] = useState<AppView>("profile");
+  const [appMode, setAppMode] = useState<AppMode | null>(null);
+  const [employerView, setEmployerView] = useState<EmployerView>("jobs");
   const [jobsReloadKey, setJobsReloadKey] = useState(0);
 
   useEffect(() => {
@@ -75,11 +139,7 @@ function App() {
           return;
         }
         setMeState({ status: "ready", me });
-        if (isEmployerRole(me.role)) {
-          setView("jobs");
-        } else {
-          setView("profile");
-        }
+        setAppMode(resolveInitialMode(me.role));
       })
       .catch((err) => {
         if (cancelled) {
@@ -94,9 +154,22 @@ function App() {
     };
   }, [telegram.inTelegram, telegram.initData]);
 
+  function handleSelectMode(mode: AppMode) {
+    setAppMode(mode);
+    persistMode(mode);
+    if (mode === "employer") {
+      setEmployerView("jobs");
+    }
+  }
+
+  function handleSwitchRole() {
+    setAppMode(null);
+    persistMode(null);
+  }
+
   function handleJobCreated() {
     setJobsReloadKey((k) => k + 1);
-    setView("jobs");
+    setEmployerView("jobs");
   }
 
   function renderContent() {
@@ -125,82 +198,89 @@ function App() {
     }
 
     const { me } = meState;
-    const showEmployer = isEmployerRole(me.role);
-    const showWorker = isWorkerRole(me.role);
 
-    if (view === "create" && showEmployer) {
-      return (
-        <CreateJobPage
-          initData={telegram.initData}
-          onCreated={handleJobCreated}
-          onCancel={() => setView("jobs")}
-        />
-      );
+    if (needsRolePicker(me.role) && appMode === null) {
+      return <RolePicker onSelect={handleSelectMode} />;
     }
 
-    if (view === "jobs" && showEmployer) {
-      return (
-        <EmployerJobsPage
-          initData={telegram.initData}
-          reloadKey={jobsReloadKey}
-          onCreateClick={() => setView("create")}
-        />
-      );
-    }
+    const mode = appMode ?? (hasEmployerAccess(me.role) && !hasWorkerAccess(me.role) ? "employer" : "worker");
 
-    if (view === "profile" && showWorker) {
+    if (mode === "worker" && hasWorkerAccess(me.role)) {
       return <ProfilePage initData={telegram.initData} />;
     }
 
-    if (showEmployer) {
+    if (mode === "employer" && hasEmployerAccess(me.role)) {
+      if (employerView === "create") {
+        return (
+          <CreateJobPage
+            initData={telegram.initData}
+            onCreated={handleJobCreated}
+            onCancel={() => setEmployerView("jobs")}
+          />
+        );
+      }
       return (
         <EmployerJobsPage
           initData={telegram.initData}
           reloadKey={jobsReloadKey}
-          onCreateClick={() => setView("create")}
+          onCreateClick={() => setEmployerView("create")}
         />
       );
     }
 
-    return <ProfilePage initData={telegram.initData} />;
+    return (
+      <section className="card">
+        <p className="error">Нет доступа к выбранному режиму.</p>
+      </section>
+    );
   }
 
-  const showNav =
+  const showSwitchRole =
     telegram.inTelegram &&
     telegram.initData &&
     meState.status === "ready" &&
-    (isEmployerRole(meState.me.role) || isWorkerRole(meState.me.role));
+    needsRolePicker(meState.me.role) &&
+    appMode !== null;
 
-  const navItems: { id: AppView; label: string; visible: boolean }[] =
-    meState.status === "ready"
-      ? [
-          { id: "profile", label: "Профиль", visible: isWorkerRole(meState.me.role) },
-          { id: "jobs", label: "Заявки", visible: isEmployerRole(meState.me.role) },
-          { id: "create", label: "Создать", visible: isEmployerRole(meState.me.role) },
-        ]
-      : [];
+  const showEmployerNav =
+    telegram.inTelegram &&
+    telegram.initData &&
+    meState.status === "ready" &&
+    appMode === "employer" &&
+    hasEmployerAccess(meState.me.role);
 
   return (
     <main className="app">
-      <h1>OutstaffingBot</h1>
-      <p className="subtitle">
-        {telegram.inTelegram ? `Telegram: ${telegram.userLabel}` : "Telegram Mini App"}
-      </p>
+      <div className="app-header">
+        <div>
+          <h1>OutstaffingBot</h1>
+          <p className="subtitle">
+            {telegram.inTelegram ? `Telegram: ${telegram.userLabel}` : "Telegram Mini App"}
+          </p>
+        </div>
+        {showSwitchRole ? (
+          <button type="button" className="link-btn switch-role-btn" onClick={handleSwitchRole}>
+            Сменить роль
+          </button>
+        ) : null}
+      </div>
 
-      {showNav && navItems.filter((item) => item.visible).length > 1 ? (
+      {showEmployerNav ? (
         <nav className="app-nav">
-          {navItems
-            .filter((item) => item.visible)
-            .map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                className={`nav-btn${view === item.id ? " active" : ""}`}
-                onClick={() => setView(item.id)}
-              >
-                {item.label}
-              </button>
-            ))}
+          <button
+            type="button"
+            className={`nav-btn${employerView === "jobs" ? " active" : ""}`}
+            onClick={() => setEmployerView("jobs")}
+          >
+            Заявки
+          </button>
+          <button
+            type="button"
+            className={`nav-btn${employerView === "create" ? " active" : ""}`}
+            onClick={() => setEmployerView("create")}
+          >
+            Создать
+          </button>
         </nav>
       ) : null}
 

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import {
+  formatJobRequestStatus,
   listEmployerJobs,
   updateJobStatus,
   type JobRequest,
@@ -16,14 +17,6 @@ type JobsState =
   | { status: "loading" }
   | { status: "error"; message: string }
   | { status: "ready"; jobs: JobRequest[] };
-
-const STATUS_LABELS: Record<JobRequestStatus, string> = {
-  draft: "Черновик",
-  active: "Активна",
-  filled: "Закрыта",
-  cancelled: "Отменена",
-  expired: "Истекла",
-};
 
 function formatDate(iso: string): string {
   const [year, month, day] = iso.split("-");
@@ -141,7 +134,7 @@ export function EmployerJobsPage({ initData, onCreateClick, reloadKey = 0 }: Emp
               <div className="job-item-header">
                 <strong>{job.title}</strong>
                 <span className={`status-badge status-${job.status}`}>
-                  {STATUS_LABELS[job.status]}
+                  {formatJobRequestStatus(job.status)}
                 </span>
               </div>
               <p className="hint">
