@@ -4,8 +4,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_current_user
 from app.db.models import User
 from app.db.session import get_db_session
+from app.schemas.preferences import WorkerNotificationsToggle, WorkerPreferencesRead, WorkerPreferencesUpdate
 from app.schemas.worker import WorkerExperienceCreate, WorkerExperienceRead, WorkerProfileRead, WorkerProfileUpdate
-from app.services import worker_service
+from app.services import preferences_service, worker_service
 
 router = APIRouter(prefix="/worker", tags=["worker"])
 
@@ -68,3 +69,43 @@ async def delete_experience(
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     await session.commit()
     return profile
+
+
+@router.get("/preferences", response_model=WorkerPreferencesRead)
+async def get_worker_preferences(
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
+) -> WorkerPreferencesRead:
+    return await preferences_service.get_preferences(session, user)
+
+
+@router.put("/preferences", response_model=WorkerPreferencesRead)
+async def update_worker_preferences(
+    data: WorkerPreferencesUpdate,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
+) -> WorkerPreferencesRead:
+    try:
+        preferences = await preferences_service.upsert_preferences(session, user, data)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    await session.commit()
+    return preferences
+
+
+@router.patch("/notifications", response_model=WorkerPreferencesRead)
+async def toggle_worker_notifications(
+    data: WorkerNotificationsToggle,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
+) -> WorkerPreferencesRead:
+    try:
+        preferences = await preferences_service.set_notifications_enabled(
+            session,
+            user,
+            enabled=data.notifications_enabled,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    await session.commit()
+    return preferences

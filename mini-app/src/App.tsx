@@ -20,10 +20,14 @@ const VacancyListPage = lazy(() =>
 const MyApplicationsPage = lazy(() =>
   import("./pages/MyApplicationsPage").then((m) => ({ default: m.MyApplicationsPage })),
 );
+const NotificationsSettingsPage = lazy(() =>
+  import("./pages/NotificationsSettingsPage").then((m) => ({ default: m.NotificationsSettingsPage })),
+);
 
 function PageFallback() {
   return <p className="status">Загрузка…</p>;
 }
+
 
 declare global {
   interface Window {
@@ -46,7 +50,7 @@ type TelegramContext = {
 
 type AppMode = "worker" | "employer";
 type EmployerView = "jobs" | "create";
-type WorkerView = "profile" | "vacancies" | "vacancy-detail" | "applications";
+type WorkerView = "profile" | "vacancies" | "vacancy-detail" | "applications" | "notifications";
 
 type MeState =
   | { status: "idle" }
@@ -276,6 +280,8 @@ function App() {
         <Suspense fallback={<PageFallback />}>
           {workerView === "applications" ? (
             <MyApplicationsPage initData={telegram.initData} />
+          ) : workerView === "notifications" ? (
+            <NotificationsSettingsPage initData={telegram.initData} />
           ) : workerView === "profile" ? (
             <ProfilePage initData={telegram.initData} />
           ) : workerView === "vacancy-detail" && selectedVacancyId ? (
@@ -311,6 +317,7 @@ function App() {
     }
 
     const { me } = meState;
+
 
     if (!me.has_employer_profile) {
       return (
@@ -393,6 +400,13 @@ function App() {
             onClick={() => setWorkerView("profile")}
           >
             Профиль
+          </button>
+          <button
+            type="button"
+            className={`nav-btn${workerView === "notifications" ? " active" : ""}`}
+            onClick={() => setWorkerView("notifications")}
+          >
+            Уведомления
           </button>
         </nav>
       ) : null}
