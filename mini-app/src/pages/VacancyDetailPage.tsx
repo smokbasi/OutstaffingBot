@@ -1,5 +1,11 @@
 import { useEffect, useState } from "react";
-import { getWorkerVacancy, type VacancyDetail } from "../api/client";
+import {
+  applyToShift,
+  getWorkerVacancy,
+  ShiftConflictError,
+  type ShiftConflictBody,
+  type VacancyDetail,
+} from "../api/client";
 
 type VacancyDetailPageProps = {
   initData: string;
@@ -10,7 +16,8 @@ type VacancyDetailPageProps = {
 type DetailState =
   | { status: "loading" }
   | { status: "error"; message: string }
-  | { status: "ready"; vacancy: VacancyDetail };
+  | { status: "ready"; vacancy: VacancyDetail }
+  | { status: "conflict"; vacancy: VacancyDetail; conflict: ShiftConflictBody; slotId: string };
 
 function formatDate(iso: string): string {
   const [year, month, day] = iso.split("-");
@@ -29,14 +36,21 @@ function formatRate(rate: string): string {
   return Number.isNaN(num) ? rate : `${num.toLocaleString("ru-RU")} ₽/час`;
 }
 
+function triggerHaptic(type: "light" | "medium" | "heavy" = "medium") {
+  window.Telegram?.WebApp?.HapticFeedback?.impactOccurred?.(type);
+}
+
 export function VacancyDetailPage({ initData, vacancyId, onBack }: VacancyDetailPageProps) {
   const [state, setState] = useState<DetailState>({ status: "loading" });
+  const [applyingSlotId, setApplyingSlotId] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
 
     async function loadVacancy() {
       setState({ status: "loading" });
+      setSuccessMessage(null);
       try {
         const vacancy = await getWorkerVacancy(initData, vacancyId);
         if (!cancelled) {
@@ -56,6 +70,36 @@ export function VacancyDetailPage({ initData, vacancyId, onBack }: VacancyDetail
     };
   }, [initData, vacancyId]);
 
+  async function handleApply(slotId: string, cancelConflictingId?: string) {
+    setApplyingSlotId(slotId);
+    setSuccessMessage(null);
+    try {
+      const result = await applyToShift(initData, slotId, cancelConflictingId);
+      triggerHaptic("medium");
+      setSuccessMessage(
+        `Отклик отправлен: ${result.job_title}, ${formatDate(result.shift_date)} ${formatTime(result.start_time)}–${formatTime(result.end_time)}`,
+      );
+      if (state.status === "ready" || state.status === "conflict") {
+        setState({ status: "ready", vacancy: state.vacancy });
+      }
+    } catch (err) {
+      if (err instanceof ShiftConflictError && (state.status === "ready" || state.status === "conflict")) {
+        setState({
+          status: "conflict",
+          vacancy: state.vacancy,
+          conflict: err.conflict,
+          slotId,
+        });
+        return;
+      }
+      const message = err instanceof Error ? err.message : "Не удалось отправить отклик";
+      setSuccessMessage(null);
+      alert(message);
+    } finally {
+      setApplyingSlotId(null);
+    }
+  }
+
   if (state.status === "loading") {
     return <p className="status">Загрузка…</p>;
   }
@@ -71,7 +115,41 @@ export function VacancyDetailPage({ initData, vacancyId, onBack }: VacancyDetail
     );
   }
 
-  const { vacancy } = state;
+  const vacancy = state.vacancy;
+
+  if (state.status === "conflict") {
+    const { conflict, slotId } = state;
+    return (
+      <section className="card vacancy-detail">
+        <h2>Конфликт смен</h2>
+        <p>{conflict.detail}</p>
+        <p className="hint">
+          Текущая: {formatDate(conflict.conflicting.shift_date)}{" "}
+          {formatTime(conflict.conflicting.start_time)}–{formatTime(conflict.conflicting.end_time)} (
+          {conflict.conflicting.job_title})
+        </p>
+        <div className="form-actions">
+          <button
+            type="button"
+            className="btn"
+            disabled={applyingSlotId !== null}
+            onClick={() =>
+              void handleApply(slotId, conflict.conflicting.application_id)
+            }
+          >
+            Отменить предыдущую и откликнуться
+          </button>
+          <button
+            type="button"
+            className="btn secondary"
+            onClick={() => setState({ status: "ready", vacancy })}
+          >
+            Назад
+          </button>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="card vacancy-detail">
@@ -90,21 +168,31 @@ export function VacancyDetailPage({ initData, vacancyId, onBack }: VacancyDetail
         <p className="hint">Мин. опыт: {vacancy.min_experience_months} мес.</p>
       ) : null}
 
+      {successMessage ? <p className="success">{successMessage}</p> : null}
+
       <h3>Доступные смены</h3>
       {vacancy.shift_slots.length === 0 ? (
         <p className="hint">Свободных смен нет.</p>
       ) : (
-        <ul className="job-shifts">
+        <ul className="job-shifts apply-shifts">
           {vacancy.shift_slots.map((slot) => (
-            <li key={slot.id}>
-              {formatDate(slot.shift_date)} {formatTime(slot.start_time)}–{formatTime(slot.end_time)} ·
-              свободно {slot.slots_total - slot.slots_filled}/{slot.slots_total}
+            <li key={slot.id} className="shift-row">
+              <span>
+                {formatDate(slot.shift_date)} {formatTime(slot.start_time)}–{formatTime(slot.end_time)} ·
+                свободно {slot.slots_total - slot.slots_filled}/{slot.slots_total}
+              </span>
+              <button
+                type="button"
+                className="btn small-btn"
+                disabled={applyingSlotId === slot.id}
+                onClick={() => void handleApply(slot.id)}
+              >
+                {applyingSlotId === slot.id ? "…" : "Откликнуться"}
+              </button>
             </li>
           ))}
         </ul>
       )}
-
-      <p className="hint">Отклик на смену будет доступен в следующей версии.</p>
     </section>
   );
 }

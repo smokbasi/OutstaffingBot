@@ -132,6 +132,63 @@ export type VacancyListParams = {
   limit?: number;
 };
 
+export type ApplicationStatus =
+  | "pending"
+  | "accepted"
+  | "rejected"
+  | "cancelled_by_worker"
+  | "cancelled_by_employer";
+
+export const APPLICATION_STATUS_LABELS: Record<ApplicationStatus, string> = {
+  pending: "На рассмотрении",
+  accepted: "Принят",
+  rejected: "Отклонён",
+  cancelled_by_worker: "Отменён вами",
+  cancelled_by_employer: "Отменён работодателем",
+};
+
+export type ApplicationRead = {
+  id: string;
+  job_request_id: string;
+  shift_slot_id: string;
+  status: ApplicationStatus;
+  applied_at: string;
+  cancelled_at: string | null;
+  job_title: string;
+  category_name: string | null;
+  metro_station_name: string | null;
+  hourly_rate: string;
+  shift_date: string;
+  start_time: string;
+  end_time: string;
+};
+
+export type ApplicationListResponse = {
+  items: ApplicationRead[];
+  total: number;
+};
+
+export type ShiftConflictBody = {
+  detail: string;
+  conflicting: {
+    application_id: string;
+    shift_date: string;
+    start_time: string;
+    end_time: string;
+    job_title: string;
+  };
+};
+
+export class ShiftConflictError extends Error {
+  conflict: ShiftConflictBody;
+
+  constructor(conflict: ShiftConflictBody) {
+    super(conflict.detail);
+    this.name = "ShiftConflictError";
+    this.conflict = conflict;
+  }
+}
+
 export type JobRequest = {
   id: string;
   category_id: number;
@@ -306,6 +363,44 @@ export function listWorkerVacancies(
 
 export function getWorkerVacancy(initData: string, id: string): Promise<VacancyDetail> {
   return apiFetch<VacancyDetail>(`/worker/vacancies/${id}`, initData);
+}
+
+export async function applyToShift(
+  initData: string,
+  shiftSlotId: string,
+  cancelConflictingId?: string,
+): Promise<ApplicationRead> {
+  const response = await fetch(`${API_BASE}/api/v1/applications`, {
+    method: "POST",
+    headers: authHeaders(initData),
+    body: JSON.stringify({
+      shift_slot_id: shiftSlotId,
+      cancel_conflicting_id: cancelConflictingId ?? null,
+    }),
+  });
+  if (response.status === 409) {
+    const body = (await response.json()) as ShiftConflictBody;
+    if (body.conflicting) {
+      throw new ShiftConflictError(body);
+    }
+    const text = body.detail ?? (await response.text());
+    throw new Error(text || "Конфликт смен");
+  }
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(body || `HTTP ${response.status}`);
+  }
+  return response.json() as Promise<ApplicationRead>;
+}
+
+export function cancelApplication(initData: string, applicationId: string): Promise<ApplicationRead> {
+  return apiFetch<ApplicationRead>(`/applications/${applicationId}`, initData, {
+    method: "DELETE",
+  });
+}
+
+export function listMyApplications(initData: string): Promise<ApplicationListResponse> {
+  return apiFetch<ApplicationListResponse>("/applications/mine", initData);
 }
 
 export async function searchMetroStations(q: string): Promise<MetroStation[]> {

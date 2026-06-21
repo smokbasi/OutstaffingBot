@@ -3,6 +3,7 @@ import "./App.css";
 import { getMe, upsertEmployerProfile, type MeResponse } from "./api/client";
 import { CreateJobPage } from "./pages/CreateJobPage";
 import { EmployerJobsPage } from "./pages/EmployerJobsPage";
+import { MyApplicationsPage } from "./pages/MyApplicationsPage";
 import { ProfilePage } from "./pages/ProfilePage";
 import { VacancyDetailPage } from "./pages/VacancyDetailPage";
 import { VacancyListPage } from "./pages/VacancyListPage";
@@ -15,6 +16,9 @@ declare global {
         initDataUnsafe: { user?: { first_name?: string; username?: string } };
         ready: () => void;
         expand: () => void;
+        HapticFeedback?: {
+          impactOccurred: (style: "light" | "medium" | "heavy" | "rigid" | "soft") => void;
+        };
       };
     };
   }
@@ -28,7 +32,7 @@ type TelegramContext = {
 
 type AppMode = "worker" | "employer";
 type EmployerView = "jobs" | "create";
-type WorkerView = "profile" | "vacancies" | "vacancy-detail";
+type WorkerView = "profile" | "vacancies" | "vacancy-detail" | "applications";
 
 type MeState =
   | { status: "loading" }
@@ -237,6 +241,9 @@ function App() {
     }
 
     if (appMode === "worker") {
+      if (workerView === "applications") {
+        return <MyApplicationsPage initData={telegram.initData} />;
+      }
       if (workerView === "profile") {
         return <ProfilePage initData={telegram.initData} />;
       }
@@ -334,6 +341,13 @@ function App() {
             }}
           >
             Поиск
+          </button>
+          <button
+            type="button"
+            className={`nav-btn${workerView === "applications" ? " active" : ""}`}
+            onClick={() => setWorkerView("applications")}
+          >
+            Мои отклики
           </button>
           <button
             type="button"
