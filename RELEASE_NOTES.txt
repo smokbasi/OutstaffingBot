@@ -1,0 +1,6 @@
+﻿OutstaffingBot — release notes (staging)
+
+2026-06-21
+- includes_lunch: миграция 002, бот (FSM заявки), API, matching, mini-app
+- Mini App: clamp почасовой ставки, чекбокс «обед включён», отображение в карточках
+- deploy-staging: автоматический alembic upgrade head
