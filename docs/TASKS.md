@@ -84,7 +84,7 @@
 
 > **В работе:** backend API CRUD jobs + shift_slots (ветка `feature/phase-2-employer-jobs`).
 
-- [ ] FSM создание заявки (бот)
+- [x] FSM создание заявки (бот)
 - [ ] API: CRUD jobs, shift_slots
 - [ ] Mini App: форма создания заявки
 - [ ] Статусы draft/active/cancelled

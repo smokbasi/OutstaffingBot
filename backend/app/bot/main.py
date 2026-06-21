@@ -6,6 +6,7 @@ from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 
+from app.bot.handlers.job_request import router as job_request_router
 from app.bot.handlers.start import router as start_router
 from app.bot.handlers.worker_registration import router as worker_registration_router
 from app.bot.menu_setup import setup_default_mini_app_menu
@@ -20,6 +21,7 @@ def create_dispatcher() -> Dispatcher:
     dp = Dispatcher()
     dp.update.middleware(DbSessionMiddleware())
     dp.include_router(worker_registration_router)
+    dp.include_router(job_request_router)
     dp.include_router(start_router)
     return dp
 
