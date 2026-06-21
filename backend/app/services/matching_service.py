@@ -184,23 +184,21 @@ async def list_vacancies_for_worker(
         return VacancyListResponse(items=[], total=0, page=filters.page, limit=filters.limit)
 
     conditions = _base_vacancy_conditions(worker, filters, category_ids)
-    ids_subq = (
+    matched_ids_subq = (
         select(JobRequest.id)
         .join(ShiftSlot, JobRequest.id == ShiftSlot.job_request_id)
         .where(*conditions)
-        .distinct()
+        .group_by(JobRequest.id)
         .subquery()
     )
 
-    total = await session.scalar(select(func.count()).select_from(ids_subq)) or 0
+    total = await session.scalar(select(func.count()).select_from(matched_ids_subq)) or 0
     offset = (filters.page - 1) * filters.limit
 
     page_ids = list(
         await session.scalars(
             select(JobRequest.id)
-            .join(ShiftSlot, JobRequest.id == ShiftSlot.job_request_id)
-            .where(*conditions)
-            .distinct()
+            .join(matched_ids_subq, JobRequest.id == matched_ids_subq.c.id)
             .order_by(JobRequest.created_at.desc())
             .offset(offset)
             .limit(filters.limit)
