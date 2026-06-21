@@ -244,6 +244,20 @@ export type WorkerProfileUpdate = Pick<
   "first_name" | "last_name" | "age" | "gender" | "metro_station_id" | "min_hourly_rate"
 >;
 
+export type WorkerPreferences = {
+  category_ids: number[];
+  metro_station_ids: number[];
+  min_hourly_rate: string | null;
+  notifications_enabled: boolean;
+};
+
+export type WorkerPreferencesUpdate = {
+  category_ids?: number[];
+  metro_station_ids?: number[];
+  min_hourly_rate?: string | null;
+  notifications_enabled?: boolean;
+};
+
 function authHeaders(initData: string): HeadersInit {
   return {
     Authorization: `tma ${initData}`,
@@ -290,6 +304,30 @@ export function updateWorkerProfile(
   return apiFetch<WorkerProfile>("/worker/profile", initData, {
     method: "PUT",
     body: JSON.stringify(data),
+  });
+}
+
+export function getWorkerPreferences(initData: string): Promise<WorkerPreferences> {
+  return apiFetch<WorkerPreferences>("/worker/preferences", initData);
+}
+
+export function updateWorkerPreferences(
+  initData: string,
+  data: WorkerPreferencesUpdate,
+): Promise<WorkerPreferences> {
+  return apiFetch<WorkerPreferences>("/worker/preferences", initData, {
+    method: "PUT",
+    body: JSON.stringify(data),
+  });
+}
+
+export function toggleWorkerNotifications(
+  initData: string,
+  notifications_enabled: boolean,
+): Promise<WorkerPreferences> {
+  return apiFetch<WorkerPreferences>("/worker/notifications", initData, {
+    method: "PATCH",
+    body: JSON.stringify({ notifications_enabled }),
   });
 }
 

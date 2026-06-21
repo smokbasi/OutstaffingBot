@@ -6,6 +6,7 @@ from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 
+from app.bot.handlers.notifications import router as notifications_router
 from app.bot.handlers.applications import router as applications_router
 from app.bot.handlers.job_request import router as job_request_router
 from app.bot.handlers.start import router as start_router
@@ -26,6 +27,7 @@ def create_dispatcher() -> Dispatcher:
     dp.include_router(applications_router)
     dp.include_router(vacancy_search_router)
     dp.include_router(job_request_router)
+    dp.include_router(notifications_router)
     dp.include_router(start_router)
     return dp
 

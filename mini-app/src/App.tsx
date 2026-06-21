@@ -4,6 +4,7 @@ import { getMe, upsertEmployerProfile, type MeResponse } from "./api/client";
 import { CreateJobPage } from "./pages/CreateJobPage";
 import { EmployerJobsPage } from "./pages/EmployerJobsPage";
 import { MyApplicationsPage } from "./pages/MyApplicationsPage";
+import { NotificationsSettingsPage } from "./pages/NotificationsSettingsPage";
 import { ProfilePage } from "./pages/ProfilePage";
 import { VacancyDetailPage } from "./pages/VacancyDetailPage";
 import { VacancyListPage } from "./pages/VacancyListPage";
@@ -32,7 +33,7 @@ type TelegramContext = {
 
 type AppMode = "worker" | "employer";
 type EmployerView = "jobs" | "create";
-type WorkerView = "profile" | "vacancies" | "vacancy-detail" | "applications";
+type WorkerView = "profile" | "vacancies" | "vacancy-detail" | "applications" | "notifications";
 
 type MeState =
   | { status: "loading" }
@@ -247,6 +248,9 @@ function App() {
       if (workerView === "profile") {
         return <ProfilePage initData={telegram.initData} />;
       }
+      if (workerView === "notifications") {
+        return <NotificationsSettingsPage initData={telegram.initData} />;
+      }
       if (workerView === "vacancy-detail" && selectedVacancyId) {
         return (
           <VacancyDetailPage
@@ -355,6 +359,13 @@ function App() {
             onClick={() => setWorkerView("profile")}
           >
             Профиль
+          </button>
+          <button
+            type="button"
+            className={`nav-btn${workerView === "notifications" ? " active" : ""}`}
+            onClick={() => setWorkerView("notifications")}
+          >
+            Уведомления
           </button>
         </nav>
       ) : null}

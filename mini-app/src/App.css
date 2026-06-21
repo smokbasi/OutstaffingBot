@@ -257,9 +257,33 @@
   gap: 0.5rem;
 }
 
-.checkbox-field input[type="checkbox"] {
-  width: auto;
+.checkbox-list {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.35rem;
 }
+
+.chip-list {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 999px;
+  background: var(--tg-theme-secondary-bg-color, #f0f0f0);
+  font-size: 0.85rem;
+}
+
 
 .optional-toggle {
   margin: 0;
