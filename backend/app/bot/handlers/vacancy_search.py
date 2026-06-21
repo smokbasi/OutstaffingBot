@@ -90,6 +90,7 @@ def _format_vacancy_line(index: int, item) -> str:
         f"{index}. <b>{item.title}</b>\n"
         f"   {item.category_name or '—'} · {metro}\n"
         f"   {_format_rate(item.hourly_rate)} · смена {shift_part}"
+        + ("\n   🍽 Обед включён" if item.includes_lunch else "")
     )
 
 
@@ -404,8 +405,15 @@ async def vacancy_detail(callback: CallbackQuery, session: AsyncSession, state: 
         f"<b>{vacancy.title}</b>\n"
         f"{vacancy.category_name or '—'} · {vacancy.metro_station_name or '—'}\n"
         f"{_format_rate(vacancy.hourly_rate)}\n\n"
-        f"{vacancy.description}\n\n"
-        f"<b>Смены:</b>\n{shifts_text}\n\n"
+        f"{vacancy.description}"
+    )
+    if vacancy.dress_code:
+        text += f"\nДресс-код: {vacancy.dress_code}"
+    if vacancy.includes_lunch:
+        text += "\n🍽 Обед включён"
+
+    text += (
+        f"\n\n<b>Смены:</b>\n{shifts_text}\n\n"
         "<i>Отклик на смену будет доступен в следующей версии.</i>"
     )
     await state.set_state(VacancySearch.detail)

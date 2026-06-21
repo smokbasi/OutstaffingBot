@@ -86,6 +86,7 @@ export function VacancyDetailPage({ initData, vacancyId, onBack }: VacancyDetail
       {vacancy.address ? <p className="hint">Адрес: {vacancy.address}</p> : null}
       <p>{vacancy.description}</p>
       {vacancy.dress_code ? <p className="hint">Дресс-код: {vacancy.dress_code}</p> : null}
+      {vacancy.includes_lunch ? <p className="hint">🍽 Обед включён</p> : null}
       {vacancy.min_experience_months ? (
         <p className="hint">Мин. опыт: {vacancy.min_experience_months} мес.</p>
       ) : null}

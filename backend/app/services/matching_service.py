@@ -114,6 +114,7 @@ def _job_to_list_item(job: JobRequest) -> VacancyListItem:
         next_shift_start=next_slot.start_time if next_slot else None,
         next_shift_end=next_slot.end_time if next_slot else None,
         available_slots=_available_slots(job),
+        includes_lunch=job.includes_lunch,
     )
 
 
@@ -138,6 +139,7 @@ def _job_to_detail(job: JobRequest) -> VacancyDetail:
         workers_needed=job.workers_needed,
         min_experience_months=job.min_experience_months,
         dress_code=job.dress_code,
+        includes_lunch=job.includes_lunch,
         shift_slots=[
             {
                 "id": slot.id,

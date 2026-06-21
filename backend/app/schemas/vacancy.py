@@ -28,6 +28,7 @@ class VacancyListItem(BaseModel):
     next_shift_start: time | None = None
     next_shift_end: time | None = None
     available_slots: int = 0
+    includes_lunch: bool = False
 
 
 class VacancyListResponse(BaseModel):
@@ -50,5 +51,6 @@ class VacancyDetail(BaseModel):
     workers_needed: int
     min_experience_months: int | None = None
     dress_code: str | None = None
+    includes_lunch: bool = False
     shift_slots: list[ShiftSlotRead] = Field(default_factory=list)
     created_at: datetime

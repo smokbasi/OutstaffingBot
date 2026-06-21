@@ -80,6 +80,7 @@ def optional_fields_keyboard() -> InlineKeyboardMarkup:
             [InlineKeyboardButton(text="🎂 Возраст (мин/макс)", callback_data="jobopt:age")],
             [InlineKeyboardButton(text="👔 Дресс-код", callback_data="jobopt:dress")],
             [InlineKeyboardButton(text="📞 Контакт", callback_data="jobopt:contact")],
+            [InlineKeyboardButton(text="🍽 Обед включён", callback_data="jobopt:lunch")],
             [
                 InlineKeyboardButton(text="⏭ Пропустить", callback_data="jobopt:skip"),
                 InlineKeyboardButton(text="✅ Готово", callback_data="jobopt:done"),
@@ -110,6 +111,19 @@ def post_to_groups_keyboard() -> InlineKeyboardMarkup:
                 InlineKeyboardButton(text="Да", callback_data="jobgroups:yes"),
                 InlineKeyboardButton(text="Нет", callback_data="jobgroups:no"),
             ],
+            [cancel_button()],
+        ]
+    )
+
+
+def lunch_included_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text="Да", callback_data="joblunch:yes"),
+                InlineKeyboardButton(text="Нет", callback_data="joblunch:no"),
+            ],
+            [InlineKeyboardButton(text="⬅️ Назад", callback_data="joblunch:back")],
             [cancel_button()],
         ]
     )

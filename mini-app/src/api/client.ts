@@ -98,6 +98,7 @@ export type VacancyListItem = {
   next_shift_start: string | null;
   next_shift_end: string | null;
   available_slots: number;
+  includes_lunch: boolean;
 };
 
 export type VacancyListResponse = {
@@ -120,6 +121,7 @@ export type VacancyDetail = {
   workers_needed: number;
   min_experience_months: number | null;
   dress_code: string | null;
+  includes_lunch: boolean;
   shift_slots: ShiftSlot[];
   created_at: string;
 };
@@ -149,6 +151,7 @@ export type JobRequest = {
   max_age: number | null;
   dress_code: string | null;
   contact_info: string | null;
+  includes_lunch: boolean;
   status: JobRequestStatus;
   post_to_groups: boolean;
   notify_matching_workers: boolean;
@@ -171,6 +174,7 @@ export type JobRequestCreate = {
   max_age?: number | null;
   dress_code?: string | null;
   contact_info?: string | null;
+  includes_lunch?: boolean;
   post_to_groups?: boolean;
   notify_matching_workers?: boolean;
   shift_slots: ShiftSlotCreate[];
@@ -186,6 +190,108 @@ export type WorkerProfileUpdate = Pick<
   WorkerProfile,
   "first_name" | "last_name" | "age" | "gender" | "metro_station_id" | "min_hourly_rate"
 >;
+
+/** Matches backend MAX_HOURLY_RATE (PostgreSQL NUMERIC(10, 2)) */
+export const MAX_HOURLY_RATE = 99999999.99;
+
+type ValidationDetail = {
+  type?: string;
+  loc?: (string | number)[];
+  msg?: string;
+  ctx?: Record<string, unknown>;
+};
+
+type ApiErrorBody = {
+  detail?: string | ValidationDetail[];
+};
+
+const FIELD_LABELS: Record<string, string> = {
+  hourly_rate: "Ставка",
+  workers_needed: "Количество работников",
+  title: "Название",
+  description: "Описание",
+  category_id: "Категория",
+  metro_station_id: "Метро",
+  address: "Адрес",
+  min_experience_months: "Мин. опыт",
+  min_age: "Мин. возраст",
+  max_age: "Макс. возраст",
+  dress_code: "Дресс-код",
+  contact_info: "Контакт",
+  shift_date: "Дата смены",
+  start_time: "Начало смены",
+  end_time: "Конец смены",
+  company_name: "Название компании",
+  min_hourly_rate: "Мин. ставка",
+};
+
+function fieldLabel(loc: (string | number)[] | undefined): string {
+  const name = loc?.[loc.length - 1];
+  if (typeof name === "string" && FIELD_LABELS[name]) {
+    return FIELD_LABELS[name];
+  }
+  return typeof name === "string" ? name : "Поле";
+}
+
+function formatValidationDetail(item: ValidationDetail): string {
+  const label = fieldLabel(item.loc);
+  const fieldName = item.loc?.[item.loc.length - 1];
+
+  switch (item.type) {
+    case "less_than_equal":
+      if (fieldName === "hourly_rate") {
+        return `Ставка не более ${MAX_HOURLY_RATE} ₽/час`;
+      }
+      return `${label}: значение слишком большое`;
+    case "greater_than_equal":
+      return `${label}: значение слишком маленькое`;
+    case "string_too_long":
+      return `${label}: слишком длинное значение`;
+    case "string_too_short":
+      return `${label}: слишком короткое значение`;
+    case "missing":
+      return `${label}: обязательное поле`;
+    case "value_error":
+      return `${label}: ${item.msg ?? "некорректное значение"}`;
+    default:
+      return item.msg ? `${label}: ${item.msg}` : `${label}: некорректное значение`;
+  }
+}
+
+export function parseApiError(body: string, status: number): string {
+  if (!body.trim()) {
+    if (status === 401) {
+      return "Требуется авторизация";
+    }
+    if (status === 403) {
+      return "Доступ запрещён";
+    }
+    if (status === 404) {
+      return "Не найдено";
+    }
+    if (status >= 500) {
+      return "Ошибка сервера. Попробуйте позже.";
+    }
+    return `Ошибка запроса (${status})`;
+  }
+
+  try {
+    const parsed = JSON.parse(body) as ApiErrorBody;
+    if (typeof parsed.detail === "string") {
+      return parsed.detail;
+    }
+    if (Array.isArray(parsed.detail) && parsed.detail.length > 0) {
+      return parsed.detail.map(formatValidationDetail).join("\n");
+    }
+  } catch {
+    // not JSON — fall through
+  }
+
+  if (body.trimStart().startsWith("{")) {
+    return "Ошибка сервера. Проверьте введённые данные.";
+  }
+  return body;
+}
 
 function authHeaders(initData: string): HeadersInit {
   return {
@@ -204,7 +310,7 @@ async function apiFetch<T>(path: string, initData: string, init?: RequestInit): 
   });
   if (!response.ok) {
     const body = await response.text();
-    throw new Error(body || `HTTP ${response.status}`);
+    throw new Error(parseApiError(body, response.status));
   }
   return response.json() as Promise<T>;
 }
@@ -213,7 +319,7 @@ async function publicFetch<T>(path: string): Promise<T> {
   const response = await fetch(`${API_BASE}/api/v1${path}`);
   if (!response.ok) {
     const body = await response.text();
-    throw new Error(body || `HTTP ${response.status}`);
+    throw new Error(parseApiError(body, response.status));
   }
   return response.json() as Promise<T>;
 }
@@ -317,7 +423,7 @@ export async function searchMetroStations(q: string): Promise<MetroStation[]> {
   const response = await fetch(`${API_BASE}/api/v1/reference/metro${query ? `?${query}` : ""}`);
   if (!response.ok) {
     const body = await response.text();
-    throw new Error(body || `HTTP ${response.status}`);
+    throw new Error(parseApiError(body, response.status));
   }
   return response.json() as Promise<MetroStation[]>;
 }

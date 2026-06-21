@@ -58,6 +58,7 @@ def sample_job(test_employer: Employer) -> JobRequestRead:
         max_age=None,
         dress_code=None,
         contact_info=None,
+        includes_lunch=False,
         status=JobRequestStatus.draft,
         post_to_groups=False,
         notify_matching_workers=True,
@@ -155,6 +156,42 @@ async def test_create_job_draft(
     assert data["status"] == "draft"
     assert data["title"] == "Официант на смену"
     assert len(data["shift_slots"]) == 1
+
+
+@pytest.mark.asyncio
+async def test_create_job_with_includes_lunch(
+    client: AsyncClient,
+    sample_job: JobRequestRead,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    lunch_job = sample_job.model_copy(update={"includes_lunch": True})
+
+    async def mock_create(session, employer_id, data):
+        assert data.includes_lunch is True
+        return lunch_job
+
+    monkeypatch.setattr("app.api.routes.employer.job_service.create_job_request", mock_create)
+    payload = _job_payload()
+    payload["includes_lunch"] = True
+    response = await client.post("/api/v1/employer/jobs", headers=_auth_headers(), json=payload)
+    assert response.status_code == 201
+    assert response.json()["includes_lunch"] is True
+
+
+@pytest.mark.asyncio
+async def test_create_job_without_includes_lunch_defaults_false(
+    client: AsyncClient,
+    sample_job: JobRequestRead,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def mock_create(session, employer_id, data):
+        assert data.includes_lunch is False
+        return sample_job
+
+    monkeypatch.setattr("app.api.routes.employer.job_service.create_job_request", mock_create)
+    response = await client.post("/api/v1/employer/jobs", headers=_auth_headers(), json=_job_payload())
+    assert response.status_code == 201
+    assert response.json()["includes_lunch"] is False
 
 
 @pytest.mark.asyncio

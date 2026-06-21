@@ -26,6 +26,7 @@ docker compose -p "$COMPOSE_PROJECT_NAME" \
   -f docker-compose.yml -f docker-compose.staging.yml up -d --build
 
 # Раскомментировать когда api-контейнер будет в compose:
-# docker compose exec -T api alembic upgrade head
+docker compose -p "$COMPOSE_PROJECT_NAME" \
+  -f docker-compose.yml -f docker-compose.staging.yml exec -T api alembic upgrade head
 
 echo "==> Deploy done. Проверьте: docker compose ps"

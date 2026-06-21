@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import {
   createJob,
   listCategories,
+  MAX_HOURLY_RATE,
   searchMetroStations,
   updateJobStatus,
   type JobCategory,
@@ -37,15 +38,13 @@ type JobFormData = {
   max_age: string;
   dress_code: string;
   contact_info: string;
+  includes_lunch: boolean;
   post_to_groups: boolean;
   notify_matching_workers: boolean;
   shift_slots: ShiftSlotForm[];
 };
 
 type FormErrors = Partial<Record<string, string>>;
-
-/** Matches PostgreSQL NUMERIC(10, 2) — values must be < 10^8 */
-const MAX_HOURLY_RATE = 99999999.99;
 
 const GENDER_OPTIONS = [
   { value: "", label: "Не указан" },
@@ -76,6 +75,7 @@ function emptyForm(): JobFormData {
     max_age: "",
     dress_code: "",
     contact_info: "",
+    includes_lunch: false,
     post_to_groups: false,
     notify_matching_workers: true,
     shift_slots: [{ ...EMPTY_SHIFT }],
@@ -84,6 +84,23 @@ function emptyForm(): JobFormData {
 
 function toApiTime(value: string): string {
   return value.length === 5 ? `${value}:00` : value;
+}
+
+function clampHourlyRateInput(value: string): string {
+  if (!value.trim()) {
+    return value;
+  }
+  const num = Number(value);
+  if (Number.isNaN(num)) {
+    return value;
+  }
+  if (num > MAX_HOURLY_RATE) {
+    return String(MAX_HOURLY_RATE);
+  }
+  if (num < 0) {
+    return "0";
+  }
+  return value;
 }
 
 function validateForm(form: JobFormData): FormErrors {
@@ -166,7 +183,7 @@ function formToPayload(form: JobFormData): JobRequestCreate {
     description: form.description.trim(),
     metro_station_id: form.metro_station_id!,
     address: form.address.trim() || null,
-    hourly_rate: Number(form.hourly_rate).toFixed(2),
+    hourly_rate: Math.min(Number(form.hourly_rate), MAX_HOURLY_RATE).toFixed(2),
     workers_needed: Number(form.workers_needed),
     min_experience_months: form.min_experience_months.trim()
       ? Number(form.min_experience_months)
@@ -176,6 +193,7 @@ function formToPayload(form: JobFormData): JobRequestCreate {
     max_age: form.max_age.trim() ? Number(form.max_age) : null,
     dress_code: form.dress_code.trim() || null,
     contact_info: form.contact_info.trim() || null,
+    includes_lunch: form.includes_lunch,
     post_to_groups: form.post_to_groups,
     notify_matching_workers: form.notify_matching_workers,
     shift_slots: form.shift_slots.map((slot) => ({
@@ -426,10 +444,12 @@ export function CreateJobPage({ initData, onCreated, onCancel }: CreateJobPagePr
           <input
             type="number"
             min={0}
-            step="1"
+            max={MAX_HOURLY_RATE}
+            step="0.01"
             value={form.hourly_rate}
             disabled={isSaving}
-            onChange={(e) => updateField("hourly_rate", e.target.value)}
+            onChange={(e) => updateField("hourly_rate", clampHourlyRateInput(e.target.value))}
+            onBlur={(e) => updateField("hourly_rate", clampHourlyRateInput(e.target.value))}
           />
           {formErrors.hourly_rate ? <em className="field-error">{formErrors.hourly_rate}</em> : null}
         </label>
@@ -603,6 +623,16 @@ export function CreateJobPage({ initData, onCreated, onCancel }: CreateJobPagePr
                 disabled={isSaving}
                 onChange={(e) => updateField("contact_info", e.target.value)}
               />
+            </label>
+
+            <label className="form-field checkbox-field">
+              <input
+                type="checkbox"
+                checked={form.includes_lunch}
+                disabled={isSaving}
+                onChange={(e) => updateField("includes_lunch", e.target.checked)}
+              />
+              <span>Входит обед</span>
             </label>
 
             <label className="form-field checkbox-field">

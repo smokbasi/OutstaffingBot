@@ -234,6 +234,7 @@ export function VacancyListPage({ initData, onOpenVacancy }: VacancyListPageProp
                   {item.next_shift_start ? ` ${formatTime(item.next_shift_start)}` : ""}
                   {item.available_slots > 0 ? ` · мест: ${item.available_slots}` : ""}
                 </p>
+                {item.includes_lunch ? <p className="hint">🍽 Обед включён</p> : null}
                 <div className="job-actions">
                   <button type="button" className="btn" onClick={() => onOpenVacancy(item.id)}>
                     Подробнее

@@ -43,6 +43,7 @@ def sample_vacancy_list() -> VacancyListResponse:
                 next_shift_start=time(10, 0),
                 next_shift_end=time(22, 0),
                 available_slots=2,
+                includes_lunch=True,
             )
         ],
         total=1,
@@ -67,6 +68,7 @@ def sample_vacancy_detail(sample_vacancy_list: VacancyListResponse) -> VacancyDe
         workers_needed=item.workers_needed,
         min_experience_months=6,
         dress_code="Чёрная форма",
+        includes_lunch=True,
         shift_slots=[
             {
                 "id": uuid4(),
@@ -148,6 +150,42 @@ async def test_list_vacancies_success(
     assert data["total"] == 1
     assert len(data["items"]) == 1
     assert data["items"][0]["category_name"] == "Официант"
+    assert data["items"][0]["includes_lunch"] is True
+
+
+@pytest.mark.asyncio
+async def test_get_vacancy_detail_includes_lunch_when_set(
+    client: AsyncClient,
+    sample_vacancy_detail: VacancyDetail,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class DummyWorker:
+        id = uuid4()
+        age = 25
+        gender = Gender.male
+        min_hourly_rate = Decimal("350")
+        metro_station_id = 1
+        metro_radius_km = 0
+        experiences = []
+
+    async def mock_get_worker(session, user_id):
+        return DummyWorker()
+
+    async def mock_get(session, worker, job_id, filters=None):
+        return sample_vacancy_detail if job_id == sample_vacancy_detail.id else None
+
+    monkeypatch.setattr("app.api.routes.worker_vacancies.worker_service.get_worker_by_user_id", mock_get_worker)
+    monkeypatch.setattr(
+        "app.api.routes.worker_vacancies.matching_service.get_vacancy_for_worker",
+        mock_get,
+    )
+
+    response = await client.get(
+        f"/api/v1/worker/vacancies/{sample_vacancy_detail.id}",
+        headers=_auth_headers(),
+    )
+    assert response.status_code == 200
+    assert response.json()["includes_lunch"] is True
 
 
 @pytest.mark.asyncio

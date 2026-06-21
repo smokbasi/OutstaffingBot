@@ -23,5 +23,6 @@ class JobRequestCreation(StatesGroup):
     optional_max_age = State()
     optional_dress_code = State()
     optional_contact = State()
+    optional_lunch = State()
     post_to_groups = State()
     confirm = State()

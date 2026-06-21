@@ -44,6 +44,7 @@ def _job_to_read(job: JobRequest) -> JobRequestRead:
         max_age=job.max_age,
         dress_code=job.dress_code,
         contact_info=job.contact_info,
+        includes_lunch=job.includes_lunch,
         status=job.status,
         post_to_groups=job.post_to_groups,
         notify_matching_workers=job.notify_matching_workers,
@@ -102,6 +103,7 @@ async def create_job_request(
         max_age=data.max_age,
         dress_code=data.dress_code,
         contact_info=data.contact_info,
+        includes_lunch=data.includes_lunch,
         status=JobRequestStatus.draft,
         post_to_groups=data.post_to_groups,
         notify_matching_workers=data.notify_matching_workers,
@@ -174,6 +176,9 @@ async def update_job_request(
     if data.status is not None:
         _validate_status_transition(job.status, data.status)
         job.status = data.status
+
+    if data.includes_lunch is not None:
+        job.includes_lunch = data.includes_lunch
 
     await session.flush()
     job = await session.scalar(await _get_job_stmt(job_id, employer_id))

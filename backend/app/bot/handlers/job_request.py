@@ -15,6 +15,7 @@ from app.bot.keyboards.job_request import (
     metro_stations_keyboard,
     optional_fields_keyboard,
     post_to_groups_keyboard,
+    lunch_included_keyboard,
     required_gender_keyboard,
     shift_dates_keyboard,
 )
@@ -121,6 +122,8 @@ def _format_job_summary(data: dict) -> str:
         lines.append(f"Дресс-код: {data['dress_code']}")
     if data.get("contact_info"):
         lines.append(f"Контакт: {data['contact_info']}")
+    if data.get("includes_lunch"):
+        lines.append("Обед: включён")
     if "post_to_groups" in data:
         lines.append(f"В группы: {'да' if data['post_to_groups'] else 'нет'}")
     return "\n".join(lines)
@@ -617,6 +620,7 @@ async def process_optional_menu(callback: CallbackQuery, state: FSMContext) -> N
         "age": ("Минимальный <b>возраст</b> (16–70):", JobRequestCreation.optional_min_age),
         "dress": ("Введите <b>дресс-код</b>:", JobRequestCreation.optional_dress_code),
         "contact": ("Введите <b>контакт</b> для связи:", JobRequestCreation.optional_contact),
+        "lunch": ("<b>Обед включён</b> в смену?", JobRequestCreation.optional_lunch),
     }
 
     if action not in prompts:
@@ -627,6 +631,8 @@ async def process_optional_menu(callback: CallbackQuery, state: FSMContext) -> N
     await state.set_state(next_state)
     if action == "gender":
         await _update_summary_message(callback.bot, state, prompt, required_gender_keyboard())
+    elif action == "lunch":
+        await _update_summary_message(callback.bot, state, prompt, lunch_included_keyboard())
     else:
         await _update_summary_message(callback.bot, state, prompt)
     await callback.answer()
@@ -798,6 +804,44 @@ async def process_optional_contact(message: Message, state: FSMContext) -> None:
     )
 
 
+@router.callback_query(F.data.startswith("joblunch:"), StateFilter(JobRequestCreation.optional_lunch))
+async def process_optional_lunch(callback: CallbackQuery, state: FSMContext) -> None:
+    answer = callback.data.split(":", 1)[1]
+    if answer == "back":
+        await state.set_state(JobRequestCreation.optional_menu)
+        await _update_summary_message(
+            callback.bot,
+            state,
+            "Дополнительные поля (необязательно):",
+            optional_fields_keyboard(),
+        )
+        await callback.answer()
+        return
+    if answer not in {"yes", "no"}:
+        await callback.answer("Неверный выбор", show_alert=True)
+        return
+    await state.update_data(includes_lunch=answer == "yes")
+    await state.set_state(JobRequestCreation.optional_menu)
+    await _update_summary_message(
+        callback.bot,
+        state,
+        "Дополнительные поля (необязательно):",
+        optional_fields_keyboard(),
+    )
+    await callback.answer()
+
+
+@router.message(JobRequestCreation.optional_lunch)
+async def process_optional_lunch_ignore_text(message: Message, state: FSMContext) -> None:
+    await _delete_user_message(message)
+    await _update_summary_message(
+        message.bot,
+        state,
+        "<b>Обед включён</b> в смену?\n\n<i>Ответьте кнопками ниже.</i>",
+        lunch_included_keyboard(),
+    )
+
+
 @router.message(JobRequestCreation.post_to_groups)
 async def process_post_to_groups_ignore_text(message: Message, state: FSMContext) -> None:
     await _delete_user_message(message)
@@ -863,6 +907,7 @@ def _build_job_create_payload(data: dict) -> JobRequestCreate:
         max_age=data.get("max_age"),
         dress_code=data.get("dress_code"),
         contact_info=data.get("contact_info"),
+        includes_lunch=data.get("includes_lunch", False),
         post_to_groups=data.get("post_to_groups", False),
         notify_matching_workers=True,
         shift_slots=shift_slots,

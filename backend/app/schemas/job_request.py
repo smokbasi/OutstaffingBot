@@ -48,6 +48,7 @@ class JobRequestCreate(BaseModel):
     max_age: int | None = Field(default=None, ge=16, le=70)
     dress_code: str | None = Field(default=None, max_length=200)
     contact_info: str | None = None
+    includes_lunch: bool = False
     post_to_groups: bool = False
     notify_matching_workers: bool = True
     shift_slots: list[ShiftSlotCreate] = Field(min_length=1)
@@ -76,6 +77,7 @@ class JobRequestRead(BaseModel):
     max_age: int | None = None
     dress_code: str | None = None
     contact_info: str | None = None
+    includes_lunch: bool = False
     status: JobRequestStatus
     post_to_groups: bool
     notify_matching_workers: bool
@@ -88,3 +90,4 @@ class JobRequestRead(BaseModel):
 
 class JobRequestUpdate(BaseModel):
     status: JobRequestStatus | None = None
+    includes_lunch: bool | None = None

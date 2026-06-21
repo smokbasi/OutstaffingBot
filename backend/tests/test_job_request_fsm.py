@@ -137,6 +137,61 @@ def test_build_job_create_payload_from_fsm_data() -> None:
     assert payload.shift_slots[0].start_time == time(10, 0)
 
 
+def test_build_job_create_payload_includes_lunch() -> None:
+    payload = _build_job_create_payload(
+        {
+            "category_id": 1,
+            "title": "Официант",
+            "description": "Зал",
+            "metro_station_id": 5,
+            "hourly_rate": "400",
+            "workers_needed": 2,
+            "includes_lunch": True,
+            "post_to_groups": False,
+            "shift_slots": [
+                {
+                    "shift_date": "2026-06-25",
+                    "start_time": "10:00",
+                    "end_time": "22:00",
+                }
+            ],
+        }
+    )
+    assert payload.includes_lunch is True
+
+
+def test_format_job_summary_shows_lunch_when_included() -> None:
+    text = _format_job_summary(
+        {
+            "category_name": "Официант",
+            "title": "Смена",
+            "description": "Зал",
+            "metro_name": "Автово",
+            "hourly_rate": "400",
+            "workers_needed": 2,
+            "shift_slots": [],
+            "includes_lunch": True,
+        }
+    )
+    assert "Обед: включён" in text
+
+
+def test_format_job_summary_hides_lunch_when_not_included() -> None:
+    text = _format_job_summary(
+        {
+            "category_name": "Официант",
+            "title": "Смена",
+            "description": "Зал",
+            "metro_name": "Автово",
+            "hourly_rate": "400",
+            "workers_needed": 2,
+            "shift_slots": [],
+            "includes_lunch": False,
+        }
+    )
+    assert "Обед" not in text
+
+
 def test_job_keyboard_callback_data_within_limit() -> None:
     keyboards = [
         categories_keyboard([(1, "Официант"), (2, "Повар")]),
