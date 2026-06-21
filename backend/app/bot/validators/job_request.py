@@ -1,6 +1,8 @@
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal, InvalidOperation
 
+from app.schemas.job_request import MAX_HOURLY_RATE
+
 
 def upcoming_shift_dates(*, days: int = 14, start: date | None = None) -> list[date]:
     base = start or date.today()
@@ -17,7 +19,7 @@ def parse_hourly_rate(text: str) -> Decimal | None:
         rate = Decimal(cleaned)
     except (InvalidOperation, ValueError):
         return None
-    if rate < 0:
+    if rate < 0 or rate > MAX_HOURLY_RATE:
         return None
     return rate
 

@@ -45,6 +45,11 @@ def test_employer_onboarding_has_company_name_state() -> None:
     assert EmployerOnboarding.company_name.state == "EmployerOnboarding:company_name"
 
 
+def test_parse_hourly_rate_rejects_excessive() -> None:
+    assert parse_hourly_rate("100000000") is None
+    assert parse_hourly_rate("99999999.99") == Decimal("99999999.99")
+
+
 def test_parse_hourly_rate_accepts_comma_decimal() -> None:
     assert parse_hourly_rate("400,50") == Decimal("400.50")
     assert parse_hourly_rate("-1") is None

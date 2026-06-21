@@ -6,6 +6,9 @@ from pydantic import BaseModel, Field, model_validator
 
 from app.db.models import JobRequestStatus, RequiredGender
 
+# NUMERIC(10, 2) in PostgreSQL: max absolute value < 10^8
+MAX_HOURLY_RATE = Decimal("99999999.99")
+
 
 class ShiftSlotCreate(BaseModel):
     shift_date: date
@@ -37,7 +40,7 @@ class JobRequestCreate(BaseModel):
     description: str = Field(min_length=1)
     metro_station_id: int
     address: str | None = Field(default=None, max_length=300)
-    hourly_rate: Decimal = Field(ge=0)
+    hourly_rate: Decimal = Field(ge=0, le=MAX_HOURLY_RATE)
     workers_needed: int = Field(ge=1, le=100)
     min_experience_months: int | None = Field(default=None, ge=0, le=600)
     required_gender: RequiredGender | None = None

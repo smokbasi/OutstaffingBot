@@ -44,6 +44,9 @@ type JobFormData = {
 
 type FormErrors = Partial<Record<string, string>>;
 
+/** Matches PostgreSQL NUMERIC(10, 2) — values must be < 10^8 */
+const MAX_HOURLY_RATE = 99999999.99;
+
 const GENDER_OPTIONS = [
   { value: "", label: "Не указан" },
   { value: "any", label: "Любой" },
@@ -104,6 +107,8 @@ function validateForm(form: JobFormData): FormErrors {
     errors.hourly_rate = "Укажите ставку";
   } else if (rate < 0) {
     errors.hourly_rate = "Ставка должна быть ≥ 0";
+  } else if (rate > MAX_HOURLY_RATE) {
+    errors.hourly_rate = `Ставка не более ${MAX_HOURLY_RATE} ₽/час`;
   }
   const workers = Number(form.workers_needed);
   if (!form.workers_needed.trim() || Number.isNaN(workers)) {

@@ -131,6 +131,14 @@ def _job_payload() -> dict:
 
 
 @pytest.mark.asyncio
+async def test_create_job_rejects_excessive_hourly_rate(client: AsyncClient) -> None:
+    payload = _job_payload()
+    payload["hourly_rate"] = "1E+21"
+    response = await client.post("/api/v1/employer/jobs", headers=_auth_headers(), json=payload)
+    assert response.status_code == 422
+
+
+@pytest.mark.asyncio
 async def test_create_job_draft(
     client: AsyncClient,
     sample_job: JobRequestRead,
