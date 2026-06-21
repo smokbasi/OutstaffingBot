@@ -13,9 +13,9 @@
 
 ---
 
-## Текущая фаза: Phase 5 — Notifications + Background Jobs
+## Текущая фаза: Phase 6 — Group Posting
 
-**Следующий шаг:** ARQ worker, push при новой заявке, worker preferences (Phase 5).
+**Следующий шаг:** Admin: register telegram groups, auto-post formatted messages (Phase 6).
 
 **Verification Phase 0:** локально (Docker Desktop) **или** на dev/staging VPS — см. [SERVER_AND_TEAM.md](./SERVER_AND_TEAM.md).
 
@@ -119,10 +119,10 @@
 
 ### Phase 5 — Notifications + Background Jobs (1–2 недели) [P1]
 
-- [ ] ARQ worker setup
-- [ ] Push при новой заявке
-- [ ] Worker preferences (категории, ставка, metro)
-- [ ] Global notification toggle
+- [x] ARQ worker setup
+- [x] Push при новой заявке
+- [x] Worker preferences (категории, ставка, metro)
+- [x] Global notification toggle
 
 **Verification:** новая заявка → push matching workers within 30s.
 
