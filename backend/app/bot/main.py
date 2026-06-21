@@ -7,7 +7,10 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 
 from app.bot.handlers.start import router as start_router
+from app.bot.handlers.worker_registration import router as worker_registration_router
 from app.bot.menu_setup import setup_default_mini_app_menu
+from app.bot.startup_announcement import announce_bot_update
+from app.bot.middlewares.db_session import DbSessionMiddleware
 from app.core.config import get_settings
 
 logger = logging.getLogger(__name__)
@@ -15,6 +18,8 @@ logger = logging.getLogger(__name__)
 
 def create_dispatcher() -> Dispatcher:
     dp = Dispatcher()
+    dp.update.middleware(DbSessionMiddleware())
+    dp.include_router(worker_registration_router)
     dp.include_router(start_router)
     return dp
 
@@ -35,6 +40,7 @@ async def run_bot() -> None:
     )
     dp = create_dispatcher()
     dp.startup.register(setup_default_mini_app_menu)
+    dp.startup.register(announce_bot_update)
 
     logger.info("Starting bot polling...")
     await dp.start_polling(bot)

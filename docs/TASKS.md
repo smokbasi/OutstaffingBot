@@ -13,9 +13,9 @@
 
 ---
 
-## Текущая фаза: Phase 1 — Worker Core
+## Текущая фаза: Phase 2 — Employer + Job Requests
 
-**Следующий шаг:** FSM регистрация работника (бот) + API профиля + Mini App страница.
+**Следующий шаг:** FSM создание заявки (бот) + API CRUD jobs + Mini App форма заявки.
 
 **Verification Phase 0:** локально (Docker Desktop) **или** на dev/staging VPS — см. [SERVER_AND_TEAM.md](./SERVER_AND_TEAM.md).
 
@@ -68,12 +68,12 @@
 
 ### Phase 1 — Worker Core (2 недели) [P0]
 
-- [ ] FSM регистрация работника (бот)
-- [ ] API: GET/PUT worker profile, experiences
-- [ ] Mini App: страница профиля
-- [ ] initData auth middleware
+- [x] FSM регистрация работника (бот)
+- [x] API: GET/PUT worker profile, experiences
+- [x] Mini App: страница профиля (просмотр + редактирование)
+- [x] initData auth middleware
 
-**Verification:** профиль создаётся в боте → виден в Mini App.
+**Verification:** профиль создаётся в боте → виден в Mini App → редактируется в Mini App.
 
 **Как выполнять:** оркестрация (3 слоя) — `tdd-workflow`, `fastapi-patterns`, `security-review` с Phase 2 для auth.
 

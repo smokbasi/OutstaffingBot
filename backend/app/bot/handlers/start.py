@@ -21,14 +21,6 @@ async def cmd_start(message: Message, bot: Bot) -> None:
     await message.answer(WELCOME_TEXT, reply_markup=main_menu_keyboard())
 
 
-@router.message(F.text == "👷 Работник")
-async def select_worker(message: Message) -> None:
-    await message.answer(
-        "Режим работника. Регистрация профиля — в Phase 1.",
-        reply_markup=main_menu_keyboard(),
-    )
-
-
 @router.message(F.text == "🏢 Работодатель")
 async def select_employer(message: Message) -> None:
     await message.answer(
