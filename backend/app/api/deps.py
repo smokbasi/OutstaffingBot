@@ -3,9 +3,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.auth.init_data import InitDataError, validate_init_data
 from app.core.config import Settings, get_settings
-from app.db.models import User
+from app.db.models import Employer, User
 from app.db.session import get_db_session
-from app.services import user_service
+from app.services import employer_service, user_service
 
 
 async def get_current_user(
@@ -32,3 +32,13 @@ async def get_current_user(
         language_code=tg_user.get("language_code"),
     )
     return user
+
+
+async def get_current_employer(
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
+) -> Employer:
+    employer = await employer_service.get_employer_by_user_id(session, user.id)
+    if employer is None:
+        raise HTTPException(status_code=404, detail="Employer profile not found")
+    return employer
