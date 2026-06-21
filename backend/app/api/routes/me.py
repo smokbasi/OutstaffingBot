@@ -15,6 +15,7 @@ class MeResponse(BaseModel):
     username: str | None
     role: str
     has_worker_profile: bool
+    has_employer_profile: bool
 
 
 @router.get("/me", response_model=MeResponse)
@@ -22,13 +23,15 @@ async def get_me(
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db_session),
 ) -> MeResponse:
-    from app.services import worker_service
+    from app.services import employer_service, worker_service
 
-    profile = await worker_service.get_worker_profile(session, user)
+    worker_profile = await worker_service.get_worker_profile(session, user)
+    employer_profile = await employer_service.get_employer_profile(session, user)
     return MeResponse(
         id=str(user.id),
         telegram_id=user.telegram_id,
         username=user.username,
         role=user.role.value,
-        has_worker_profile=profile is not None and profile.resume_completed,
+        has_worker_profile=worker_profile is not None and worker_profile.resume_completed,
+        has_employer_profile=employer_profile is not None,
     )

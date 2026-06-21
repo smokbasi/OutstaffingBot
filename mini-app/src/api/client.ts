@@ -30,6 +30,7 @@ export type MeResponse = {
   username: string | null;
   role: "worker" | "employer" | "both" | "admin";
   has_worker_profile: boolean;
+  has_employer_profile: boolean;
 };
 
 export type EmployerProfile = {

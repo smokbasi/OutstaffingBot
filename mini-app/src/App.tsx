@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import "./App.css";
-import { getMe, type MeResponse } from "./api/client";
+import { getMe, upsertEmployerProfile, type MeResponse } from "./api/client";
 import { CreateJobPage } from "./pages/CreateJobPage";
 import { EmployerJobsPage } from "./pages/EmployerJobsPage";
 import { ProfilePage } from "./pages/ProfilePage";
@@ -32,8 +32,6 @@ type MeState =
   | { status: "error"; message: string }
   | { status: "ready"; me: MeResponse };
 
-const ROLE_STORAGE_KEY = "outstaffingbot:app-mode";
-
 function readTelegramContext(): TelegramContext {
   const webApp = typeof window !== "undefined" ? window.Telegram?.WebApp : undefined;
   if (!webApp) {
@@ -50,49 +48,6 @@ function readTelegramContext(): TelegramContext {
     initData: webApp.initData ?? "",
     userLabel,
   };
-}
-
-function hasWorkerAccess(role: MeResponse["role"]): boolean {
-  return role === "worker" || role === "both";
-}
-
-function hasEmployerAccess(role: MeResponse["role"]): boolean {
-  return role === "employer" || role === "both";
-}
-
-function needsRolePicker(role: MeResponse["role"]): boolean {
-  return role === "both";
-}
-
-function resolveInitialMode(role: MeResponse["role"]): AppMode | null {
-  if (role === "worker") {
-    return "worker";
-  }
-  if (role === "employer") {
-    return "employer";
-  }
-  if (typeof sessionStorage === "undefined") {
-    return null;
-  }
-  const stored = sessionStorage.getItem(ROLE_STORAGE_KEY);
-  if (stored === "worker" && hasWorkerAccess(role)) {
-    return "worker";
-  }
-  if (stored === "employer" && hasEmployerAccess(role)) {
-    return "employer";
-  }
-  return null;
-}
-
-function persistMode(mode: AppMode | null) {
-  if (typeof sessionStorage === "undefined") {
-    return;
-  }
-  if (mode === null) {
-    sessionStorage.removeItem(ROLE_STORAGE_KEY);
-    return;
-  }
-  sessionStorage.setItem(ROLE_STORAGE_KEY, mode);
 }
 
 function RolePicker({
@@ -120,6 +75,65 @@ function RolePicker({
   );
 }
 
+function EmployerSetupPrompt({
+  initData,
+  onRegistered,
+}: {
+  initData: string;
+  onRegistered: () => void;
+}) {
+  const [companyName, setCompanyName] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function handleSubmit(event: FormEvent) {
+    event.preventDefault();
+    const trimmed = companyName.trim();
+    if (!trimmed) {
+      setError("Укажите название компании");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      await upsertEmployerProfile(initData, { company_name: trimmed });
+      onRegistered();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Не удалось сохранить профиль";
+      setError(message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section className="card">
+      <h2>Профиль работодателя</h2>
+      <p className="hint">
+        Зарегистрируйтесь как работодатель в боте (🏢) или укажите название компании ниже.
+      </p>
+      <form className="profile-form" onSubmit={handleSubmit}>
+        <label className="form-field">
+          <span>Название компании</span>
+          <input
+            type="text"
+            value={companyName}
+            onChange={(event) => setCompanyName(event.target.value)}
+            placeholder="ООО «Пример»"
+            disabled={busy}
+          />
+        </label>
+        {error ? <p className="error">{error}</p> : null}
+        <div className="form-actions">
+          <button type="submit" className="btn" disabled={busy}>
+            {busy ? "Сохранение…" : "Сохранить"}
+          </button>
+        </div>
+      </form>
+    </section>
+  );
+}
+
 function App() {
   const [telegram] = useState(readTelegramContext);
   const [meState, setMeState] = useState<MeState>({ status: "loading" });
@@ -139,7 +153,6 @@ function App() {
           return;
         }
         setMeState({ status: "ready", me });
-        setAppMode(resolveInitialMode(me.role));
       })
       .catch((err) => {
         if (cancelled) {
@@ -156,7 +169,6 @@ function App() {
 
   function handleSelectMode(mode: AppMode) {
     setAppMode(mode);
-    persistMode(mode);
     if (mode === "employer") {
       setEmployerView("jobs");
     }
@@ -164,11 +176,23 @@ function App() {
 
   function handleSwitchRole() {
     setAppMode(null);
-    persistMode(null);
+  }
+
+  function handleEmployerRegistered() {
+    setMeState((prev) => {
+      if (prev.status !== "ready") {
+        return prev;
+      }
+      return {
+        status: "ready",
+        me: { ...prev.me, has_employer_profile: true },
+      };
+    });
+    setJobsReloadKey((key) => key + 1);
   }
 
   function handleJobCreated() {
-    setJobsReloadKey((k) => k + 1);
+    setJobsReloadKey((key) => key + 1);
     setEmployerView("jobs");
   }
 
@@ -199,39 +223,39 @@ function App() {
 
     const { me } = meState;
 
-    if (needsRolePicker(me.role) && appMode === null) {
+    if (appMode === null) {
       return <RolePicker onSelect={handleSelectMode} />;
     }
 
-    const mode = appMode ?? (hasEmployerAccess(me.role) && !hasWorkerAccess(me.role) ? "employer" : "worker");
-
-    if (mode === "worker" && hasWorkerAccess(me.role)) {
+    if (appMode === "worker") {
       return <ProfilePage initData={telegram.initData} />;
     }
 
-    if (mode === "employer" && hasEmployerAccess(me.role)) {
-      if (employerView === "create") {
-        return (
-          <CreateJobPage
-            initData={telegram.initData}
-            onCreated={handleJobCreated}
-            onCancel={() => setEmployerView("jobs")}
-          />
-        );
-      }
+    if (!me.has_employer_profile) {
       return (
-        <EmployerJobsPage
+        <EmployerSetupPrompt
           initData={telegram.initData}
-          reloadKey={jobsReloadKey}
-          onCreateClick={() => setEmployerView("create")}
+          onRegistered={handleEmployerRegistered}
+        />
+      );
+    }
+
+    if (employerView === "create") {
+      return (
+        <CreateJobPage
+          initData={telegram.initData}
+          onCreated={handleJobCreated}
+          onCancel={() => setEmployerView("jobs")}
         />
       );
     }
 
     return (
-      <section className="card">
-        <p className="error">Нет доступа к выбранному режиму.</p>
-      </section>
+      <EmployerJobsPage
+        initData={telegram.initData}
+        reloadKey={jobsReloadKey}
+        onCreateClick={() => setEmployerView("create")}
+      />
     );
   }
 
@@ -239,7 +263,6 @@ function App() {
     telegram.inTelegram &&
     telegram.initData &&
     meState.status === "ready" &&
-    needsRolePicker(meState.me.role) &&
     appMode !== null;
 
   const showEmployerNav =
@@ -247,7 +270,7 @@ function App() {
     telegram.initData &&
     meState.status === "ready" &&
     appMode === "employer" &&
-    hasEmployerAccess(meState.me.role);
+    meState.me.has_employer_profile;
 
   return (
     <main className="app">
