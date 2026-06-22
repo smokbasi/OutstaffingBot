@@ -134,6 +134,7 @@
 
 - [x] Admin: register telegram groups (только в группе: /register_group → «Группа привязана»)
 - [x] Auto-post formatted messages
+- [x] Кнопка «Откликнуться» → deep link `start=job_{id}` → бот → профиль → отклик
 - [x] Edit on close
 - [x] При снятии отклика — переоткрыть пост в группе (если заявка active и набор не закрыт)
 - [x] При наборе нужного числа людей — автозакрытие поста в группе

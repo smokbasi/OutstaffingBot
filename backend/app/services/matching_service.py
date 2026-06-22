@@ -277,6 +277,22 @@ async def get_vacancy_for_worker(
     return _job_to_detail(job)
 
 
+async def get_vacancy_detail_by_id(session: AsyncSession, job_id: UUID) -> VacancyDetail | None:
+    """Load active vacancy by id (no worker filter — for group deep links)."""
+    job = await session.scalar(
+        select(JobRequest)
+        .options(
+            selectinload(JobRequest.shift_slots),
+            selectinload(JobRequest.category),
+            selectinload(JobRequest.metro_station),
+        )
+        .where(JobRequest.id == job_id, JobRequest.status == JobRequestStatus.active)
+    )
+    if job is None:
+        return None
+    return _job_to_detail(job)
+
+
 async def get_metro_stations_on_same_line(
     session: AsyncSession,
     station_id: int,

@@ -1,8 +1,12 @@
 ﻿OutstaffingBot — release notes (staging)
 
+2026-06-22 — Отклик из групповых постов через бота
+- Кнопка «Откликнуться 👷» в группе ведёт в бота: t.me/Outstaffing_Work_BOT?start=job_{id}
+- Бот проверяет профиль: без анкеты — FSM регистрации, затем карточка вакансии
+- Отклик на смену — inline-кнопки; заявка появляется в «Мои отклики» (бот + Mini App)
+
 2026-06-22 — Исправлена публикация вакансий в Telegram-группы
-- В группах WebApp-кнопки не поддерживаются Telegram — используется ссылка t.me/...?startapp=vacancy_{id}
-- Mini App открывает карточку вакансии по start_param из группового поста
+- В группах WebApp-кнопки не поддерживаются — URL-кнопка t.me/...?start=job_{id}
 - Корректная сборка deep link URL при MINI_APP_URL с query (?v=2)
 - /register_group корректно сохраняет группу при апгрейде в supergroup (TelegramMigrateToChat)
 - Ошибки отправки в группу пишутся в лог worker/bot

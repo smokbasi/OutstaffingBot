@@ -6,6 +6,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, InlineKeyboardMarkup, Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.bot.helpers.vacancy_present import send_job_vacancy_for_apply
 from app.reference.spb_metro import SPB_METRO_LINE_BY_ID
 from app.bot.keyboards.main_menu import main_menu_keyboard
 from app.bot.keyboards.worker_registration import (
@@ -125,8 +126,15 @@ async def _delete_user_message(message: Message) -> None:
     await _delete_message_safe(message.bot, message.chat.id, message.message_id)
 
 
-async def _begin_registration(message: Message, state: FSMContext) -> None:
+async def _begin_registration(
+    message: Message,
+    state: FSMContext,
+    *,
+    pending_job_id: str | None = None,
+) -> None:
     await state.clear()
+    if pending_job_id is not None:
+        await state.update_data(pending_job_id=pending_job_id)
     await state.set_state(WorkerRegistration.first_name)
     await _start_resume_message(message, state, FIRST_NAME_PROMPT)
 
@@ -543,6 +551,7 @@ async def process_confirm_save(callback: CallbackQuery, state: FSMContext, sessi
     )
 
     data = await state.get_data()
+    pending_job_id = data.get("pending_job_id")
     profile = await worker_service.save_worker_registration(
         session,
         user,
@@ -562,5 +571,22 @@ async def process_confirm_save(callback: CallbackQuery, state: FSMContext, sessi
             f"{profile.first_name} {profile.last_name}, {profile.age} лет\n"
             f"Откройте Mini App — профиль будет там же.",
         )
-        await callback.message.answer("Главное меню:", reply_markup=main_menu_keyboard())
+        worker = await worker_service.get_worker_by_user_id(session, user.id)
+        if pending_job_id and worker is not None:
+            from uuid import UUID
+
+            sent = await send_job_vacancy_for_apply(
+                callback.message,
+                session,
+                worker,
+                state,
+                UUID(pending_job_id),
+            )
+            if not sent:
+                await callback.message.answer(
+                    "Вакансия недоступна или уже закрыта.",
+                    reply_markup=main_menu_keyboard(),
+                )
+        else:
+            await callback.message.answer("Главное меню:", reply_markup=main_menu_keyboard())
     await callback.answer()

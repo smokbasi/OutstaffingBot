@@ -90,10 +90,10 @@ def test_group_matches_job_respects_category_filter() -> None:
     assert group_matches_job(inactive, job) is False
 
 
-def test_group_post_keyboard_uses_telegram_startapp_link() -> None:
+def test_group_post_keyboard_uses_job_start_deep_link() -> None:
     job = _make_job()
     settings = Settings(mini_app_url="https://www.outstaffingbot.online/?v=2")
     keyboard = group_post_keyboard(job, settings, bot_username="Outstaffing_Work_BOT")
     assert keyboard is not None
     button = keyboard.inline_keyboard[0][0]
-    assert button.url == f"https://t.me/Outstaffing_Work_BOT?startapp=vacancy_{job.id}"
+    assert button.url == f"https://t.me/Outstaffing_Work_BOT?start=job_{job.id}"

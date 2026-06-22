@@ -170,8 +170,10 @@ async def test_reopen_group_posts_edits_messages(monkeypatch: pytest.MonkeyPatch
         group=group,
     )
     bot = AsyncMock()
+    bot.get_me = AsyncMock(return_value=MagicMock(username="TestBot"))
     settings = MagicMock()
     settings.mini_app_url = "https://example.com"
+    settings.bot_username = "Outstaffing_Work_BOT"
     session = AsyncMock()
     session.scalars = AsyncMock(return_value=MagicMock(all=lambda: [post]))
     session.commit = AsyncMock()

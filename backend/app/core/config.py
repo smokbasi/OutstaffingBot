@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     )
 
     bot_token: str = ""
+    bot_username: str = "Outstaffing_Work_BOT"
     webhook_secret: str = ""
     webhook_url: str = ""
 

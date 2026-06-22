@@ -71,7 +71,12 @@ def vacancy_list_keyboard(
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
-def vacancy_detail_keyboard(vacancy_id: str, shift_slots: list[dict] | None = None) -> InlineKeyboardMarkup:
+def vacancy_detail_keyboard(
+    vacancy_id: str,
+    shift_slots: list[dict] | None = None,
+    *,
+    from_deep_link: bool = False,
+) -> InlineKeyboardMarkup:
     rows: list[list[InlineKeyboardButton]] = []
     if shift_slots:
         for slot in shift_slots:
@@ -87,7 +92,8 @@ def vacancy_detail_keyboard(vacancy_id: str, shift_slots: list[dict] | None = No
                 end = end.strftime("%H:%M")
             label = f"✅ Откликнуться · {date_str} {start}–{end}"
             rows.append([InlineKeyboardButton(text=label, callback_data=f"vacslot:{slot_id}")])
-    rows.append([InlineKeyboardButton(text="◀️ К списку", callback_data="vacback:list")])
+    if not from_deep_link:
+        rows.append([InlineKeyboardButton(text="◀️ К списку", callback_data="vacback:list")])
     rows.append([InlineKeyboardButton(text="❌ Закрыть", callback_data="vacfilter:cancel")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 

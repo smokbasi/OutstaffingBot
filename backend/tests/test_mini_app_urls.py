@@ -32,3 +32,27 @@ def test_vacancy_telegram_startapp_link() -> None:
         vacancy_telegram_startapp_link("Outstaffing_Work_BOT", JOB_ID)
         == f"https://t.me/Outstaffing_Work_BOT?startapp=vacancy_{JOB_ID}"
     )
+
+
+def test_job_start_deep_link() -> None:
+    from app.core.mini_app_urls import job_start_deep_link
+
+    settings = Settings(bot_username="Outstaffing_Work_BOT")
+    assert (
+        job_start_deep_link(settings, JOB_ID)
+        == f"https://t.me/Outstaffing_Work_BOT?start=job_{JOB_ID}"
+    )
+    assert (
+        job_start_deep_link(settings, JOB_ID, bot_username="Custom_Bot")
+        == f"https://t.me/Custom_Bot?start=job_{JOB_ID}"
+    )
+
+
+def test_parse_job_start_payload() -> None:
+    from app.core.mini_app_urls import parse_job_start_payload
+
+    assert parse_job_start_payload(None) is None
+    assert parse_job_start_payload("") is None
+    assert parse_job_start_payload("hello") is None
+    assert parse_job_start_payload("job_not-a-uuid") is None
+    assert parse_job_start_payload(f"job_{JOB_ID}") == JOB_ID
