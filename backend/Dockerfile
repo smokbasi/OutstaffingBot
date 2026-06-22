@@ -13,6 +13,7 @@ RUN apt-get update \
 COPY backend/pyproject.toml backend/alembic.ini ./
 COPY backend/app ./app
 COPY backend/alembic ./alembic
+COPY backend/data ./data
 COPY scripts /app/scripts
 
 RUN pip install -e .
