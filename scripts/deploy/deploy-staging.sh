@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env bash
+#!/usr/bin/env bash
 # ╨а╤Г╤З╨╜╨╛╨╣ ╨┤╨╡╨┐╨╗╨╛╨╣ ╨╜╨░ staging VPS (╨╖╨░╨┐╤Г╤Б╨║╨░╤В╤М ╨Э╨Р ╨б╨Х╨а╨Т╨Х╨а╨Х ╨╛╤В ╨┐╨╛╨╗╤М╨╖╨╛╨▓╨░╤В╨╡╨╗╤П deploy)
 # Scope: ╤В╨╛╨╗╤М╨║╨╛ /opt/outstaffingbot тАФ ╨Э╨Х ╤В╤А╨╛╨│╨░╨╡╤В vspomni_bot, 3x-ui, nginx vspomni.
 # Shared VPS: ╤Б╨╝. docs/SERVER_SECURITY.md ┬з10 (╤З╨╡╨║╨╗╨╕╤Б╤В ╨┐╨╡╤А╨╡╨┤ ╨┤╨╡╨┐╨╗╨╛╨╡╨╝)

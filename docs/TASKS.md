@@ -15,7 +15,9 @@
 
 ## Текущая фаза: Phase 7 — Mini App Polish
 
-**Следующий шаг:** Полный UI/UX всех экранов, deep links, employer inbox (Phase 7).
+**Следующий шаг:** UI/UX всех экранов, deep links / haptic / theme, metro search (Phase 7).
+
+**Dev2 Phase 7/8 (2026-06-23):** cherry-pick в main (коммиты 544d800–97aa832) — webhook/Sentry/backup, fix 500 отклика, theme/haptic; **не** merge веток целиком (конфликт с Phase 6 Nikita). PR #9 закрыть или обновить. ветки eature/phase-7-mini-app-polish и eature/phase-8-production-deploy (автор streetmonster-labZ) — inbox, polish, webhook/backup и docs «Phase 7/8 завершены»; **не смержены** (единственный merged PR Dev2 — Phase 3). Актуальный main включает Phase 6 и employer inbox отдельными коммитами Nikita.
 
 **Verification Phase 0:** локально (Docker Desktop) **или** на dev/staging VPS — см. [SERVER_AND_TEAM.md](./SERVER_AND_TEAM.md).
 
@@ -148,21 +150,29 @@
 ### Phase 7 — Mini App Polish (2 недели) [P1]
 
 - [ ] Полный UI/UX всех экранов
-- [ ] Deep links, haptic, theme
+- [x] Deep links (Nikita), haptic, theme (Dev2 lib/telegram)
 - [x] Employer inbox (accept/reject applications)
+- [ ] **Metro search (Mini App):** поиск станций по подстроке, без учёта регистра, многословные названия [P1]
+  - **Проблема:** сейчас поиск в Mini App фактически работает только по первому слову и чувствителен к регистру — UX сломан.
+  - **Acceptance criteria:**
+    - Запрос `сокол` находит «Сокольники»; `НОВО` — «Новокузнецкая» и др. с подстрокой в названии.
+    - Многословные станции: `площадь револю` → «Площадь Революции» (поиск по всей строке `name`, не только первому токену).
+    - API `GET /reference/metro?q=` и Mini App (Profile, CreateJob, VacancyList, NotificationsSettings) используют одну логику; debounce и min length ≥ 2 сохранены.
+    - Unit/integration-тесты на `search_metro_stations` с кейсами case-insensitive и multi-word.
+  - **Слой:** backend (`worker_service.search_metro_stations`) + при необходимости фронт; см. [PLAN.md § C.8](./PLAN.md#8-rest-api-для-mini-app).
 
-**Verification:** полный user journey без бота (только Mini App).
+**Verification:** полный user journey без бота (только Mini App); metro autocomplete находит станции по части названия в любом регистре.
 
-**Как выполнять:** solo (UI) — `frontend-patterns`, `ecc-react-reviewer`.
+**Как выполнять:** solo (UI) — `frontend-patterns`, `ecc-react-reviewer`; metro search — `postgres-patterns`, `tdd-workflow`.
 
 ---
 
 ### Phase 8 — Production Deploy (1 неделя) [P1]
 
 - [ ] VPS setup, nginx, TLS
-- [ ] Webhook mode
+- [x] Webhook mode (код в main; staging health mode=webhook)
 - [ ] systemd/Docker production config
-- [ ] Backup, logging, Sentry
+- [x] Backup scripts, logging_config, Sentry SDK (DSN в .env — при настройке)
 
 **Verification:** production URL, SSL, uptime 24h.
 
@@ -170,13 +180,77 @@
 
 ---
 
-### Phase 9 — Admin + Moderation (1 неделя) [P2]
+### Phase 9 — Admin + Moderation (2–3 недели) [P1/P2]
 
-- [ ] Admin commands
+> **Wordlists (открытые + кастом):** [badwords-py](https://github.com/FlacSy/BadWords) (MIT), [readme-SVG/Banned-words](https://github.com/readme-SVG/Banned-words) (Apache-2.0), Krugozor/RussianBadWords, CensureBlock, hacking-buds, kugimiya banlist + custom. **Файлы в репо:** [`backend/data/moderation/`](../backend/data/moderation/) — `stop_words_profanity.txt`, `stop_words_sex.txt`, `stop_words_drugs.txt`, `stop_words_translit.txt`, `allow_words_alcohol.txt`; пересборка: `python build_wordlists.py`. Детали — [moderation/README.md](../backend/data/moderation/README.md), нормализация — [PLAN.md § 10.1](./PLAN.md#101-content-moderation--compliance).
+
+#### 9.1 Content Moderation — базовый pipeline [P0]
+
+- [ ] Сервис модерации: нормализация текста → проверка по объединённым wordlists → результат (ok / violation + matched term + field)
+  - **Acceptance criteria:**
+    - Единая точка входа для полей заявки/профиля: `description`, `contact_info`, `venue_name`, опыт работника и т.д.
+    - Wordlists загружаются из [`backend/data/moderation/stop_words_*.txt`](../backend/data/moderation/); escort-список (`stop_words_sex.txt`) **остаётся** активным; alcohol-whitelist — `allow_words_alcohol.txt` (Phase 9.5).
+    - Легитимная alcohol-тематика не блокируется **в любой категории** (см. 9.5).
+    - Покрытие unit-тестами: чистый текст, явный мат, obfuscation, translit.
+
+#### 9.2 Brackets / special chars — pattern rules (не слепое удаление) [P0]
+
+- [ ] Разделить **обфускацию** и **легитимные** скобки; нормализовать только для матчинга, исходный текст пользователю не портить
+  - **Правила обфускации (normalize for matching):**
+    - Внутри слова: `SE[X` → `sex`, `зак[лад]ка` → `закладка`, `п[и]дор` → `пidor` — удалить `[`, `]`, `{`, `}` **между буквами одного токена**.
+    - Разделители внутри токена: `.`, `-`, `_`, `|` между буквами одного слова (кроме осмысленных аббревиатур) — схлопнуть для матчинга.
+    - Leetspeak / homoglyphs: `@→a`, `0→o`, `$→s` и т.п. — только в moderation-normalize, не в сохранённом тексте.
+  - **Легитимные (не трогать при сохранении; при матчинге — опционально strip только внешние скобки целиком):**
+    - Описание: `(удобный график)`, `(опыт приветствуется)`, `(м. рядом)`.
+    - Адрес / venue: `(стр. 2)`, `(корп. 3)`, `(д. 5)`, `(лит. А)`.
+    - Обычные круглые скобки вокруг **целой фразы** (regex: `\([^)]{3,}\)` не разбивающая одно слово) — не считать obfuscation.
+  - **Acceptance criteria:** тесты на obfuscation-кейсы блокируются; легитимные описания с адресными скобками проходят; регрессия на «зак[лад]ка в описании» — violation.
+
+#### 9.3 Translit detection [P0]
+
+- [ ] Расширить normalization: латиница, имитирующая русский мат/наркотики
+  - **Примеры для словаря/правил:** `GOVNO`, `PIDOR`, `Mephedron`, `HUY`, `BLYAT`, `suka`, `pizda` → каноническая кириллица перед wordlist-match.
+  - **Acceptance criteria:** translit-варианты ловятся так же, как кириллические; false positive на латинские бренды/IT-термины минимизирован whitelist-ом контекста (имена компаний в `venue_name` — отдельный кейс в тестах).
+
+#### 9.4 contact_info — ослабление модерации [P1]
+
+- [ ] Перед wordlist-check разбить `contact_info` на сегменты; **email** и **@telegram** сегменты не прогонять через stop_words
+  - **Правила сегментации:**
+    - Email: RFC-подобный паттерн `local@domain`.
+    - Telegram: `@username`, `t.me/username`, `https://t.me/...`.
+    - Остальной текст (телефон, произвольный комментарий) — полная модерация.
+  - **Acceptance criteria:** `contact@bar.ru` и `@employer_spb` не дают ложных срабатываний; мат в свободном тексте контакта по-прежнему блокируется.
+
+#### 9.5 Category whitelist — alcohol [P1]
+
+- [ ] Алкогольная тематика **разрешена на всей платформе** для легитимных заявок на работу — **во всех категориях**, не только bar / bartender (бар, коктейли, алкогольное меню, винный бар, сомелье и т.д.)
+  - Escort / prostitution wordlist **без изменений**.
+  - Убрать alcohol-related термины из block-листов (или не применять блокировку по ним): легитимные упоминания алкоголя не должны давать false positive в **любой** категории.
+  - **Acceptance criteria:** заявки с формулировками «бармен, коктейли, алкогольное меню», «сомелье, винная карта» и аналогичными проходят **в любой категории**; escort-формулировки по-прежнему блокируются.
+
+#### 9.6 Violation threshold + persistence [P0]
+
+- [ ] Счётчик нарушений на пользователя (`telegram_id`); после **N** нарушений (env `MODERATION_VIOLATION_THRESHOLD`, default 3) — статус «требует review admin»
+  - Таблица/модель `moderation_violations`: `user_id`, `telegram_id`, `field`, `raw_snippet`, `matched_term`, `normalized_snippet`, `source` (bot/mini-app/api), `created_at`.
+  - **Acceptance criteria:** каждое срабатывание логируется; порог N настраивается; API/бот возвращают понятное сообщение пользователю без утечки полного wordlist.
+
+#### 9.7 Admin: violation log & user ban [P0]
+
+- [ ] Просмотр логов и блокировка по Telegram ID — **Phase 9 MVP: команды бота** (`ADMIN_TELEGRAM_IDS`); опционально позже — Mini App admin (Phase 10+)
+  - Команды (или подменю `/admin`): список пользователей с violations ≥ N, детализация по `telegram_id`, `/admin block_user <telegram_id>`, `/admin unblock_user <telegram_id>`.
+  - Admin видит примеры срабатываний (snippet + matched term + дата), принимает решение о блокировке.
+  - Заблокированный пользователь: создание заявок/откликов запрещено; сообщение «аккаунт заблокирован».
+  - **Acceptance criteria:** admin из whitelist видит лог; block/unblock идемпотентны; блок проверяется в middleware/service layer; audit запись в `audit_log`.
+
+#### 9.8 Admin — базовое (из roadmap) [P2]
+
+- [ ] Admin commands (`/admin stats`, …)
 - [ ] Employer verification
-- [ ] Audit log
+- [ ] Audit log (create/update; включая moderation actions)
 
-**Как выполнять:** solo — admin handlers изолированно.
+**Verification:** заведомо запрещённый текст блокируется с логом; после N попыток user попадает в admin-очередь; admin блокирует по ID; легитимные alcohol-формулировки проходят в любой категории; contact с @telegram не даёт false positive.
+
+**Как выполнять:** solo — `python-patterns`, `security-review`; wordlists — отдельный модуль + `tdd-workflow`.
 
 ---
 
@@ -197,6 +271,8 @@
 | Документ | Что там |
 |----------|---------|
 | **[TASKS.md](./TASKS.md)** (этот файл) | **Единый чеклист задач** Phase 0–10 |
+| [TASKS.md § Phase 9](./TASKS.md#phase-9--admin--moderation-23-недели-p1p2) | Content Moderation, violation log, admin ban |
+| [PLAN.md § 10.1](./PLAN.md#101-content-moderation--compliance) | Архитектура модерации и wordlists |
 | [PLAN.md § F](./PLAN.md#f-roadmap--фазы-реализации) | Roadmap с verification и контекстом фаз |
 | [PLAN.md § C](./PLAN.md#c-детальные-разделы-по-фичам) | Детальные разделы по фичам (код, схемы) |
 | [DEVELOPMENT_WORKFLOW.md § E](./DEVELOPMENT_WORKFLOW.md#e-workflow-по-фазам-planmd) | Как выполнять каждую фазу (solo vs orchestration) |
