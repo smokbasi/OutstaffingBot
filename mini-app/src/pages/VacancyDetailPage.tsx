@@ -6,6 +6,7 @@ import {
   type ShiftConflictBody,
   type VacancyDetail,
 } from "../api/client";
+import { triggerHaptic } from "../lib/telegram";
 
 type VacancyDetailPageProps = {
   initData: string;
@@ -34,10 +35,6 @@ function formatTime(value: string): string {
 function formatRate(rate: string): string {
   const num = Number(rate);
   return Number.isNaN(num) ? rate : `${num.toLocaleString("ru-RU")} ₽/час`;
-}
-
-function triggerHaptic(type: "light" | "medium" | "heavy" = "medium") {
-  window.Telegram?.WebApp?.HapticFeedback?.impactOccurred?.(type);
 }
 
 export function VacancyDetailPage({ initData, vacancyId, onBack }: VacancyDetailPageProps) {

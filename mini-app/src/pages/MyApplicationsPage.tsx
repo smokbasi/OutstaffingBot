@@ -6,6 +6,7 @@ import {
   type ApplicationRead,
   type ApplicationStatus,
 } from "../api/client";
+import { triggerHaptic } from "../lib/telegram";
 
 type MyApplicationsPageProps = {
   initData: string;
@@ -51,6 +52,7 @@ export function MyApplicationsPage({ initData }: MyApplicationsPageProps) {
     setCancellingId(applicationId);
     try {
       await cancelApplication(initData, applicationId);
+      triggerHaptic("light");
       await loadApplications();
     } catch (err) {
       const message = err instanceof Error ? err.message : "Не удалось отменить отклик";
@@ -99,7 +101,9 @@ export function MyApplicationsPage({ initData }: MyApplicationsPageProps) {
                 {formatDate(item.shift_date)} {formatTime(item.start_time)}–{formatTime(item.end_time)}
               </p>
               <p className="hint">
-                {APPLICATION_STATUS_LABELS[item.status as ApplicationStatus] ?? item.status}
+                <span className={`status-badge status-app-${item.status}`}>
+                  {APPLICATION_STATUS_LABELS[item.status as ApplicationStatus] ?? item.status}
+                </span>
               </p>
             </div>
             <button

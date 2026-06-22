@@ -6,10 +6,12 @@ import {
   type JobRequest,
   type JobRequestStatus,
 } from "../api/client";
+import { triggerHaptic } from "../lib/telegram";
 
 type EmployerJobsPageProps = {
   initData: string;
   onCreateClick?: () => void;
+  onViewApplications?: (jobId: string, jobTitle: string) => void;
   reloadKey?: number;
 };
 
@@ -35,7 +37,12 @@ function formatRate(rate: string): string {
   return Number.isNaN(num) ? rate : `${num.toLocaleString("ru-RU")} ₽/час`;
 }
 
-export function EmployerJobsPage({ initData, onCreateClick, reloadKey = 0 }: EmployerJobsPageProps) {
+export function EmployerJobsPage({
+  initData,
+  onCreateClick,
+  onViewApplications,
+  reloadKey = 0,
+}: EmployerJobsPageProps) {
   const [state, setState] = useState<JobsState>({ status: "loading" });
   const [actionError, setActionError] = useState<string | null>(null);
   const [busyJobId, setBusyJobId] = useState<string | null>(null);
@@ -85,6 +92,7 @@ export function EmployerJobsPage({ initData, onCreateClick, reloadKey = 0 }: Emp
           jobs: prev.jobs.map((job) => (job.id === jobId ? updated : job)),
         };
       });
+      triggerHaptic("light");
     } catch (err) {
       const message = err instanceof Error ? err.message : "Не удалось обновить статус";
       setActionError(message);
@@ -152,6 +160,15 @@ export function EmployerJobsPage({ initData, onCreateClick, reloadKey = 0 }: Emp
                 </ul>
               ) : null}
               <div className="job-actions">
+                {onViewApplications && job.status !== "draft" ? (
+                  <button
+                    type="button"
+                    className="btn"
+                    onClick={() => onViewApplications(job.id, job.title)}
+                  >
+                    Отклики
+                  </button>
+                ) : null}
                 {job.status === "draft" ? (
                   <button
                     type="button"

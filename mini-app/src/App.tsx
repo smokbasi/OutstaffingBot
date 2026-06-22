@@ -2,12 +2,14 @@ import { useEffect, useState, type FormEvent } from "react";
 import "./App.css";
 import { getMe, upsertEmployerProfile, type MeResponse } from "./api/client";
 import { CreateJobPage } from "./pages/CreateJobPage";
+import { EmployerApplicationsPage } from "./pages/EmployerApplicationsPage";
 import { EmployerJobsPage } from "./pages/EmployerJobsPage";
 import { MyApplicationsPage } from "./pages/MyApplicationsPage";
 import { NotificationsSettingsPage } from "./pages/NotificationsSettingsPage";
 import { ProfilePage } from "./pages/ProfilePage";
 import { VacancyDetailPage } from "./pages/VacancyDetailPage";
 import { VacancyListPage } from "./pages/VacancyListPage";
+import { applyTelegramTheme, triggerHaptic } from "./lib/telegram";
 
 declare global {
   interface Window {
@@ -15,10 +17,14 @@ declare global {
       WebApp?: {
         initData: string;
         initDataUnsafe: { user?: { first_name?: string; username?: string } };
+        themeParams?: Record<string, string>;
         ready: () => void;
         expand: () => void;
+        setHeaderColor?: (color: string) => void;
+        setBackgroundColor?: (color: string) => void;
         HapticFeedback?: {
           impactOccurred: (style: "light" | "medium" | "heavy" | "rigid" | "soft") => void;
+          notificationOccurred?: (type: "error" | "success" | "warning") => void;
         };
       };
     };
@@ -32,7 +38,7 @@ type TelegramContext = {
 };
 
 type AppMode = "worker" | "employer";
-type EmployerView = "jobs" | "create";
+type EmployerView = "jobs" | "create" | "applications";
 type WorkerView = "profile" | "vacancies" | "vacancy-detail" | "applications" | "notifications";
 
 type MeState =
@@ -59,6 +65,7 @@ function readTelegramContext(): TelegramContext {
 }
 
 const VACANCY_DEEP_LINK_RE = /^\/vacancy\/([0-9a-f-]{36})$/i;
+const EMPLOYER_JOB_DEEP_LINK_RE = /^\/employer\/job\/([0-9a-f-]{36})$/i;
 
 function parseVacancyDeepLink(): string | null {
   if (typeof window === "undefined") {
@@ -68,16 +75,48 @@ function parseVacancyDeepLink(): string | null {
   return match?.[1] ?? null;
 }
 
-function readInitialWorkerRoute(): {
+function parseEmployerJobDeepLink(): string | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+  const match = window.location.pathname.match(EMPLOYER_JOB_DEEP_LINK_RE);
+  return match?.[1] ?? null;
+}
+
+function readInitialRoute(): {
   appMode: AppMode | null;
   workerView: WorkerView;
+  employerView: EmployerView;
   vacancyId: string | null;
+  employerJobId: string | null;
 } {
   const vacancyId = parseVacancyDeepLink();
   if (vacancyId) {
-    return { appMode: "worker", workerView: "vacancy-detail", vacancyId };
+    return {
+      appMode: "worker",
+      workerView: "vacancy-detail",
+      employerView: "jobs",
+      vacancyId,
+      employerJobId: null,
+    };
   }
-  return { appMode: null, workerView: "vacancies", vacancyId: null };
+  const employerJobId = parseEmployerJobDeepLink();
+  if (employerJobId) {
+    return {
+      appMode: "employer",
+      workerView: "vacancies",
+      employerView: "applications",
+      vacancyId: null,
+      employerJobId,
+    };
+  }
+  return {
+    appMode: null,
+    workerView: "vacancies",
+    employerView: "jobs",
+    vacancyId: null,
+    employerJobId: null,
+  };
 }
 
 function RolePicker({
@@ -90,12 +129,18 @@ function RolePicker({
       <h2>Кто вы?</h2>
       <p className="hint">Выберите режим — профиль работника и заявки работодателя показываются отдельно.</p>
       <div className="role-cards">
-        <button type="button" className="role-card" onClick={() => onSelect("worker")}>
+        <button type="button" className="role-card" onClick={() => {
+          triggerHaptic("light");
+          onSelect("worker");
+        }}>
           <span className="role-card-icon">👷</span>
           <span className="role-card-title">Я ищу работу</span>
           <span className="role-card-desc">Профиль, опыт и настройки для поиска смен</span>
         </button>
-        <button type="button" className="role-card" onClick={() => onSelect("employer")}>
+        <button type="button" className="role-card" onClick={() => {
+          triggerHaptic("light");
+          onSelect("employer");
+        }}>
           <span className="role-card-icon">🏢</span>
           <span className="role-card-title">Я работодатель</span>
           <span className="role-card-desc">Заявки на персонал и создание новых смен</span>
@@ -166,13 +211,21 @@ function EmployerSetupPrompt({
 
 function App() {
   const [telegram] = useState(readTelegramContext);
-  const [initialRoute] = useState(readInitialWorkerRoute);
+  const [initialRoute] = useState(readInitialRoute);
   const [meState, setMeState] = useState<MeState>({ status: "loading" });
   const [appMode, setAppMode] = useState<AppMode | null>(initialRoute.appMode);
-  const [employerView, setEmployerView] = useState<EmployerView>("jobs");
+  const [employerView, setEmployerView] = useState<EmployerView>(initialRoute.employerView);
   const [workerView, setWorkerView] = useState<WorkerView>(initialRoute.workerView);
   const [selectedVacancyId, setSelectedVacancyId] = useState<string | null>(initialRoute.vacancyId);
+  const [selectedEmployerJobId, setSelectedEmployerJobId] = useState<string | null>(
+    initialRoute.employerJobId,
+  );
+  const [selectedEmployerJobTitle, setSelectedEmployerJobTitle] = useState<string | null>(null);
   const [jobsReloadKey, setJobsReloadKey] = useState(0);
+
+  useEffect(() => {
+    applyTelegramTheme();
+  }, []);
 
   useEffect(() => {
     if (!telegram.inTelegram || !telegram.initData) {
@@ -204,11 +257,18 @@ function App() {
     setAppMode(mode);
     if (mode === "employer") {
       setEmployerView("jobs");
+      setSelectedEmployerJobId(null);
     }
     if (mode === "worker") {
       setWorkerView("vacancies");
       setSelectedVacancyId(null);
     }
+  }
+
+  function handleViewEmployerApplications(jobId: string, jobTitle: string) {
+    setSelectedEmployerJobId(jobId);
+    setSelectedEmployerJobTitle(jobTitle);
+    setEmployerView("applications");
   }
 
   function handleSwitchRole() {
@@ -313,11 +373,26 @@ function App() {
       );
     }
 
+    if (employerView === "applications" && selectedEmployerJobId) {
+      return (
+        <EmployerApplicationsPage
+          initData={telegram.initData}
+          jobId={selectedEmployerJobId}
+          jobTitle={selectedEmployerJobTitle ?? undefined}
+          onBack={() => {
+            setEmployerView("jobs");
+            setSelectedEmployerJobId(null);
+          }}
+        />
+      );
+    }
+
     return (
       <EmployerJobsPage
         initData={telegram.initData}
         reloadKey={jobsReloadKey}
         onCreateClick={() => setEmployerView("create")}
+        onViewApplications={handleViewEmployerApplications}
       />
     );
   }
@@ -397,8 +472,11 @@ function App() {
         <nav className="app-nav">
           <button
             type="button"
-            className={`nav-btn${employerView === "jobs" ? " active" : ""}`}
-            onClick={() => setEmployerView("jobs")}
+            className={`nav-btn${employerView === "jobs" || employerView === "applications" ? " active" : ""}`}
+            onClick={() => {
+              setEmployerView("jobs");
+              setSelectedEmployerJobId(null);
+            }}
           >
             Заявки
           </button>

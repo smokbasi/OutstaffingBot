@@ -510,3 +510,40 @@
 .application-item:last-child {
   border-bottom: none;
 }
+
+.employer-application-item {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.application-body {
+  flex: 1;
+}
+
+.application-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.application-actions .btn {
+  margin-top: 0;
+}
+
+.status-app-pending {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.status-app-accepted {
+  background: #d4edda;
+  color: #155724;
+}
+
+.status-app-rejected,
+.status-app-cancelled_by_worker,
+.status-app-cancelled_by_employer {
+  background: #f8d7da;
+  color: #721c24;
+}

@@ -168,6 +168,27 @@ export type ApplicationListResponse = {
   total: number;
 };
 
+export type EmployerApplicationRead = {
+  id: string;
+  job_request_id: string;
+  shift_slot_id: string;
+  status: ApplicationStatus;
+  applied_at: string;
+  shift_date: string;
+  start_time: string;
+  end_time: string;
+  worker_id: string;
+  worker_first_name: string;
+  worker_last_name: string;
+  worker_age: number;
+  worker_experience_months: number | null;
+};
+
+export type EmployerApplicationListResponse = {
+  items: EmployerApplicationRead[];
+  total: number;
+};
+
 export type ShiftConflictBody = {
   detail: string;
   conflicting: {
@@ -439,6 +460,24 @@ export function cancelApplication(initData: string, applicationId: string): Prom
 
 export function listMyApplications(initData: string): Promise<ApplicationListResponse> {
   return apiFetch<ApplicationListResponse>("/applications/mine", initData);
+}
+
+export function listJobApplications(
+  initData: string,
+  jobId: string,
+): Promise<EmployerApplicationListResponse> {
+  return apiFetch<EmployerApplicationListResponse>(`/employer/jobs/${jobId}/applications`, initData);
+}
+
+export function updateEmployerApplication(
+  initData: string,
+  applicationId: string,
+  status: "accepted" | "rejected",
+): Promise<EmployerApplicationRead> {
+  return apiFetch<EmployerApplicationRead>(`/employer/applications/${applicationId}`, initData, {
+    method: "PATCH",
+    body: JSON.stringify({ status }),
+  });
 }
 
 export async function searchMetroStations(q: string): Promise<MetroStation[]> {
