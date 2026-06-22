@@ -4,12 +4,12 @@ from uuid import UUID
 from aiogram import Bot
 from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.config import Settings
-from app.db.models import GroupPost, JobRequest, JobRequestStatus, TelegramGroup
+from app.db.models import Application, ApplicationStatus, GroupPost, JobRequest, JobRequestStatus, TelegramGroup
 
 
 def _format_shift_lines(job: JobRequest) -> str:
@@ -75,6 +75,65 @@ async def _get_job_with_relations(session: AsyncSession, job_id: UUID) -> JobReq
         )
         .where(JobRequest.id == job_id)
     )
+
+
+async def count_accepted_applications(session: AsyncSession, job_id: UUID) -> int:
+    count = await session.scalar(
+        select(func.count())
+        .select_from(Application)
+        .where(
+            Application.job_request_id == job_id,
+            Application.status == ApplicationStatus.accepted,
+        )
+    )
+    return int(count or 0)
+
+
+def is_job_headcount_filled(job: JobRequest, accepted_count: int) -> bool:
+    return accepted_count >= job.workers_needed
+
+
+async def _get_group_posts(session: AsyncSession, job_id: UUID) -> list[GroupPost]:
+    stmt = (
+        select(GroupPost)
+        .options(selectinload(GroupPost.group))
+        .where(GroupPost.job_request_id == job_id, GroupPost.message_id.is_not(None))
+    )
+    return list(await session.scalars(stmt))
+
+
+async def _edit_group_posts(
+    session: AsyncSession,
+    bot: Bot,
+    settings: Settings,
+    job: JobRequest,
+    posts: list[GroupPost],
+    *,
+    closed: bool,
+) -> int:
+    text = format_group_post_message(job, closed=closed)
+    keyboard = group_post_keyboard(job, settings, closed=closed)
+    updated_count = 0
+
+    for post in posts:
+        group = post.group
+        if group is None or post.message_id is None:
+            continue
+        try:
+            await bot.edit_message_text(
+                text=text,
+                chat_id=group.chat_id,
+                message_id=post.message_id,
+                reply_markup=keyboard,
+            )
+            updated_count += 1
+        except TelegramBadRequest:
+            continue
+        except TelegramForbiddenError:
+            group.is_active = False
+
+    await session.commit()
+    return updated_count
 
 
 async def find_groups_for_job(session: AsyncSession, job: JobRequest) -> list[TelegramGroup]:
@@ -171,34 +230,39 @@ async def close_group_posts(session: AsyncSession, bot: Bot, settings: Settings,
     if job is None:
         return 0
 
-    stmt = (
-        select(GroupPost)
-        .options(selectinload(GroupPost.group))
-        .where(GroupPost.job_request_id == job_id, GroupPost.message_id.is_not(None))
-    )
-    posts = list(await session.scalars(stmt))
+    posts = await _get_group_posts(session, job_id)
     if not posts:
         return 0
 
-    text = format_group_post_message(job, closed=True)
-    updated_count = 0
+    return await _edit_group_posts(session, bot, settings, job, posts, closed=True)
 
-    for post in posts:
-        group = post.group
-        if group is None or post.message_id is None:
-            continue
-        try:
-            await bot.edit_message_text(
-                text=text,
-                chat_id=group.chat_id,
-                message_id=post.message_id,
-                reply_markup=group_post_keyboard(job, settings, closed=True),
-            )
-            updated_count += 1
-        except TelegramBadRequest:
-            continue
-        except TelegramForbiddenError:
-            group.is_active = False
 
-    await session.commit()
-    return updated_count
+async def reopen_group_posts(session: AsyncSession, bot: Bot, settings: Settings, job_id: UUID) -> int:
+    job = await _get_job_with_relations(session, job_id)
+    if job is None:
+        return 0
+
+    posts = await _get_group_posts(session, job_id)
+    if not posts:
+        return 0
+
+    return await _edit_group_posts(session, bot, settings, job, posts, closed=False)
+
+
+async def sync_group_posts_for_headcount(
+    session: AsyncSession,
+    bot: Bot,
+    settings: Settings,
+    job_id: UUID,
+) -> int:
+    job = await _get_job_with_relations(session, job_id)
+    if job is None or not job.post_to_groups or job.status != JobRequestStatus.active:
+        return 0
+
+    posts = await _get_group_posts(session, job_id)
+    if not posts:
+        return 0
+
+    accepted_count = await count_accepted_applications(session, job_id)
+    closed = is_job_headcount_filled(job, accepted_count)
+    return await _edit_group_posts(session, bot, settings, job, posts, closed=closed)

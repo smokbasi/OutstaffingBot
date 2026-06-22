@@ -27,6 +27,7 @@ class WorkerSettings:
         tasks.match_workers_for_job,
         tasks.post_job_to_groups,
         tasks.close_group_posts,
+        tasks.sync_group_posts_for_headcount,
     ]
     on_startup = worker_startup
     on_shutdown = worker_shutdown

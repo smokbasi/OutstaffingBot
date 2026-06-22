@@ -5,6 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.core.arq_pool import enqueue_job
 from app.db.models import (
     Application,
     ApplicationStatus,
@@ -15,6 +16,7 @@ from app.db.models import (
 )
 from app.schemas.application import ApplicationListResponse, ApplicationRead
 from app.services import matching_service
+from app.services.group_posting_service import count_accepted_applications, is_job_headcount_filled
 
 
 def shifts_overlap(a_start: time, a_end: time, b_start: time, b_end: time) -> bool:
@@ -44,6 +46,10 @@ class ApplicationNotFoundError(ApplicationError):
 
 
 class ApplicationNotCancellableError(ApplicationError):
+    pass
+
+
+class ApplicationNotAcceptableError(ApplicationError):
     pass
 
 
@@ -181,6 +187,13 @@ async def apply_to_shift(
     return _application_to_read(loaded)
 
 
+async def _maybe_sync_group_posts(session: AsyncSession, app: Application) -> None:
+    job = app.job_request
+    if job is None or not job.post_to_groups or job.status != JobRequestStatus.active:
+        return
+    await enqueue_job("sync_group_posts_for_headcount", str(job.id))
+
+
 async def cancel_application(
     session: AsyncSession,
     worker: Worker,
@@ -209,6 +222,49 @@ async def cancel_application(
     app.status = ApplicationStatus.cancelled_by_worker
     app.cancelled_at = datetime.now(timezone.utc)
     await session.flush()
+    await _maybe_sync_group_posts(session, app)
+    return _application_to_read(app)
+
+
+async def accept_application(
+    session: AsyncSession,
+    employer_id: UUID,
+    application_id: UUID,
+) -> ApplicationRead:
+    app = await session.scalar(
+        select(Application)
+        .options(
+            selectinload(Application.shift_slot),
+            selectinload(Application.job_request).selectinload(JobRequest.category),
+            selectinload(Application.job_request).selectinload(JobRequest.metro_station),
+        )
+        .where(Application.id == application_id)
+    )
+    if app is None:
+        raise ApplicationNotFoundError("Application not found")
+
+    job = app.job_request
+    if job is None or job.employer_id != employer_id:
+        raise ApplicationNotFoundError("Application not found")
+
+    if app.status != ApplicationStatus.pending:
+        raise ApplicationNotAcceptableError("Application cannot be accepted")
+
+    slot = app.shift_slot
+    if slot is None:
+        raise ApplicationNotFoundError("Shift slot not found")
+
+    if slot.slots_filled >= slot.slots_total:
+        raise SlotUnavailableError("No free slots on this shift")
+
+    app.status = ApplicationStatus.accepted
+    slot.slots_filled += 1
+    await session.flush()
+
+    accepted_count = await count_accepted_applications(session, job.id)
+    if is_job_headcount_filled(job, accepted_count):
+        await _maybe_sync_group_posts(session, app)
+
     return _application_to_read(app)
 
 

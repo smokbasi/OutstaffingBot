@@ -87,3 +87,29 @@ async def close_group_posts(ctx: dict, job_id: str) -> int:
         )
     logger.info("Closed group posts for job %s (%s messages)", job_id, updated)
     return updated
+
+
+async def sync_group_posts_for_headcount(ctx: dict, job_id: str) -> int:
+    settings = get_settings()
+    if not settings.bot_enabled:
+        logger.warning("BOT_TOKEN not set — skip group sync for job %s", job_id)
+        return 0
+
+    bot = ctx.get("bot")
+    if bot is None:
+        bot = Bot(
+            token=settings.bot_token,
+            default=DefaultBotProperties(parse_mode=ParseMode.HTML),
+        )
+
+    from uuid import UUID
+
+    async with async_session_factory() as session:
+        updated = await group_posting_service.sync_group_posts_for_headcount(
+            session,
+            bot,
+            settings,
+            UUID(job_id),
+        )
+    logger.info("Synced group posts for job %s (%s messages)", job_id, updated)
+    return updated

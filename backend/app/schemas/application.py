@@ -45,6 +45,10 @@ class ShiftConflictResponse(BaseModel):
     conflicting: ConflictingShiftInfo
 
 
+class ApplicationStatusUpdate(BaseModel):
+    status: ApplicationStatus = Field(description="accepted or rejected")
+
+
 APPLICATION_STATUS_LABELS: dict[ApplicationStatus, str] = {
     ApplicationStatus.pending: "На рассмотрении",
     ApplicationStatus.accepted: "Принят",

@@ -27,6 +27,36 @@ def _format_category_ids(category_ids: list[int] | None) -> str:
     return ", ".join(str(item) for item in category_ids)
 
 
+_PRIVATE_GROUP_COMMAND_HINT = (
+    "Эта команда работает только в группе.\n\n"
+    "Добавьте бота в нужную группу, сделайте его администратором "
+    "с правом публиковать сообщения и выполните команду там."
+)
+
+
+@router.message(
+    Command("register_group", "unregister_group", "group_status"),
+    F.chat.type == ChatType.PRIVATE,
+)
+async def cmd_group_commands_private_only(message: Message) -> None:
+    command = (message.text or "").split(maxsplit=1)[0].lstrip("/").split("@", 1)[0]
+    if command == "register_group":
+        await message.answer(
+            _PRIVATE_GROUP_COMMAND_HINT
+            + "\n\nВ группе: <code>/register_group</code> — все категории, "
+            "<code>/register_group 2,5</code> — только выбранные."
+        )
+        return
+    if command == "unregister_group":
+        await message.answer(
+            _PRIVATE_GROUP_COMMAND_HINT + "\n\nВ группе: <code>/unregister_group</code>."
+        )
+        return
+    await message.answer(
+        _PRIVATE_GROUP_COMMAND_HINT + "\n\nВ группе: <code>/group_status</code>."
+    )
+
+
 @router.message(Command("register_group"), F.chat.type.in_({ChatType.GROUP, ChatType.SUPERGROUP}))
 async def cmd_register_group(message: Message, session: AsyncSession) -> None:
     category_ids = _parse_category_ids(message.text or "")
@@ -37,7 +67,7 @@ async def cmd_register_group(message: Message, session: AsyncSession) -> None:
         category_ids=category_ids,
     )
     await message.answer(
-        "✅ Группа зарегистрирована для автопубликации вакансий.\n"
+        "✅ Группа привязана.\n"
         f"Категории: {_format_category_ids(group.category_ids)}\n\n"
         "Убедитесь, что бот — администратор с правом публиковать сообщения.\n"
         "Пример: <code>/register_group 2,5</code> — только категории 2 и 5.\n"
@@ -51,7 +81,7 @@ async def cmd_unregister_group(message: Message, session: AsyncSession) -> None:
     if group is None:
         await message.answer("Эта группа не была зарегистрирована.")
         return
-    await message.answer("Группа отключена от автопубликации.")
+    await message.answer("✅ Группа отключена от автопубликации.")
 
 
 @router.message(Command("group_status"), F.chat.type.in_({ChatType.GROUP, ChatType.SUPERGROUP}))
