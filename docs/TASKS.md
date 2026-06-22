@@ -6,7 +6,7 @@
 ## Как пользоваться этим файлом
 
 1. **Открывайте этот файл первым**, когда ищете «что делать дальше» — здесь все checkbox-задачи Phase 0–10 в одном месте.
-2. **Текущая фаза** — та, где есть незакрытые пункты. Сейчас это **Phase 8** (Phase 6 пропущена).
+2. **Текущая фаза** — та, где есть незакрытые пункты. Сейчас это **Phase 8** (Phase 6 отложена — пункты не закрыты).
 3. **Отмечайте прогресс** — меняйте `[ ]` на `[x]` по мере выполнения (и синхронизируйте с [PLAN.md § F](./PLAN.md#f-roadmap--фазы-реализации), если правите roadmap там).
 4. **Перед началом фазы** — прочитайте строку для этой фазы в [DEVELOPMENT_WORKFLOW.md § E](./DEVELOPMENT_WORKFLOW.md#e-workflow-по-фазам-planmd): solo vs оркестрация, skills, verification.
 5. **Для ECC/setup** — дополнительный чеклист Phase 0 в [ECC_STRATEGY.md § 9](./ECC_STRATEGY.md#9-чеклист-phase-0-ecc).
@@ -15,9 +15,9 @@
 
 ## Текущая фаза: Phase 8 — Production Deploy
 
-**Phase 6 пропущена** (Group Posting — позже). **Phase 7 завершена** (Mini App Polish).
+**Phase 6 отложена** (Group Posting — не в git, см. ниже). **Phase 7 завершена** (Mini App Polish).
 
-**Следующий шаг:** VPS setup, nginx, TLS, webhook mode (Phase 8).
+**Следующий шаг:** webhook mode, production config, backup/logging (Phase 8; TLS на staging — outstaffingbot.online).
 
 **Verification Phase 0:** локально (Docker Desktop) **или** на dev/staging VPS — см. [SERVER_AND_TEAM.md](./SERVER_AND_TEAM.md).
 
@@ -38,7 +38,7 @@
 - [x] Миграции + seed на staging
 - [x] Bot `/start` на staging (polling; webhook — позже с доменом)
 - [ ] Договорённость: PR review (1 approve), кто деплоит
-- [ ] (Опционально) поддомен + TLS для webhook / Mini App
+- [x] (Опционально) поддомен + TLS для webhook / Mini App — outstaffingbot.online
 - [ ] (Опционально) GitHub Actions CI зелёный на PR
 
 **Verification:** оба разработчика клонировали repo; staging отвечает `/start`; изменения из PR видны после deploy.
@@ -134,9 +134,11 @@
 
 ### Phase 6 — Group Posting (1 неделя) [P1]
 
-- [x] Admin: register telegram groups
-- [x] Auto-post formatted messages
-- [x] Edit on close
+> Частично в старых образах bot/worker; в git пропущена — требует решения команды.
+
+- [ ] Admin: register telegram groups
+- [ ] Auto-post formatted messages
+- [ ] Edit on close
 
 **Verification:** заявка появляется в тестовой группе с кнопкой отклика.
 

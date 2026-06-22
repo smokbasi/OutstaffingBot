@@ -1010,10 +1010,10 @@ Ruflo удалён. Агентный harness — **ECC** ([github.com/affaan-m/E
 
 ### Phase 1: Worker Core (2 недели) — P0
 
-- [ ] FSM регистрация работника (бот)
-- [ ] API: GET/PUT worker profile, experiences
-- [ ] Mini App: страница профиля
-- [ ] initData auth middleware
+- [x] FSM регистрация работника (бот)
+- [x] API: GET/PUT worker profile, experiences
+- [x] Mini App: страница профиля
+- [x] initData auth middleware
 
 **Verification:** профиль создаётся в боте → виден в Mini App.
 
@@ -1021,10 +1021,10 @@ Ruflo удалён. Агентный harness — **ECC** ([github.com/affaan-m/E
 
 ### Phase 2: Employer + Job Requests (2 недели) — P0
 
-- [ ] FSM создание заявки (бот)
-- [ ] API: CRUD jobs, shift_slots
-- [ ] Mini App: форма создания заявки
-- [ ] Статусы draft/active/cancelled
+- [x] FSM создание заявки (бот)
+- [x] API: CRUD jobs, shift_slots
+- [x] Mini App: форма создания заявки
+- [x] Статусы draft/active/cancelled
 
 **Verification:** employer создаёт заявку через Mini App → видна в боте.
 
@@ -1063,6 +1063,8 @@ Ruflo удалён. Агентный harness — **ECC** ([github.com/affaan-m/E
 
 ### Phase 6: Group Posting (1 неделя) — P1
 
+> Частично в старых образах bot/worker; в git пропущена — требует решения команды.
+
 - [ ] Admin: register telegram groups
 - [ ] Auto-post formatted messages
 - [ ] Edit on close
@@ -1073,9 +1075,9 @@ Ruflo удалён. Агентный harness — **ECC** ([github.com/affaan-m/E
 
 ### Phase 7: Mini App Polish (2 недели) — P1
 
-- [ ] Полный UI/UX всех экранов
-- [ ] Deep links, haptic, theme
-- [ ] Employer inbox (accept/reject applications)
+- [x] Полный UI/UX всех экранов
+- [x] Deep links, haptic, theme
+- [x] Employer inbox (accept/reject applications)
 
 **Verification:** полный user journey без бота (только Mini App).
 
