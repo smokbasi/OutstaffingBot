@@ -409,19 +409,13 @@ async def vacancy_detail(callback: CallbackQuery, session: AsyncSession, state: 
         f"{vacancy.description}"
     )
     if vacancy.dress_code:
-        text += f"
-Дресс-код: {vacancy.dress_code}"
+        text += f"\nДресс-код: {vacancy.dress_code}"
     if vacancy.includes_lunch:
-        text += "
-🍽 Обед включён"
+        text += "\n🍽 Обед включён"
 
     text += (
-        f"
-
-<b>Смены:</b>
-{shifts_text}
-
-"
+        f"\n\n<b>Смены:</b>\n"
+        f"{shifts_text}\n\n"
         "Выберите смену для отклика:"
     )
     await state.update_data(current_vacancy_id=str(vacancy.id))
