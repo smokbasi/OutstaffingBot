@@ -1063,9 +1063,9 @@ Ruflo удалён. Агентный harness — **ECC** ([github.com/affaan-m/E
 
 ### Phase 6: Group Posting (1 неделя) — P1
 
-- [ ] Admin: register telegram groups
-- [ ] Auto-post formatted messages
-- [ ] Edit on close
+- [x] Admin: register telegram groups
+- [x] Auto-post formatted messages
+- [x] Edit on close
 
 **Verification:** заявка появляется в тестовой группе с кнопкой отклика.
 

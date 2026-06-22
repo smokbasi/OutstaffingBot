@@ -6,16 +6,16 @@
 ## Как пользоваться этим файлом
 
 1. **Открывайте этот файл первым**, когда ищете «что делать дальше» — здесь все checkbox-задачи Phase 0–10 в одном месте.
-2. **Текущая фаза** — та, где есть незакрытые пункты. Сейчас это **Phase 4**.
+2. **Текущая фаза** — та, где есть незакрытые пункты. Сейчас это **Phase 7**.
 3. **Отмечайте прогресс** — меняйте `[ ]` на `[x]` по мере выполнения (и синхронизируйте с [PLAN.md § F](./PLAN.md#f-roadmap--фазы-реализации), если правите roadmap там).
 4. **Перед началом фазы** — прочитайте строку для этой фазы в [DEVELOPMENT_WORKFLOW.md § E](./DEVELOPMENT_WORKFLOW.md#e-workflow-по-фазам-planmd): solo vs оркестрация, skills, verification.
 5. **Для ECC/setup** — дополнительный чеклист Phase 0 в [ECC_STRATEGY.md § 9](./ECC_STRATEGY.md#9-чеклист-phase-0-ecc).
 
 ---
 
-## Текущая фаза: Phase 6 — Group Posting
+## Текущая фаза: Phase 7 — Mini App Polish
 
-**Следующий шаг:** Admin: register telegram groups, auto-post formatted messages (Phase 6).
+**Следующий шаг:** Полный UI/UX всех экранов, deep links, employer inbox (Phase 7).
 
 **Verification Phase 0:** локально (Docker Desktop) **или** на dev/staging VPS — см. [SERVER_AND_TEAM.md](./SERVER_AND_TEAM.md).
 
@@ -132,9 +132,9 @@
 
 ### Phase 6 — Group Posting (1 неделя) [P1]
 
-- [ ] Admin: register telegram groups
-- [ ] Auto-post formatted messages
-- [ ] Edit on close
+- [x] Admin: register telegram groups
+- [x] Auto-post formatted messages
+- [x] Edit on close
 
 **Verification:** заявка появляется в тестовой группе с кнопкой отклика.
 

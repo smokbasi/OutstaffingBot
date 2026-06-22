@@ -10,7 +10,7 @@ from app.schemas.job_request import JobRequestCreate, JobRequestRead, JobRequest
 
 _ALLOWED_STATUS_TRANSITIONS: dict[JobRequestStatus, set[JobRequestStatus]] = {
     JobRequestStatus.draft: {JobRequestStatus.active, JobRequestStatus.cancelled},
-    JobRequestStatus.active: {JobRequestStatus.cancelled},
+    JobRequestStatus.active: {JobRequestStatus.cancelled, JobRequestStatus.filled},
 }
 
 
@@ -186,11 +186,16 @@ async def update_job_request(
     job = await session.scalar(await _get_job_stmt(job_id, employer_id))
     assert job is not None
 
+    if previous_status != JobRequestStatus.active and job.status == JobRequestStatus.active:
+        if job.notify_matching_workers:
+            await enqueue_job("match_workers_for_job", str(job.id))
+        if job.post_to_groups:
+            await enqueue_job("post_job_to_groups", str(job.id))
+
     if (
-        previous_status != JobRequestStatus.active
-        and job.status == JobRequestStatus.active
-        and job.notify_matching_workers
+        previous_status == JobRequestStatus.active
+        and job.status in {JobRequestStatus.cancelled, JobRequestStatus.filled}
     ):
-        await enqueue_job("match_workers_for_job", str(job.id))
+        await enqueue_job("close_group_posts", str(job.id))
 
     return _job_to_read(job)

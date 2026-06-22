@@ -1,5 +1,11 @@
 ﻿OutstaffingBot — release notes (staging)
 
+2026-06-22 — Phase 6: публикация в Telegram-группы
+- Админ-команды: /register_group, /unregister_group, /group_status, /admin_groups
+- Автопост вакансии в зарегистрированные группы при публикации заявки (если «в группы: да»)
+- Кнопка «Откликнуться» открывает Mini App
+- При закрытии/отмене заявки пост в группе обновляется — «Закрыто»
+
 2026-06-21
 - includes_lunch: миграция 002, бот (FSM заявки), API, matching, mini-app
 - Mini App: clamp почасовой ставки, чекбокс «обед включён», отображение в карточках
