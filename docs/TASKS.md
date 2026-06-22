@@ -176,6 +176,7 @@
 - [x] Admin commands
 - [x] Employer verification
 - [x] Audit log
+- [x] Mini App: админ-панель (`/admin`), доступ по `ADMIN_TELEGRAM_IDS` в `.env` (те же ID, что для бота)
 
 **Как выполнять:** solo — admin handlers изолированно.
 

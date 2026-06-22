@@ -31,6 +31,7 @@ export type MeResponse = {
   role: "worker" | "employer" | "both" | "admin";
   has_worker_profile: boolean;
   has_employer_profile: boolean;
+  is_admin: boolean;
 };
 
 export type EmployerProfile = {
@@ -518,4 +519,64 @@ export async function searchMetroStations(q: string): Promise<MetroStation[]> {
     throw new Error(body || `HTTP ${response.status}`);
   }
   return response.json() as Promise<MetroStation[]>;
+}
+
+export type AdminStats = {
+  workers_count: number;
+  employers_count: number;
+  jobs_count: number;
+  pending_verifications: number;
+};
+
+export type AdminAnalytics = AdminStats & {
+  applications_by_status: Record<string, number>;
+  jobs_by_status: Record<string, number>;
+};
+
+export type PendingEmployer = {
+  id: string;
+  company_name: string;
+  contact_phone: string | null;
+  contact_person: string | null;
+  telegram_id: number;
+  username: string | null;
+  created_at: string;
+};
+
+export type AdminAuditEntry = {
+  id: string;
+  actor_id: string | null;
+  action: string;
+  entity_type: string;
+  entity_id: string;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
+};
+
+export function getAdminStats(initData: string): Promise<AdminStats> {
+  return apiFetch<AdminStats>("/admin/stats", initData);
+}
+
+export function getAdminAnalytics(initData: string): Promise<AdminAnalytics> {
+  return apiFetch<AdminAnalytics>("/admin/analytics", initData);
+}
+
+export function listPendingEmployers(initData: string): Promise<PendingEmployer[]> {
+  return apiFetch<PendingEmployer[]>("/admin/employers/pending", initData);
+}
+
+export function verifyEmployer(initData: string, employerId: string): Promise<{ status: string }> {
+  return apiFetch<{ status: string }>(`/admin/employers/${employerId}/verify`, initData, {
+    method: "POST",
+  });
+}
+
+export function rejectEmployer(initData: string, employerId: string): Promise<{ status: string }> {
+  return apiFetch<{ status: string }>(`/admin/employers/${employerId}/reject`, initData, {
+    method: "POST",
+  });
+}
+
+export function getAdminAuditLog(initData: string, limit = 20): Promise<AdminAuditEntry[]> {
+  return apiFetch<AdminAuditEntry[]>(`/admin/audit?limit=${limit}`, initData);
 }
