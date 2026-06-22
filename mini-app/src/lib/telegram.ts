@@ -1,4 +1,16 @@
-﻿const THEME_VAR_MAP: Record<string, string> = {
+﻿/// <reference types="vite/client" />
+
+type TgWebApp = {
+  themeParams?: Record<string, string>;
+  setHeaderColor?: (color: string) => void;
+  setBackgroundColor?: (color: string) => void;
+  HapticFeedback?: {
+    impactOccurred?: (type: string) => void;
+    notificationOccurred?: (type: string) => void;
+  };
+};
+
+const THEME_VAR_MAP: Record<string, string> = {
   bg_color: "--tg-theme-bg-color",
   text_color: "--tg-theme-text-color",
   hint_color: "--tg-theme-hint-color",
@@ -15,7 +27,7 @@
 };
 
 export function applyTelegramTheme(): void {
-  const webApp = window.Telegram?.WebApp;
+  const webApp = (window.Telegram?.WebApp ?? null) as TgWebApp | null;
   if (!webApp) {
     return;
   }
@@ -24,7 +36,7 @@ export function applyTelegramTheme(): void {
   const root = document.documentElement;
 
   for (const [key, cssVar] of Object.entries(THEME_VAR_MAP)) {
-    const value = params[key as keyof typeof params];
+    const value = params[key];
     if (value) {
       root.style.setProperty(cssVar, value);
     }
@@ -39,9 +51,11 @@ export function applyTelegramTheme(): void {
 }
 
 export function triggerHaptic(type: "light" | "medium" | "heavy" = "medium"): void {
-  window.Telegram?.WebApp?.HapticFeedback?.impactOccurred?.(type);
+  const webApp = (window.Telegram?.WebApp ?? null) as TgWebApp | null;
+  webApp?.HapticFeedback?.impactOccurred?.(type);
 }
 
 export function triggerNotificationHaptic(type: "error" | "success" | "warning" = "success"): void {
-  window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred?.(type);
+  const webApp = (window.Telegram?.WebApp ?? null) as TgWebApp | null;
+  webApp?.HapticFeedback?.notificationOccurred?.(type);
 }
