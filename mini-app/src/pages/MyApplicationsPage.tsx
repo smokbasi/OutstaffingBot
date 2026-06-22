@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import {
   APPLICATION_STATUS_LABELS,
   cancelApplication,
+  createReview,
   listMyApplications,
   type ApplicationRead,
   type ApplicationStatus,
@@ -32,6 +33,9 @@ function formatTime(value: string): string {
 export function MyApplicationsPage({ initData }: MyApplicationsPageProps) {
   const [state, setState] = useState<PageState>({ status: "loading" });
   const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const [reviewingId, setReviewingId] = useState<string | null>(null);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState("");
 
   async function loadApplications() {
     setState({ status: "loading" });
@@ -47,6 +51,26 @@ export function MyApplicationsPage({ initData }: MyApplicationsPageProps) {
   useEffect(() => {
     void loadApplications();
   }, [initData]);
+
+  async function handleReview(applicationId: string) {
+    setReviewingId(applicationId);
+    try {
+      await createReview(initData, {
+        application_id: applicationId,
+        reviewer_role: "worker",
+        rating: reviewRating,
+        comment: reviewComment.trim() || null,
+      });
+      triggerHaptic("light");
+      setReviewComment("");
+      await loadApplications();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Не удалось отправить отзыв";
+      setState({ status: "error", message });
+    } finally {
+      setReviewingId(null);
+    }
+  }
 
   async function handleCancel(applicationId: string) {
     setCancellingId(applicationId);
@@ -114,6 +138,37 @@ export function MyApplicationsPage({ initData }: MyApplicationsPageProps) {
             >
               {cancellingId === item.id ? "Отмена…" : "Отменить"}
             </button>
+            {item.status === "accepted" ? (
+              <div className="review-form">
+                <label className="form-field">
+                  <span>Оценка работодателя (1–5)</span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={5}
+                    value={reviewRating}
+                    onChange={(event) => setReviewRating(Number(event.target.value))}
+                  />
+                </label>
+                <label className="form-field">
+                  <span>Комментарий (необязательно)</span>
+                  <input
+                    type="text"
+                    value={reviewComment}
+                    onChange={(event) => setReviewComment(event.target.value)}
+                    placeholder="Как прошла смена?"
+                  />
+                </label>
+                <button
+                  type="button"
+                  className="btn small-btn"
+                  disabled={reviewingId === item.id}
+                  onClick={() => void handleReview(item.id)}
+                >
+                  {reviewingId === item.id ? "Отправка…" : "Оставить отзыв"}
+                </button>
+              </div>
+            ) : null}
           </li>
         ))}
       </ul>

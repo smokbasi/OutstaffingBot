@@ -6,18 +6,18 @@
 ## Как пользоваться этим файлом
 
 1. **Открывайте этот файл первым**, когда ищете «что делать дальше» — здесь все checkbox-задачи Phase 0–10 в одном месте.
-2. **Текущая фаза** — та, где есть незакрытые пункты. Сейчас это **Phase 9** (Phase 6 отложена — пункты не закрыты).
+2. **Текущая фаза** — Phase 6 отложена; Phase 0–5, 7–10 завершены.
 3. **Отмечайте прогресс** — меняйте `[ ]` на `[x]` по мере выполнения (и синхронизируйте с [PLAN.md § F](./PLAN.md#f-roadmap--фазы-реализации), если правите roadmap там).
 4. **Перед началом фазы** — прочитайте строку для этой фазы в [DEVELOPMENT_WORKFLOW.md § E](./DEVELOPMENT_WORKFLOW.md#e-workflow-по-фазам-planmd): solo vs оркестрация, skills, verification.
 5. **Для ECC/setup** — дополнительный чеклист Phase 0 в [ECC_STRATEGY.md § 9](./ECC_STRATEGY.md#9-чеклист-phase-0-ecc).
 
 ---
 
-## Текущая фаза: Phase 9 — Admin + Moderation
+## Текущая фаза: завершены Phase 0–10 (кроме отложенной Phase 6)
 
-**Phase 6 отложена** (Group Posting — не в git, см. ниже). **Phase 7 завершена** (Mini App Polish). **Phase 8 завершена** (Production Deploy — webhook, backup, staging).
+**Phase 6 отложена** (Group Posting). **Phase 7–10 завершены.** Все основные фазы продукта реализованы.
 
-**Следующий шаг:** admin commands, employer verification, audit log (Phase 9).
+**Следующий шаг:** Phase 6 (Group Posting) — по решению команды; поддержка и багфиксы.
 
 **Verification Phase 0:** локально (Docker Desktop) **или** на dev/staging VPS — см. [SERVER_AND_TEAM.md](./SERVER_AND_TEAM.md).
 
@@ -173,9 +173,9 @@
 
 ### Phase 9 — Admin + Moderation (1 неделя) [P2]
 
-- [ ] Admin commands
-- [ ] Employer verification
-- [ ] Audit log
+- [x] Admin commands
+- [x] Employer verification
+- [x] Audit log
 
 **Как выполнять:** solo — admin handlers изолированно.
 
@@ -183,11 +183,11 @@
 
 ### Phase 10 — Enhancements [P3]
 
-- [ ] PostGIS geo matching
-- [ ] Employer push (новые подходящие работники)
-- [ ] Рейтинги / отзывы
-- [ ] Multi-city support
-- [ ] Analytics dashboard
+- [x] PostGIS geo matching (MVP: haversine по lat/lon метро, без PostGIS)
+- [x] Employer push (новые подходящие работники)
+- [x] Рейтинги / отзывы
+- [x] Multi-city support
+- [x] Analytics dashboard
 
 **Как выполнять:** по фиче — `/plan` per enhancement, отдельная ветка на каждое улучшение.
 

@@ -38,6 +38,7 @@ export type EmployerProfile = {
   company_name: string;
   contact_phone: string | null;
   contact_person: string | null;
+  verification_status: "pending" | "verified" | "rejected";
   verified: boolean;
 };
 
@@ -477,6 +478,31 @@ export function updateEmployerApplication(
   return apiFetch<EmployerApplicationRead>(`/employer/applications/${applicationId}`, initData, {
     method: "PATCH",
     body: JSON.stringify({ status }),
+  });
+}
+
+export type ReviewCreate = {
+  application_id: string;
+  reviewer_role: "worker" | "employer";
+  rating: number;
+  comment?: string | null;
+};
+
+export type ReviewRead = {
+  id: string;
+  application_id: string;
+  reviewer_user_id: string;
+  reviewed_user_id: string;
+  reviewer_role: "worker" | "employer";
+  rating: number;
+  comment: string | null;
+  created_at: string;
+};
+
+export function createReview(initData: string, data: ReviewCreate): Promise<ReviewRead> {
+  return apiFetch<ReviewRead>("/reviews", initData, {
+    method: "POST",
+    body: JSON.stringify(data),
   });
 }
 

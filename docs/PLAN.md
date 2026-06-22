@@ -1096,19 +1096,21 @@ Ruflo удалён. Агентный harness — **ECC** ([github.com/affaan-m/E
 
 ### Phase 9: Admin + Moderation (1 неделя) — P2
 
-- [ ] Admin commands
-- [ ] Employer verification
-- [ ] Audit log
+- [x] Admin commands
+- [x] Employer verification
+- [x] Audit log
 
 ---
 
 ### Phase 10: Enhancements — P3
 
-- [ ] PostGIS geo matching
-- [ ] Employer push (новые подходящие работники)
-- [ ] Рейтинги / отзывы
-- [ ] Multi-city support
-- [ ] Analytics dashboard
+- [x] PostGIS geo matching (MVP: haversine, lat/lon на metro_stations)
+- [x] Employer push (новые подходящие работники)
+- [x] Рейтинги / отзывы
+- [x] Multi-city support
+- [x] Analytics dashboard
+
+> **Статус проекта:** основные фазы Phase 0–5, 7–10 завершены. Phase 6 (Group Posting) отложена.
 
 ---
 

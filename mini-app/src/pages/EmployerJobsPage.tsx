@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import {
   formatJobRequestStatus,
+  getEmployerProfile,
   listEmployerJobs,
   updateJobStatus,
+  type EmployerProfile,
   type JobRequest,
   type JobRequestStatus,
 } from "../api/client";
@@ -44,6 +46,7 @@ export function EmployerJobsPage({
   reloadKey = 0,
 }: EmployerJobsPageProps) {
   const [state, setState] = useState<JobsState>({ status: "loading" });
+  const [profile, setProfile] = useState<EmployerProfile | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [busyJobId, setBusyJobId] = useState<string | null>(null);
 
@@ -53,8 +56,12 @@ export function EmployerJobsPage({
     async function loadJobs() {
       setState({ status: "loading" });
       try {
-        const jobs = await listEmployerJobs(initData);
+        const [jobs, employerProfile] = await Promise.all([
+          listEmployerJobs(initData),
+          getEmployerProfile(initData),
+        ]);
         if (!cancelled) {
+          setProfile(employerProfile);
           setState({ status: "ready", jobs });
         }
       } catch (err) {
@@ -133,6 +140,16 @@ export function EmployerJobsPage({
 
       {actionError ? <p className="error">{actionError}</p> : null}
 
+      {profile && profile.verification_status === "pending" ? (
+        <p className="hint verification-banner">
+          ⏳ Компания ожидает верификации администратором. Публикация заявок будет доступна после
+          подтверждения.
+        </p>
+      ) : null}
+      {profile && profile.verification_status === "rejected" ? (
+        <p className="error">❌ Верификация отклонена. Свяжитесь с поддержкой.</p>
+      ) : null}
+
       {jobs.length === 0 ? (
         <p className="hint">Заявок пока нет. Создайте первую.</p>
       ) : (
@@ -173,7 +190,7 @@ export function EmployerJobsPage({
                   <button
                     type="button"
                     className="btn"
-                    disabled={busyJobId === job.id}
+                    disabled={busyJobId === job.id || profile?.verification_status !== "verified"}
                     onClick={() => void handleStatusChange(job.id, "active")}
                   >
                     Опубликовать
