@@ -106,6 +106,7 @@ async def test_apply_to_shift_reactivates_cancelled_application(monkeypatch: pyt
         category = Category()
         metro_station = Metro()
         hourly_rate = Decimal("400")
+        employer = None
 
     class Slot:
         id = slot_id

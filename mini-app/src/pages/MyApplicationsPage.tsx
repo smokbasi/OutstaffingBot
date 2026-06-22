@@ -117,7 +117,7 @@ export function MyApplicationsPage({ initData }: MyApplicationsPageProps) {
       <ul className="applications-list">
         {state.items.map((item) => (
           <li key={item.id} className="application-item">
-            <div>
+            <div className="application-body">
               <strong>{item.job_title}</strong>
               <p className="hint">
                 {item.category_name ?? "—"} · {item.metro_station_name ?? "—"}
@@ -139,46 +139,48 @@ export function MyApplicationsPage({ initData }: MyApplicationsPageProps) {
                   telegramId={item.employer_telegram_id}
                 />
               ) : null}
-            </div>
-            <button
-              type="button"
-              className="btn secondary small-btn"
-              disabled={cancellingId === item.id}
-              onClick={() => void handleCancel(item.id)}
-            >
-              {cancellingId === item.id ? "Отмена…" : "Отменить"}
-            </button>
-            {item.status === "accepted" ? (
-              <div className="review-form">
-                <label className="form-field">
-                  <span>Оценка работодателя (1–5)</span>
-                  <input
-                    type="number"
-                    min={1}
-                    max={5}
-                    value={reviewRating}
-                    onChange={(event) => setReviewRating(Number(event.target.value))}
-                  />
-                </label>
-                <label className="form-field">
-                  <span>Комментарий (необязательно)</span>
-                  <input
-                    type="text"
-                    value={reviewComment}
-                    onChange={(event) => setReviewComment(event.target.value)}
-                    placeholder="Как прошла смена?"
-                  />
-                </label>
+              <div className="application-actions">
                 <button
                   type="button"
-                  className="btn small-btn"
-                  disabled={reviewingId === item.id}
-                  onClick={() => void handleReview(item.id)}
+                  className="btn secondary small-btn"
+                  disabled={cancellingId === item.id}
+                  onClick={() => void handleCancel(item.id)}
                 >
-                  {reviewingId === item.id ? "Отправка…" : "Оставить отзыв"}
+                  {cancellingId === item.id ? "Отмена…" : "Отменить"}
                 </button>
               </div>
-            ) : null}
+              {item.status === "accepted" ? (
+                <div className="review-form">
+                  <label className="form-field">
+                    <span>Оценка работодателя (1–5)</span>
+                    <input
+                      type="number"
+                      min={1}
+                      max={5}
+                      value={reviewRating}
+                      onChange={(event) => setReviewRating(Number(event.target.value))}
+                    />
+                  </label>
+                  <label className="form-field">
+                    <span>Комментарий (необязательно)</span>
+                    <input
+                      type="text"
+                      value={reviewComment}
+                      onChange={(event) => setReviewComment(event.target.value)}
+                      placeholder="Как прошла смена?"
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    className="btn small-btn"
+                    disabled={reviewingId === item.id}
+                    onClick={() => void handleReview(item.id)}
+                  >
+                    {reviewingId === item.id ? "Отправка…" : "Оставить отзыв"}
+                  </button>
+                </div>
+              ) : null}
+            </div>
           </li>
         ))}
       </ul>

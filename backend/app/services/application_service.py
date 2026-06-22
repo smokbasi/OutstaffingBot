@@ -132,6 +132,15 @@ async def _get_application_for_slot(
     )
 
 
+def _application_read_load_options():
+    return (
+        selectinload(Application.shift_slot),
+        selectinload(Application.job_request).selectinload(JobRequest.category),
+        selectinload(Application.job_request).selectinload(JobRequest.metro_station),
+        selectinload(Application.job_request).selectinload(JobRequest.employer).selectinload(Employer.user),
+    )
+
+
 def _application_to_read(app: Application) -> ApplicationRead:
     slot = app.shift_slot
     job = app.job_request
@@ -222,11 +231,7 @@ async def apply_to_shift(
 
     loaded = await session.scalar(
         select(Application)
-        .options(
-            selectinload(Application.shift_slot),
-            selectinload(Application.job_request).selectinload(JobRequest.category),
-            selectinload(Application.job_request).selectinload(JobRequest.metro_station),
-        )
+        .options(*_application_read_load_options())
         .where(Application.id == application.id)
     )
     assert loaded is not None
@@ -240,11 +245,7 @@ async def cancel_application(
 ) -> ApplicationRead:
     app = await session.scalar(
         select(Application)
-        .options(
-            selectinload(Application.shift_slot),
-            selectinload(Application.job_request).selectinload(JobRequest.category),
-            selectinload(Application.job_request).selectinload(JobRequest.metro_station),
-        )
+        .options(*_application_read_load_options())
         .where(Application.id == application_id, Application.worker_id == worker.id)
     )
     if app is None:
@@ -270,12 +271,7 @@ async def list_my_applications(
 ) -> ApplicationListResponse:
     result = await session.scalars(
         select(Application)
-        .options(
-            selectinload(Application.shift_slot),
-            selectinload(Application.job_request).selectinload(JobRequest.category),
-            selectinload(Application.job_request).selectinload(JobRequest.metro_station),
-            selectinload(Application.job_request).selectinload(JobRequest.employer).selectinload(Employer.user),
-        )
+        .options(*_application_read_load_options())
         .where(
             Application.worker_id == worker.id,
             Application.status.in_([ApplicationStatus.pending, ApplicationStatus.accepted]),

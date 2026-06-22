@@ -1,7 +1,10 @@
 .app {
   min-height: 100svh;
-  padding: 1.5rem;
+  width: 100%;
+  max-width: 100%;
+  padding: 1rem;
   box-sizing: border-box;
+  overflow-x: hidden;
   background: var(--tg-theme-bg-color, #ffffff);
   color: var(--tg-theme-text-color, #000000);
 }
@@ -10,6 +13,8 @@
   font-size: 1.75rem;
   font-weight: 600;
   margin: 0 0 0.25rem;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .app-header {
@@ -17,6 +22,13 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: 0.75rem;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.app-header > div:first-child {
+  min-width: 0;
+  flex: 1;
 }
 
 .switch-role-btn {
@@ -34,10 +46,18 @@
 
 .card {
   margin-top: 1.5rem;
-  padding: 1rem 1.25rem;
+  padding: 1rem;
+  max-width: 100%;
   border-radius: 12px;
   background: var(--tg-theme-secondary-bg-color, #f4f4f5);
   border: 1px solid var(--tg-theme-border-color, #e5e5ea);
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.card h2 {
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .card ul {
@@ -205,15 +225,25 @@
 
 .app-nav {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 0.5rem;
   margin-top: 1rem;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding-bottom: 0.25rem;
+}
+
+.app-nav::-webkit-scrollbar {
+  display: none;
 }
 
 .nav-btn {
-  flex: 1;
-  min-width: 5rem;
+  flex: 0 0 auto;
+  min-width: 0;
   padding: 0.55rem 0.75rem;
+  white-space: nowrap;
   border: 1px solid var(--tg-theme-border-color, #e5e5ea);
   border-radius: 10px;
   background: var(--tg-theme-secondary-bg-color, #f4f4f5);
@@ -500,15 +530,35 @@
 
 .application-item {
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
+  flex-direction: column;
+  align-items: stretch;
   gap: 0.75rem;
   padding: 0.75rem 0;
   border-bottom: 1px solid var(--tg-theme-border-color, #e5e5ea);
+  max-width: 100%;
+  min-width: 0;
 }
 
 .application-item:last-child {
   border-bottom: none;
+}
+
+.application-body {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.review-form {
+  display: grid;
+  gap: 0.75rem;
+  width: 100%;
+  max-width: 100%;
+  margin-top: 0.25rem;
+}
+
+.review-form .btn {
+  margin-top: 0;
+  width: 100%;
 }
 
 .employer-application-item {

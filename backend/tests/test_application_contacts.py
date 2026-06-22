@@ -6,6 +6,7 @@ import pytest
 from app.db.models import ApplicationStatus
 from app.schemas.worker import WorkerProfileUpdate
 from app.services.application_service import (
+    _application_read_load_options,
     _application_to_employer_read,
     _application_to_read,
 )
@@ -78,7 +79,11 @@ def test_employer_sees_worker_contacts_only_on_accepted() -> None:
     assert accepted.worker_telegram_id == 222
 
 
-def test_worker_sees_employer_contacts_only_on_accepted() -> None:
+def test_application_read_load_options_includes_employer_chain() -> None:
+    options = _application_read_load_options()
+    assert len(options) == 4
+    path_strings = [str(opt.path) for opt in options]
+    assert any("employer" in p and "user" in p for p in path_strings)
     pending = _application_to_read(_Application(status=ApplicationStatus.pending))
     assert pending.employer_contact_phone is None
     assert pending.employer_company_name == ""
