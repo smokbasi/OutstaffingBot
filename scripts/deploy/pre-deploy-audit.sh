@@ -21,6 +21,12 @@ for svc in vspomni vspomni-dashboard x-ui nginx; do
 done
 echo ""
 
+echo "--- systemd: OutstaffingBot (auto-restart) ---"
+for svc in outstaffingbot-infra outstaffingbot-api outstaffingbot-bot outstaffingbot-dashboard; do
+  systemctl is-active "$svc" 2>/dev/null && echo "$svc: active" || echo "$svc: inactive/missing (run deploy/linux/install-systemd.sh)"
+done
+echo ""
+
 echo "--- Protected paths (must exist for vspomni) ---"
 for p in /opt/vspomni_bot /usr/local/x-ui /etc/nginx; do
   [[ -e "$p" ]] && echo "OK  $p" || echo "MISS $p"

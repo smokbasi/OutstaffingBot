@@ -189,3 +189,19 @@ chmod 600 /opt/outstaffingbot/.env
 | .env | на сервере; **нужен BOT_TOKEN** staging-бота |
 
 Повторный деплой (после git remote): ssh deploy@89.125.25.99 'cd /opt/outstaffingbot && COMPOSE_PROJECT_NAME=outstaffingbot ./scripts/deploy/deploy-staging.sh'
+
+### Auto-restart (как vspomni)
+
+На vspomni: `systemd` units `vspomni` / `vspomni-dashboard` с `Restart=always`.
+
+OutstaffingBot (после первого деплоя, **один раз от root**):
+
+```bash
+ssh deploy@89.125.25.99
+cd /opt/outstaffingbot && git pull
+sudo APP_DIR=/opt/outstaffingbot DEPLOY_USER=deploy ./deploy/linux/install-systemd.sh
+```
+
+Проверка: `systemctl status outstaffingbot-bot outstaffingbot-api outstaffingbot-dashboard`
+
+Подробнее: [deploy/linux/README.md](../deploy/linux/README.md)

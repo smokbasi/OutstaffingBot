@@ -352,7 +352,8 @@ systemctl restart x-ui
 
 | Аспект | vspomni | OutstaffingBot | Конфликт? |
 |--------|---------|----------------|-----------|
-| Runtime | systemd + Python | Docker Compose | Нет |
+| Runtime | systemd + Python | Docker Compose + systemd units | Нет |
+| Auto-restart | `Restart=always` (bot, dashboard) | Docker `restart: always` + `outstaffingbot-*.service` | Нет |
 | БД | SQLite / Google Sheets | PostgreSQL 16 (container) | Нет |
 | Mini App | :8443 nginx | отдельный subdomain :443 | Нет (разные server_name) |
 | Bot token | @Avto_ychot_MSBOT | отдельный staging bot | **Да, если один token** — использовать разные |

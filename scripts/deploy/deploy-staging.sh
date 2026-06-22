@@ -30,3 +30,4 @@ docker compose -p "$COMPOSE_PROJECT_NAME" \
   -f docker-compose.yml -f docker-compose.staging.yml exec -T api alembic upgrade head
 
 echo "==> Deploy done. Проверьте: docker compose ps"
+echo "    Auto-restart (как vspomni): deploy/linux/install-systemd.sh — один раз от root"

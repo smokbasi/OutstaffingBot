@@ -16,6 +16,10 @@ echo "==> Sync dist -> $REMOTE:$REMOTE_DIR"
 ssh "$REMOTE" "mkdir -p $REMOTE_DIR"
 rsync -avz --delete "$ROOT/mini-app/dist/" "$REMOTE:$REMOTE_DIR/"
 
+# nginx worker runs as www-data — dist must be traversable (o+x on dirs, o+r on files).
+echo "==> Fix static file permissions for nginx (www-data)"
+ssh "$REMOTE" "chmod 755 $REMOTE_DIR && find $REMOTE_DIR -type d -exec chmod 755 {} + && find $REMOTE_DIR -type f -exec chmod 644 {} +"
+
 echo "==> Verify assets on server"
 ssh "$REMOTE" "curl -sS -o /dev/null -w 'html:%{http_code}\n' https://www.outstaffingbot.online/ && ls -la $REMOTE_DIR/assets/ | tail -3"
 

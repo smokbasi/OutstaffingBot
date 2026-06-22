@@ -1,9 +1,8 @@
 import { useEffect, useState } from "react";
 import {
-  listCategories,
+  getWorkerProfile,
   listWorkerVacancies,
   searchMetroStations,
-  type JobCategory,
   type MetroStation,
   type VacancyListItem,
 } from "../api/client";
@@ -11,13 +10,34 @@ import { formatHourlyRate } from "../utils/formatRate";
 
 type VacancyListPageProps = {
   initData: string;
+  reloadKey?: number;
   onOpenVacancy: (id: string) => void;
+};
+
+type ExperienceCategory = {
+  id: number;
+  name: string;
 };
 
 type ListState =
   | { status: "loading" }
   | { status: "error"; message: string }
   | { status: "ready"; items: VacancyListItem[]; total: number; page: number };
+
+function uniqueExperienceCategories(
+  experiences: { category_id: number; category_name: string }[],
+): ExperienceCategory[] {
+  const seen = new Set<number>();
+  const categories: ExperienceCategory[] = [];
+  for (const exp of experiences) {
+    if (seen.has(exp.category_id)) {
+      continue;
+    }
+    seen.add(exp.category_id);
+    categories.push({ id: exp.category_id, name: exp.category_name });
+  }
+  return categories;
+}
 
 function formatDate(iso: string | null): string {
   if (!iso) {
@@ -37,9 +57,10 @@ function formatTime(value: string | null): string {
   return value.slice(0, 5);
 }
 
-export function VacancyListPage({ initData, onOpenVacancy }: VacancyListPageProps) {
+export function VacancyListPage({ initData, reloadKey = 0, onOpenVacancy }: VacancyListPageProps) {
   const [state, setState] = useState<ListState>({ status: "loading" });
-  const [categories, setCategories] = useState<JobCategory[]>([]);
+  const [profileReady, setProfileReady] = useState(false);
+  const [experienceCategories, setExperienceCategories] = useState<ExperienceCategory[]>([]);
   const [categoryId, setCategoryId] = useState<number | "">("");
   const [metroQuery, setMetroQuery] = useState("");
   const [metroStationId, setMetroStationId] = useState<number | null>(null);
@@ -50,12 +71,58 @@ export function VacancyListPage({ initData, onOpenVacancy }: VacancyListPageProp
   const limit = 10;
 
   useEffect(() => {
-    void listCategories()
-      .then(setCategories)
-      .catch(() => setCategories([]));
-  }, []);
+    let cancelled = false;
+
+    void getWorkerProfile(initData)
+      .then((profile) => {
+        if (cancelled) {
+          return;
+        }
+        const categories = uniqueExperienceCategories(profile.experiences);
+        setExperienceCategories(categories);
+        setCategoryId((prev) => {
+          if (prev === "" || categories.some((cat) => cat.id === prev)) {
+            return prev;
+          }
+          return "";
+        });
+        setProfileReady(true);
+      })
+      .catch((err) => {
+        if (cancelled) {
+          return;
+        }
+        const message = err instanceof Error ? err.message : "Не удалось загрузить профиль";
+        if (message.includes("404") || message.toLowerCase().includes("not found")) {
+          setState({
+            status: "error",
+            message: "Профиль работника не найден. Заполните его в боте: «📝 Заполнить профиль».",
+          });
+        } else {
+          setState({ status: "error", message });
+        }
+        setProfileReady(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [initData, reloadKey]);
 
   useEffect(() => {
+    if (!profileReady) {
+      return;
+    }
+
+    if (experienceCategories.length === 0) {
+      setState({
+        status: "error",
+        message:
+          "В профиле нет категорий опыта — вакансии не показываются. Добавьте опыт во вкладке «Профиль» → «Добавить опыт».",
+      });
+      return;
+    }
+
     let cancelled = false;
 
     async function loadVacancies() {
@@ -95,7 +162,7 @@ export function VacancyListPage({ initData, onOpenVacancy }: VacancyListPageProp
     return () => {
       cancelled = true;
     };
-  }, [initData, categoryId, metroStationId, minRate, page, limit]);
+  }, [profileReady, experienceCategories, initData, categoryId, metroStationId, minRate, page, limit]);
 
   useEffect(() => {
     if (!metroQuery.trim()) {
@@ -144,9 +211,9 @@ export function VacancyListPage({ initData, onOpenVacancy }: VacancyListPageProp
             }}
           >
             <option value="">Все из моего опыта</option>
-            {categories.map((category) => (
+            {experienceCategories.map((category) => (
               <option key={category.id} value={category.id}>
-                {category.name_ru}
+                {category.name}
               </option>
             ))}
           </select>
@@ -207,7 +274,13 @@ export function VacancyListPage({ initData, onOpenVacancy }: VacancyListPageProp
       {state.status === "error" ? <p className="error">{state.message}</p> : null}
 
       {state.status === "ready" && state.items.length === 0 ? (
-        <p className="hint">Подходящих вакансий пока нет. Попробуйте изменить фильтры.</p>
+        <p className="hint">
+          Подходящих вакансий пока нет. Показываются только заявки в категориях из вашего опыта
+          {categoryId !== ""
+            ? ` («${experienceCategories.find((cat) => cat.id === categoryId)?.name ?? "выбранная категория"}»)`
+            : ""}
+          . Попробуйте изменить фильтры или добавьте категорию в профиль через бота.
+        </p>
       ) : null}
 
       {state.status === "ready" && state.items.length > 0 ? (

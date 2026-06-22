@@ -121,18 +121,31 @@
       <main class="app-shell" id="app-shell">
         <h1>OutstaffingBot</h1>
         <p class="subtitle">Telegram Mini App</p>
-        <p class="status">
+        <p class="status" id="boot-status">
           <span class="spinner" aria-hidden="true"></span>Загрузка…
         </p>
-        <section class="card">
-          <ul>
-            <li>👷 Профиль работника</li>
-            <li>🏢 Заявки работодателя</li>
-            <li>🔍 Поиск вакансий</li>
-          </ul>
-        </section>
       </main>
     </div>
+    <script>
+      window.__miniAppBootFailed = function (message) {
+        var status = document.getElementById("boot-status");
+        if (status) {
+          status.innerHTML = message;
+        }
+      };
+      window.addEventListener(
+        "error",
+        function (event) {
+          var target = event.target;
+          if (target && target.tagName === "SCRIPT" && target.type === "module") {
+            window.__miniAppBootFailed(
+              "Не удалось загрузить приложение. Проверьте интернет и откройте Mini App снова через бота.",
+            );
+          }
+        },
+        true,
+      );
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

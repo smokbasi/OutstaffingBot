@@ -1,11 +1,26 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { lazy, Suspense, useEffect, useState, type FormEvent } from "react";
 import "./App.css";
 import { getMe, upsertEmployerProfile, type MeResponse } from "./api/client";
-import { CreateJobPage } from "./pages/CreateJobPage";
-import { EmployerJobsPage } from "./pages/EmployerJobsPage";
-import { ProfilePage } from "./pages/ProfilePage";
-import { VacancyDetailPage } from "./pages/VacancyDetailPage";
-import { VacancyListPage } from "./pages/VacancyListPage";
+
+const CreateJobPage = lazy(() =>
+  import("./pages/CreateJobPage").then((m) => ({ default: m.CreateJobPage })),
+);
+const EmployerJobsPage = lazy(() =>
+  import("./pages/EmployerJobsPage").then((m) => ({ default: m.EmployerJobsPage })),
+);
+const ProfilePage = lazy(() =>
+  import("./pages/ProfilePage").then((m) => ({ default: m.ProfilePage })),
+);
+const VacancyDetailPage = lazy(() =>
+  import("./pages/VacancyDetailPage").then((m) => ({ default: m.VacancyDetailPage })),
+);
+const VacancyListPage = lazy(() =>
+  import("./pages/VacancyListPage").then((m) => ({ default: m.VacancyListPage })),
+);
+
+function PageFallback() {
+  return <p className="status">Загрузка…</p>;
+}
 
 declare global {
   interface Window {
@@ -31,6 +46,7 @@ type EmployerView = "jobs" | "create";
 type WorkerView = "profile" | "vacancies" | "vacancy-detail";
 
 type MeState =
+  | { status: "idle" }
   | { status: "loading" }
   | { status: "error"; message: string }
   | { status: "ready"; me: MeResponse };
@@ -51,6 +67,33 @@ function readTelegramContext(): TelegramContext {
     initData: webApp.initData ?? "",
     userLabel,
   };
+}
+
+function useTelegramContext(): TelegramContext {
+  const [telegram, setTelegram] = useState(readTelegramContext);
+
+  useEffect(() => {
+    const webApp = window.Telegram?.WebApp;
+    if (!webApp) {
+      return;
+    }
+
+    function syncContext() {
+      setTelegram(readTelegramContext());
+    }
+
+    syncContext();
+    // Some Telegram clients populate initData shortly after WebApp.ready().
+    const retryTimers = [50, 150].map((delay) =>
+      window.setTimeout(syncContext, delay),
+    );
+
+    return () => {
+      retryTimers.forEach((timerId) => window.clearTimeout(timerId));
+    };
+  }, []);
+
+  return telegram;
 }
 
 function RolePicker({
@@ -138,20 +181,23 @@ function EmployerSetupPrompt({
 }
 
 function App() {
-  const [telegram] = useState(readTelegramContext);
-  const [meState, setMeState] = useState<MeState>({ status: "loading" });
+  const telegram = useTelegramContext();
+  const [meState, setMeState] = useState<MeState>({ status: "idle" });
   const [appMode, setAppMode] = useState<AppMode | null>(null);
   const [employerView, setEmployerView] = useState<EmployerView>("jobs");
   const [workerView, setWorkerView] = useState<WorkerView>("vacancies");
   const [selectedVacancyId, setSelectedVacancyId] = useState<string | null>(null);
   const [jobsReloadKey, setJobsReloadKey] = useState(0);
+  const [vacanciesReloadKey, setVacanciesReloadKey] = useState(0);
 
   useEffect(() => {
     if (!telegram.inTelegram || !telegram.initData) {
+      setMeState({ status: "idle" });
       return;
     }
 
     let cancelled = false;
+    setMeState({ status: "loading" });
     void getMe(telegram.initData)
       .then((me) => {
         if (cancelled) {
@@ -218,8 +264,37 @@ function App() {
       );
     }
 
-    if (meState.status === "loading") {
-      return <p className="status">Загрузка…</p>;
+    if (appMode === null) {
+      return <RolePicker onSelect={handleSelectMode} />;
+    }
+
+    if (appMode === "worker") {
+      return (
+        <Suspense fallback={<PageFallback />}>
+          {workerView === "profile" ? (
+            <ProfilePage initData={telegram.initData} />
+          ) : workerView === "vacancy-detail" && selectedVacancyId ? (
+            <VacancyDetailPage
+              initData={telegram.initData}
+              vacancyId={selectedVacancyId}
+              onBack={() => setWorkerView("vacancies")}
+            />
+          ) : (
+            <VacancyListPage
+              initData={telegram.initData}
+              reloadKey={vacanciesReloadKey}
+              onOpenVacancy={(id) => {
+                setSelectedVacancyId(id);
+                setWorkerView("vacancy-detail");
+              }}
+            />
+          )}
+        </Suspense>
+      );
+    }
+
+    if (meState.status === "idle" || meState.status === "loading") {
+      return <p className="status">Загрузка профиля…</p>;
     }
 
     if (meState.status === "error") {
@@ -232,34 +307,6 @@ function App() {
 
     const { me } = meState;
 
-    if (appMode === null) {
-      return <RolePicker onSelect={handleSelectMode} />;
-    }
-
-    if (appMode === "worker") {
-      if (workerView === "profile") {
-        return <ProfilePage initData={telegram.initData} />;
-      }
-      if (workerView === "vacancy-detail" && selectedVacancyId) {
-        return (
-          <VacancyDetailPage
-            initData={telegram.initData}
-            vacancyId={selectedVacancyId}
-            onBack={() => setWorkerView("vacancies")}
-          />
-        );
-      }
-      return (
-        <VacancyListPage
-          initData={telegram.initData}
-          onOpenVacancy={(id) => {
-            setSelectedVacancyId(id);
-            setWorkerView("vacancy-detail");
-          }}
-        />
-      );
-    }
-
     if (!me.has_employer_profile) {
       return (
         <EmployerSetupPrompt
@@ -269,30 +316,26 @@ function App() {
       );
     }
 
-    if (employerView === "create") {
-      return (
-        <CreateJobPage
-          initData={telegram.initData}
-          onCreated={handleJobCreated}
-          onCancel={() => setEmployerView("jobs")}
-        />
-      );
-    }
-
     return (
-      <EmployerJobsPage
-        initData={telegram.initData}
-        reloadKey={jobsReloadKey}
-        onCreateClick={() => setEmployerView("create")}
-      />
+      <Suspense fallback={<PageFallback />}>
+        {employerView === "create" ? (
+          <CreateJobPage
+            initData={telegram.initData}
+            onCreated={handleJobCreated}
+            onCancel={() => setEmployerView("jobs")}
+          />
+        ) : (
+          <EmployerJobsPage
+            initData={telegram.initData}
+            reloadKey={jobsReloadKey}
+            onCreateClick={() => setEmployerView("create")}
+          />
+        )}
+      </Suspense>
     );
   }
 
-  const showSwitchRole =
-    telegram.inTelegram &&
-    telegram.initData &&
-    meState.status === "ready" &&
-    appMode !== null;
+  const showSwitchRole = telegram.inTelegram && telegram.initData && appMode !== null;
 
   const showEmployerNav =
     telegram.inTelegram &&
@@ -301,11 +344,7 @@ function App() {
     appMode === "employer" &&
     meState.me.has_employer_profile;
 
-  const showWorkerNav =
-    telegram.inTelegram &&
-    telegram.initData &&
-    meState.status === "ready" &&
-    appMode === "worker";
+  const showWorkerNav = telegram.inTelegram && telegram.initData && appMode === "worker";
 
   return (
     <main className="app">
@@ -331,6 +370,7 @@ function App() {
             onClick={() => {
               setWorkerView("vacancies");
               setSelectedVacancyId(null);
+              setVacanciesReloadKey((key) => key + 1);
             }}
           >
             Поиск

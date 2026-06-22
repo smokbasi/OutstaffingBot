@@ -1,8 +1,12 @@
 import { useEffect, useState } from "react";
 import {
+  addWorkerExperience,
+  deleteWorkerExperience,
   getWorkerProfile,
+  listCategories,
   searchMetroStations,
   updateWorkerProfile,
+  type JobCategory,
   type MetroStation,
   type WorkerProfile,
 } from "../api/client";
@@ -42,6 +46,41 @@ type ProfileFormData = {
 };
 
 type FormErrors = Partial<Record<keyof ProfileFormData, string>>;
+
+type ExperienceFormData = {
+  category_id: string;
+  role_title: string;
+  duration_months: string;
+};
+
+type ExperienceFormErrors = Partial<Record<keyof ExperienceFormData, string>>;
+
+function emptyExperienceForm(): ExperienceFormData {
+  return {
+    category_id: "",
+    role_title: "",
+    duration_months: "",
+  };
+}
+
+function validateExperienceForm(form: ExperienceFormData): ExperienceFormErrors {
+  const errors: ExperienceFormErrors = {};
+  if (!form.category_id) {
+    errors.category_id = "Выберите категорию";
+  }
+  if (!form.role_title.trim()) {
+    errors.role_title = "Укажите должность";
+  } else if (form.role_title.length > 200) {
+    errors.role_title = "Не более 200 символов";
+  }
+  const duration = Number(form.duration_months);
+  if (!form.duration_months.trim() || Number.isNaN(duration)) {
+    errors.duration_months = "Укажите срок в месяцах";
+  } else if (duration < 0 || duration > 600) {
+    errors.duration_months = "От 0 до 600 мес.";
+  }
+  return errors;
+}
 
 function profileToForm(profile: WorkerProfile): ProfileFormData {
   return {
@@ -89,6 +128,14 @@ export function ProfilePage({ initData }: ProfilePageProps) {
   const [metroQuery, setMetroQuery] = useState("");
   const [metroResults, setMetroResults] = useState<MetroStation[]>([]);
   const [metroLoading, setMetroLoading] = useState(false);
+  const [isAddingExperience, setIsAddingExperience] = useState(false);
+  const [categories, setCategories] = useState<JobCategory[]>([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(false);
+  const [expForm, setExpForm] = useState<ExperienceFormData>(emptyExperienceForm);
+  const [expFormErrors, setExpFormErrors] = useState<ExperienceFormErrors>({});
+  const [expSaveError, setExpSaveError] = useState<string | null>(null);
+  const [isExpSaving, setIsExpSaving] = useState(false);
+  const [deletingExpId, setDeletingExpId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -158,6 +205,35 @@ export function ProfilePage({ initData }: ProfilePageProps) {
     };
   }, [isEditing, metroQuery]);
 
+  useEffect(() => {
+    if (!isAddingExperience) {
+      return;
+    }
+
+    let cancelled = false;
+    setCategoriesLoading(true);
+    void listCategories()
+      .then((data) => {
+        if (!cancelled) {
+          setCategories(data);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setCategories([]);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setCategoriesLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isAddingExperience]);
+
   function startEditing(profile: WorkerProfile) {
     setForm(profileToForm(profile));
     setFormErrors({});
@@ -224,6 +300,68 @@ export function ProfilePage({ initData }: ProfilePageProps) {
       setSaveError(message);
     } finally {
       setIsSaving(false);
+    }
+  }
+
+  function startAddingExperience() {
+    setExpForm(emptyExperienceForm());
+    setExpFormErrors({});
+    setExpSaveError(null);
+    setIsAddingExperience(true);
+  }
+
+  function cancelAddingExperience() {
+    setIsAddingExperience(false);
+    setExpForm(emptyExperienceForm());
+    setExpFormErrors({});
+    setExpSaveError(null);
+  }
+
+  function updateExpField<K extends keyof ExperienceFormData>(key: K, value: ExperienceFormData[K]) {
+    setExpForm((prev) => ({ ...prev, [key]: value }));
+    setExpFormErrors((prev) => ({ ...prev, [key]: undefined }));
+    setExpSaveError(null);
+  }
+
+  async function handleAddExperience() {
+    const errors = validateExperienceForm(expForm);
+    if (Object.keys(errors).length > 0) {
+      setExpFormErrors(errors);
+      return;
+    }
+
+    setIsExpSaving(true);
+    setExpSaveError(null);
+    try {
+      await addWorkerExperience(initData, {
+        category_id: Number(expForm.category_id),
+        role_title: expForm.role_title.trim(),
+        duration_months: Number(expForm.duration_months),
+      });
+      cancelAddingExperience();
+      setReloadKey((k) => k + 1);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Не удалось добавить опыт";
+      setExpSaveError(message);
+    } finally {
+      setIsExpSaving(false);
+    }
+  }
+
+  async function handleDeleteExperience(experienceId: string) {
+    if (!window.confirm("Удалить эту запись об опыте?")) {
+      return;
+    }
+
+    setDeletingExpId(experienceId);
+    try {
+      await deleteWorkerExperience(initData, experienceId);
+      setReloadKey((k) => k + 1);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Не удалось удалить опыт";
+      setExpSaveError(message);
+    } finally {
+      setDeletingExpId(null);
     }
   }
 
@@ -411,23 +549,116 @@ export function ProfilePage({ initData }: ProfilePageProps) {
         </div>
       </dl>
 
-      <h3>Опыт</h3>
-      {profile.experiences.length === 0 ? (
-        <p className="hint">Опыт не указан</p>
+      <div className="experience-header">
+        <h3>Опыт</h3>
+        {!isAddingExperience ? (
+          <button type="button" className="btn secondary experience-add-btn" onClick={startAddingExperience}>
+            Добавить опыт
+          </button>
+        ) : null}
+      </div>
+
+      {isAddingExperience ? (
+        <form
+          className="profile-form experience-form"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void handleAddExperience();
+          }}
+        >
+          <label className="form-field">
+            <span>Категория</span>
+            <select
+              value={expForm.category_id}
+              disabled={isExpSaving || categoriesLoading || categories.length === 0}
+              onChange={(e) => updateExpField("category_id", e.target.value)}
+            >
+              <option value="">Выберите категорию…</option>
+              {categories.map((cat) => (
+                <option key={cat.id} value={cat.id}>
+                  {cat.name_ru}
+                </option>
+              ))}
+            </select>
+            {categoriesLoading ? <p className="hint">Загрузка категорий…</p> : null}
+            {expFormErrors.category_id ? (
+              <em className="field-error">{expFormErrors.category_id}</em>
+            ) : null}
+          </label>
+
+          <label className="form-field">
+            <span>Должность</span>
+            <input
+              type="text"
+              value={expForm.role_title}
+              maxLength={200}
+              placeholder="Например: Старший производственной линии"
+              disabled={isExpSaving}
+              onChange={(e) => updateExpField("role_title", e.target.value)}
+            />
+            {expFormErrors.role_title ? (
+              <em className="field-error">{expFormErrors.role_title}</em>
+            ) : null}
+          </label>
+
+          <label className="form-field">
+            <span>Срок (мес.)</span>
+            <input
+              type="number"
+              min={0}
+              max={600}
+              value={expForm.duration_months}
+              placeholder="10"
+              disabled={isExpSaving}
+              onChange={(e) => updateExpField("duration_months", e.target.value)}
+            />
+            {expFormErrors.duration_months ? (
+              <em className="field-error">{expFormErrors.duration_months}</em>
+            ) : null}
+          </label>
+
+          {expSaveError ? <p className="error">{expSaveError}</p> : null}
+
+          <div className="form-actions">
+            <button type="submit" className="btn" disabled={isExpSaving}>
+              {isExpSaving ? "Сохранение…" : "Сохранить"}
+            </button>
+            <button
+              type="button"
+              className="btn secondary"
+              disabled={isExpSaving}
+              onClick={cancelAddingExperience}
+            >
+              Отмена
+            </button>
+          </div>
+        </form>
+      ) : null}
+
+      {!isAddingExperience && expSaveError ? <p className="error">{expSaveError}</p> : null}
+
+      {profile.experiences.length === 0 && !isAddingExperience ? (
+        <p className="hint">Опыт не указан. Нажмите «Добавить опыт», чтобы указать категории для поиска вакансий.</p>
       ) : (
         <ul className="experience-list">
           {profile.experiences.map((exp) => (
-            <li key={exp.id}>
-              <strong>{exp.category_name}</strong> — {exp.role_title}
-              <span className="hint"> ({exp.duration_months} мес.)</span>
+            <li key={exp.id} className="experience-item">
+              <div>
+                <strong>{exp.category_name}</strong> — {exp.role_title}
+                <span className="hint"> ({exp.duration_months} мес.)</span>
+              </div>
+              <button
+                type="button"
+                className="link-btn"
+                disabled={deletingExpId === exp.id || isAddingExperience}
+                onClick={() => void handleDeleteExperience(exp.id)}
+              >
+                {deletingExpId === exp.id ? "Удаление…" : "Удалить"}
+              </button>
             </li>
           ))}
         </ul>
       )}
-
-      <button type="button" className="btn secondary" onClick={() => setReloadKey((k) => k + 1)}>
-        Обновить
-      </button>
     </section>
   );
 }

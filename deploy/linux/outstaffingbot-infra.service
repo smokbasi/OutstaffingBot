@@ -1,0 +1,25 @@
+# OutstaffingBot Postgres + Redis — Docker Compose
+# Install: deploy/linux/install-systemd.sh (root) or see README.md
+
+[Unit]
+Description=OutstaffingBot infrastructure (postgres, redis)
+Documentation=file:///opt/outstaffingbot/deploy/linux/README.md
+After=docker.service network-online.target
+Requires=docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+User=@OUTSTAFFING_USER@
+Group=@OUTSTAFFING_GROUP@
+WorkingDirectory=@OUTSTAFFING_APP_DIR@
+Environment=COMPOSE_PROJECT_NAME=@OUTSTAFFING_COMPOSE_PROJECT@
+ExecStart=/usr/bin/docker compose -f docker-compose.yml -f docker-compose.staging.yml up -d --no-build postgres redis
+ExecStop=/usr/bin/docker compose -f docker-compose.yml -f docker-compose.staging.yml stop postgres redis
+TimeoutStartSec=300
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

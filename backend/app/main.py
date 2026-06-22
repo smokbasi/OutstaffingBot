@@ -11,6 +11,20 @@ from app.core.config import get_settings
 
 settings = get_settings()
 
+
+def _cors_origins(mini_app_url: str) -> list[str]:
+    origins = {
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    }
+    normalized = mini_app_url.rstrip("/")
+    if normalized:
+        origins.add(normalized)
+        if mini_app_url.endswith("/"):
+            origins.add(mini_app_url)
+    return sorted(origins)
+
+
 app = FastAPI(
     title="OutstaffingBot API",
     version="0.1.0",
@@ -19,7 +33,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[settings.mini_app_url, "http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=_cors_origins(settings.mini_app_url),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

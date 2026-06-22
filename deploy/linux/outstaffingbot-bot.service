@@ -1,0 +1,28 @@
+# OutstaffingBot Telegram bot — Docker Compose
+# Install: deploy/linux/install-systemd.sh (root)
+#
+# Отдельный unit как vspomni: рестарт бота не трогает API и dashboard.
+
+[Unit]
+Description=OutstaffingBot Telegram bot (aiogram, Docker Compose)
+Documentation=file:///opt/outstaffingbot/deploy/linux/README.md
+After=docker.service network-online.target outstaffingbot-api.service
+Requires=docker.service outstaffingbot-api.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+User=@OUTSTAFFING_USER@
+Group=@OUTSTAFFING_GROUP@
+WorkingDirectory=@OUTSTAFFING_APP_DIR@
+Environment=COMPOSE_PROJECT_NAME=@OUTSTAFFING_COMPOSE_PROJECT@
+ExecStart=/usr/bin/docker compose -f docker-compose.yml -f docker-compose.staging.yml up -d --no-build bot
+ExecStop=/usr/bin/docker compose -f docker-compose.yml -f docker-compose.staging.yml stop bot
+TimeoutStartSec=300
+Restart=always
+RestartSec=10
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target

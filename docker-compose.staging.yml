@@ -7,6 +7,7 @@
 # - postgres/redis not published on 0.0.0.0
 # - credentials from .env
 # - dedicated Docker network outstaffing_internal
+# - restart: always on all services (same intent as vspomni systemd Restart=always)
 #
 # Port map shared VPS (89.125.25.99) — see docs/SERVER_SECURITY.md section 5:
 #   TAKEN vspomni/3x-ui: 443, 433, 2096, 8443-8449, 8765, 8088, 25855 (localhost)
@@ -17,6 +18,7 @@ name: outstaffingbot
 
 services:
   postgres:
+    restart: always
     ports: !reset []
     # Dev SSH tunnel only — bind localhost, NOT 0.0.0.0:
     # ports:
@@ -29,6 +31,7 @@ services:
       - outstaffing_internal
 
   redis:
+    restart: always
     ports: !reset []
     # Dev SSH tunnel only:
     # ports:
@@ -50,7 +53,7 @@ services:
         condition: service_healthy
     networks:
       - outstaffing_internal
-    restart: unless-stopped
+    restart: always
 
   bot:
     build:
@@ -69,7 +72,7 @@ services:
         condition: service_started
     networks:
       - outstaffing_internal
-    restart: unless-stopped
+    restart: always
 
 networks:
   outstaffing_internal:

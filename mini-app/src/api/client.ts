@@ -2,6 +2,29 @@ const API_BASE =
   import.meta.env.VITE_API_BASE_URL ??
   (import.meta.env.PROD ? "" : "http://localhost:8000");
 
+const REQUEST_TIMEOUT_MS = 10_000;
+
+async function fetchWithTimeout(
+  input: RequestInfo | URL,
+  init?: RequestInit,
+): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    return await fetch(input, {
+      ...init,
+      signal: init?.signal ?? controller.signal,
+    });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new Error("Сервер не отвечает. Проверьте интернет и попробуйте снова.");
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
 export type WorkerExperience = {
   id: string;
   category_id: number;
@@ -191,6 +214,13 @@ export type WorkerProfileUpdate = Pick<
   "first_name" | "last_name" | "age" | "gender" | "metro_station_id" | "min_hourly_rate"
 >;
 
+export type WorkerExperienceCreate = {
+  category_id: number;
+  role_title: string;
+  duration_months: number;
+  description?: string | null;
+};
+
 /** Matches backend MAX_HOURLY_RATE (PostgreSQL NUMERIC(10, 2)) */
 export const MAX_HOURLY_RATE = 99999999.99;
 
@@ -223,6 +253,8 @@ const FIELD_LABELS: Record<string, string> = {
   end_time: "Конец смены",
   company_name: "Название компании",
   min_hourly_rate: "Мин. ставка",
+  role_title: "Должность",
+  duration_months: "Срок (мес.)",
 };
 
 function fieldLabel(loc: (string | number)[] | undefined): string {
@@ -301,7 +333,7 @@ function authHeaders(initData: string): HeadersInit {
 }
 
 async function apiFetch<T>(path: string, initData: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_BASE}/api/v1${path}`, {
+  const response = await fetchWithTimeout(`${API_BASE}/api/v1${path}`, {
     ...init,
     headers: {
       ...authHeaders(initData),
@@ -316,7 +348,7 @@ async function apiFetch<T>(path: string, initData: string, init?: RequestInit): 
 }
 
 async function publicFetch<T>(path: string): Promise<T> {
-  const response = await fetch(`${API_BASE}/api/v1${path}`);
+  const response = await fetchWithTimeout(`${API_BASE}/api/v1${path}`);
   if (!response.ok) {
     const body = await response.text();
     throw new Error(parseApiError(body, response.status));
@@ -339,6 +371,22 @@ export function updateWorkerProfile(
   return apiFetch<WorkerProfile>("/worker/profile", initData, {
     method: "PUT",
     body: JSON.stringify(data),
+  });
+}
+
+export function addWorkerExperience(
+  initData: string,
+  data: WorkerExperienceCreate,
+): Promise<WorkerProfile> {
+  return apiFetch<WorkerProfile>("/worker/experiences", initData, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export function deleteWorkerExperience(initData: string, experienceId: string): Promise<WorkerProfile> {
+  return apiFetch<WorkerProfile>(`/worker/experiences/${experienceId}`, initData, {
+    method: "DELETE",
   });
 }
 
@@ -420,7 +468,7 @@ export async function searchMetroStations(q: string): Promise<MetroStation[]> {
     params.set("q", q.trim());
   }
   const query = params.toString();
-  const response = await fetch(`${API_BASE}/api/v1/reference/metro${query ? `?${query}` : ""}`);
+  const response = await fetchWithTimeout(`${API_BASE}/api/v1/reference/metro${query ? `?${query}` : ""}`);
   if (!response.ok) {
     const body = await response.text();
     throw new Error(parseApiError(body, response.status));

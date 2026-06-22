@@ -1,0 +1,26 @@
+# OutstaffingBot FastAPI — Docker Compose
+# Install: deploy/linux/install-systemd.sh (root)
+
+[Unit]
+Description=OutstaffingBot API (FastAPI, Docker Compose)
+Documentation=file:///opt/outstaffingbot/deploy/linux/README.md
+After=docker.service network-online.target outstaffingbot-infra.service
+Requires=docker.service outstaffingbot-infra.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+User=@OUTSTAFFING_USER@
+Group=@OUTSTAFFING_GROUP@
+WorkingDirectory=@OUTSTAFFING_APP_DIR@
+Environment=COMPOSE_PROJECT_NAME=@OUTSTAFFING_COMPOSE_PROJECT@
+ExecStart=/usr/bin/docker compose -f docker-compose.yml -f docker-compose.staging.yml up -d --no-build api
+ExecStop=/usr/bin/docker compose -f docker-compose.yml -f docker-compose.staging.yml stop api
+TimeoutStartSec=300
+Restart=always
+RestartSec=10
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target

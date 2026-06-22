@@ -1,0 +1,24 @@
+# OutstaffingBot Mini App dashboard — static via nginx
+# Install: deploy/linux/install-systemd.sh (root)
+#
+# vspomni: отдельный python dashboard_main.py + Restart=always.
+# OutstaffingBot: dist в /opt/outstaffingbot/mini-app/dist, nginx :8451 → :443 SNI.
+# Unit проверяет dist и конфиг nginx; перезапуск nginx — через nginx.service (Restart=always).
+
+[Unit]
+Description=OutstaffingBot Mini App dashboard (nginx static)
+Documentation=file:///opt/outstaffingbot/deploy/linux/README.md
+After=network-online.target nginx.service
+Requires=nginx.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/bash -c 'test -f @OUTSTAFFING_APP_DIR@/mini-app/dist/index.html && /usr/sbin/nginx -t'
+Restart=always
+RestartSec=10
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target
