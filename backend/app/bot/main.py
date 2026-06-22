@@ -1,57 +1,55 @@
 import asyncio
 import logging
-import sys
+import signal
 
-from aiogram import Bot, Dispatcher
-from aiogram.client.default import DefaultBotProperties
-from aiogram.enums import ParseMode
-
-from app.bot.handlers.notifications import router as notifications_router
-from app.bot.handlers.applications import router as applications_router
-from app.bot.handlers.job_request import router as job_request_router
-from app.bot.handlers.start import router as start_router
-from app.bot.handlers.vacancy_search import router as vacancy_search_router
-from app.bot.handlers.worker_registration import router as worker_registration_router
+from app.bot.factory import create_bot, create_dispatcher
 from app.bot.menu_setup import setup_default_mini_app_menu
 from app.bot.startup_announcement import announce_bot_update
-from app.bot.middlewares.db_session import DbSessionMiddleware
+from app.bot.webhook_setup import register_telegram_webhook
 from app.core.config import get_settings
+from app.core.logging_config import setup_logging
 
 logger = logging.getLogger(__name__)
 
 
-def create_dispatcher() -> Dispatcher:
-    dp = Dispatcher()
-    dp.update.middleware(DbSessionMiddleware())
-    dp.include_router(worker_registration_router)
-    dp.include_router(applications_router)
-    dp.include_router(vacancy_search_router)
-    dp.include_router(job_request_router)
-    dp.include_router(notifications_router)
-    dp.include_router(start_router)
-    return dp
-
-
-async def run_bot() -> None:
+async def run_polling() -> None:
     settings = get_settings()
-    logging.basicConfig(level=settings.log_level, stream=sys.stdout)
-
-    if not settings.bot_enabled:
-        logger.warning(
-            "BOT_TOKEN is not set — dry-run mode. Set BOT_TOKEN in .env to start polling."
-        )
-        return
-
-    bot = Bot(
-        token=settings.bot_token,
-        default=DefaultBotProperties(parse_mode=ParseMode.HTML),
-    )
+    bot = create_bot(settings)
     dp = create_dispatcher()
     dp.startup.register(setup_default_mini_app_menu)
     dp.startup.register(announce_bot_update)
 
     logger.info("Starting bot polling...")
     await dp.start_polling(bot)
+
+
+async def run_webhook_register_daemon() -> None:
+    settings = get_settings()
+    await register_telegram_webhook(settings)
+    logger.info("Webhook registered; updates are handled by the API service")
+
+    stop = asyncio.Event()
+    loop = asyncio.get_running_loop()
+    for sig in (signal.SIGTERM, signal.SIGINT):
+        loop.add_signal_handler(sig, stop.set)
+    await stop.wait()
+
+
+async def run_bot() -> None:
+    settings = get_settings()
+    setup_logging(log_level=settings.log_level, app_env=settings.app_env)
+
+    if not settings.bot_enabled:
+        logger.warning(
+            "BOT_TOKEN is not set — dry-run mode. Set BOT_TOKEN in .env to start the bot."
+        )
+        return
+
+    if settings.webhook_enabled:
+        await run_webhook_register_daemon()
+        return
+
+    await run_polling()
 
 
 def main() -> None:
