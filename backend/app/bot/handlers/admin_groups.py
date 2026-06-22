@@ -1,5 +1,6 @@
 from aiogram import F, Router
 from aiogram.enums import ChatType
+from aiogram.exceptions import TelegramMigrateToChat
 from aiogram.filters import Command
 from aiogram.types import Message
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -57,22 +58,37 @@ async def cmd_group_commands_private_only(message: Message) -> None:
     )
 
 
+def _register_group_reply(category_ids: list[int] | None) -> str:
+    return (
+        "✅ Группа привязана.\n"
+        f"Категории: {_format_category_ids(category_ids)}\n\n"
+        "Убедитесь, что бот — администратор с правом публиковать сообщения.\n"
+        "Пример: <code>/register_group 2,5</code> — только категории 2 и 5.\n"
+        "Без аргументов — все категории."
+    )
+
+
 @router.message(Command("register_group"), F.chat.type.in_({ChatType.GROUP, ChatType.SUPERGROUP}))
 async def cmd_register_group(message: Message, session: AsyncSession) -> None:
     category_ids = _parse_category_ids(message.text or "")
-    group = await group_posting_service.register_telegram_group(
+    await group_posting_service.register_telegram_group(
         session,
         chat_id=message.chat.id,
         title=message.chat.title,
         category_ids=category_ids,
     )
-    await message.answer(
-        "✅ Группа привязана.\n"
-        f"Категории: {_format_category_ids(group.category_ids)}\n\n"
-        "Убедитесь, что бот — администратор с правом публиковать сообщения.\n"
-        "Пример: <code>/register_group 2,5</code> — только категории 2 и 5.\n"
-        "Без аргументов — все категории."
-    )
+    reply_text = _register_group_reply(category_ids)
+    try:
+        await message.answer(reply_text)
+    except TelegramMigrateToChat as exc:
+        await group_posting_service.migrate_telegram_group_chat_id(
+            session,
+            old_chat_id=message.chat.id,
+            new_chat_id=exc.migrate_to_chat_id,
+            title=message.chat.title,
+        )
+        if message.bot is not None:
+            await message.bot.send_message(exc.migrate_to_chat_id, reply_text)
 
 
 @router.message(Command("unregister_group"), F.chat.type.in_({ChatType.GROUP, ChatType.SUPERGROUP}))

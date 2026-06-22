@@ -2,6 +2,7 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock
 
 from aiogram.enums import ChatType
+from aiogram.exceptions import TelegramMigrateToChat
 
 from app.bot.handlers.admin_groups import (
     _format_category_ids,
@@ -77,6 +78,43 @@ async def test_register_group_in_group_replies_bound(monkeypatch: pytest.MonkeyP
     reply = message.answer.await_args.args[0]
     assert "✅ Группа привязана" in reply
     assert "2, 5" in reply
+
+
+@pytest.mark.asyncio
+async def test_register_group_handles_supergroup_migration(monkeypatch: pytest.MonkeyPatch) -> None:
+    message = _make_message(chat_type=ChatType.GROUP, text="/register_group", chat_id=-5352608955)
+    message.bot = MagicMock()
+    message.bot.send_message = AsyncMock()
+    migrate_error = TelegramMigrateToChat(
+        method="sendMessage",
+        message="group chat was upgraded to a supergroup chat",
+        migrate_to_chat_id=-1003769677136,
+    )
+    message.answer = AsyncMock(side_effect=migrate_error)
+    session = AsyncMock()
+    register_mock = AsyncMock()
+    migrate_mock = AsyncMock()
+    monkeypatch.setattr(
+        "app.bot.handlers.admin_groups.group_posting_service.register_telegram_group",
+        register_mock,
+    )
+    monkeypatch.setattr(
+        "app.bot.handlers.admin_groups.group_posting_service.migrate_telegram_group_chat_id",
+        migrate_mock,
+    )
+
+    await cmd_register_group(message, session)
+
+    register_mock.assert_awaited_once()
+    migrate_mock.assert_awaited_once_with(
+        session,
+        old_chat_id=-5352608955,
+        new_chat_id=-1003769677136,
+        title="Test Group",
+    )
+    message.bot.send_message.assert_awaited_once()
+    reply = message.bot.send_message.await_args.args[1]
+    assert "✅ Группа привязана" in reply
 
 
 @pytest.mark.asyncio

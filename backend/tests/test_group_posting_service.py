@@ -6,7 +6,9 @@ from app.db.models import JobCategory, JobRequest, JobRequestStatus, MetroStatio
 from app.services.group_posting_service import (
     format_group_post_message,
     group_matches_job,
+    group_post_keyboard,
 )
+from app.core.config import Settings
 
 
 def _make_job(*, category_id: int = 2) -> JobRequest:
@@ -86,3 +88,13 @@ def test_group_matches_job_respects_category_filter() -> None:
     assert group_matches_job(matching, job) is True
     assert group_matches_job(other, job) is False
     assert group_matches_job(inactive, job) is False
+
+
+def test_group_post_keyboard_uses_vacancy_deep_link() -> None:
+    job = _make_job()
+    settings = Settings(mini_app_url="https://www.outstaffingbot.online/?v=2")
+    keyboard = group_post_keyboard(job, settings)
+    assert keyboard is not None
+    button = keyboard.inline_keyboard[0][0]
+    assert button.web_app is not None
+    assert button.web_app.url == f"https://www.outstaffingbot.online/vacancy/{job.id}?v=2"

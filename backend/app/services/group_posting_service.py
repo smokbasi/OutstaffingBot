@@ -1,14 +1,18 @@
+import logging
 from datetime import datetime, timezone
 from uuid import UUID
 
 from aiogram import Bot
-from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
+from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError, TelegramMigrateToChat
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.config import Settings
+from app.core.mini_app_urls import vacancy_deep_link
+
+logger = logging.getLogger(__name__)
 from app.db.models import Application, ApplicationStatus, GroupPost, JobRequest, JobRequestStatus, TelegramGroup
 
 
@@ -50,7 +54,7 @@ def group_post_keyboard(job: JobRequest, settings: Settings, *, closed: bool = F
             [
                 InlineKeyboardButton(
                     text="Откликнуться 👷",
-                    web_app=WebAppInfo(url=f"{settings.mini_app_url}/vacancy/{job.id}"),
+                    web_app=WebAppInfo(url=vacancy_deep_link(settings, job.id)),
                 )
             ]
         ]
@@ -168,6 +172,23 @@ async def register_telegram_group(
     return group
 
 
+async def migrate_telegram_group_chat_id(
+    session: AsyncSession,
+    *,
+    old_chat_id: int,
+    new_chat_id: int,
+    title: str | None = None,
+) -> TelegramGroup | None:
+    group = await session.scalar(select(TelegramGroup).where(TelegramGroup.chat_id == old_chat_id))
+    if group is None:
+        return None
+    group.chat_id = new_chat_id
+    if title is not None:
+        group.title = title
+    await session.flush()
+    return group
+
+
 async def deactivate_telegram_group(session: AsyncSession, chat_id: int) -> TelegramGroup | None:
     group = await session.scalar(select(TelegramGroup).where(TelegramGroup.chat_id == chat_id))
     if group is None:
@@ -207,6 +228,47 @@ async def post_job_to_groups(session: AsyncSession, bot: Bot, settings: Settings
 
         try:
             message = await bot.send_message(group.chat_id, text, reply_markup=keyboard)
+        except TelegramMigrateToChat as exc:
+            migrated = await migrate_telegram_group_chat_id(
+                session,
+                old_chat_id=group.chat_id,
+                new_chat_id=exc.migrate_to_chat_id,
+                title=group.title,
+            )
+            if migrated is None:
+                logger.warning(
+                    "Group migrate for job %s: chat %s -> %s but group row missing",
+                    job.id,
+                    group.chat_id,
+                    exc.migrate_to_chat_id,
+                )
+                continue
+            group = migrated
+            try:
+                message = await bot.send_message(group.chat_id, text, reply_markup=keyboard)
+            except (TelegramBadRequest, TelegramForbiddenError) as retry_exc:
+                logger.warning(
+                    "Failed to post job %s to migrated group %s: %s",
+                    job.id,
+                    group.chat_id,
+                    retry_exc,
+                )
+                if isinstance(retry_exc, TelegramForbiddenError):
+                    group.is_active = False
+                continue
+        except TelegramForbiddenError:
+            group.is_active = False
+            continue
+        except TelegramBadRequest as exc:
+            logger.warning(
+                "Failed to post job %s to group %s (%s): %s",
+                job.id,
+                group.chat_id,
+                group.title,
+                exc,
+            )
+            continue
+        else:
             session.add(
                 GroupPost(
                     job_request_id=job.id,
@@ -216,10 +278,6 @@ async def post_job_to_groups(session: AsyncSession, bot: Bot, settings: Settings
                 )
             )
             posted_count += 1
-        except TelegramForbiddenError:
-            group.is_active = False
-        except TelegramBadRequest:
-            continue
 
     await session.commit()
     return posted_count

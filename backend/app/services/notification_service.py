@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.config import Settings
+from app.core.mini_app_urls import vacancy_deep_link
 from app.db.models import JobRequest, Notification, NotificationType, User, Worker
 from app.services import matching_service
 
@@ -38,7 +39,7 @@ def _vacancy_keyboard(job: JobRequest, settings: Settings) -> InlineKeyboardMark
             [
                 InlineKeyboardButton(
                     text="📋 Подробнее",
-                    web_app=WebAppInfo(url=f"{settings.mini_app_url}/vacancy/{job.id}"),
+                    web_app=WebAppInfo(url=vacancy_deep_link(settings, job.id)),
                 )
             ]
         ]
