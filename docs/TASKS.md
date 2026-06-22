@@ -6,18 +6,18 @@
 ## Как пользоваться этим файлом
 
 1. **Открывайте этот файл первым**, когда ищете «что делать дальше» — здесь все checkbox-задачи Phase 0–10 в одном месте.
-2. **Текущая фаза** — та, где есть незакрытые пункты. Сейчас это **Phase 8** (Phase 6 отложена — пункты не закрыты).
+2. **Текущая фаза** — та, где есть незакрытые пункты. Сейчас это **Phase 9** (Phase 6 отложена — пункты не закрыты).
 3. **Отмечайте прогресс** — меняйте `[ ]` на `[x]` по мере выполнения (и синхронизируйте с [PLAN.md § F](./PLAN.md#f-roadmap--фазы-реализации), если правите roadmap там).
 4. **Перед началом фазы** — прочитайте строку для этой фазы в [DEVELOPMENT_WORKFLOW.md § E](./DEVELOPMENT_WORKFLOW.md#e-workflow-по-фазам-planmd): solo vs оркестрация, skills, verification.
 5. **Для ECC/setup** — дополнительный чеклист Phase 0 в [ECC_STRATEGY.md § 9](./ECC_STRATEGY.md#9-чеклист-phase-0-ecc).
 
 ---
 
-## Текущая фаза: Phase 8 — Production Deploy
+## Текущая фаза: Phase 9 — Admin + Moderation
 
-**Phase 6 отложена** (Group Posting — не в git, см. ниже). **Phase 7 завершена** (Mini App Polish).
+**Phase 6 отложена** (Group Posting — не в git, см. ниже). **Phase 7 завершена** (Mini App Polish). **Phase 8 завершена** (Production Deploy — webhook, backup, staging).
 
-**Следующий шаг:** webhook mode, production config, backup/logging (Phase 8; TLS на staging — outstaffingbot.online).
+**Следующий шаг:** admin commands, employer verification, audit log (Phase 9).
 
 **Verification Phase 0:** локально (Docker Desktop) **или** на dev/staging VPS — см. [SERVER_AND_TEAM.md](./SERVER_AND_TEAM.md).
 
@@ -160,10 +160,10 @@
 
 ### Phase 8 — Production Deploy (1 неделя) [P1]
 
-- [ ] VPS setup, nginx, TLS
-- [ ] Webhook mode
-- [ ] systemd/Docker production config
-- [ ] Backup, logging, Sentry
+- [x] VPS setup, nginx, TLS
+- [x] Webhook mode
+- [x] systemd/Docker production config
+- [x] Backup, logging, Sentry
 
 **Verification:** production URL, SSL, uptime 24h.
 

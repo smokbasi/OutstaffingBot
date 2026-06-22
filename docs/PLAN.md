@@ -1085,10 +1085,10 @@ Ruflo удалён. Агентный harness — **ECC** ([github.com/affaan-m/E
 
 ### Phase 8: Production Deploy (1 неделя) — P1
 
-- [ ] VPS setup, nginx, TLS
-- [ ] Webhook mode
-- [ ] systemd/Docker production config
-- [ ] Backup, logging, Sentry
+- [x] VPS setup, nginx, TLS
+- [x] Webhook mode
+- [x] systemd/Docker production config
+- [x] Backup, logging, Sentry
 
 **Verification:** production URL, SSL, uptime 24h.
 
