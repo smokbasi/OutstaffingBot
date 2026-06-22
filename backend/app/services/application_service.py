@@ -53,6 +53,10 @@ class ApplicationNotAcceptableError(ApplicationError):
     pass
 
 
+class ApplicationNotRejectableError(ApplicationError):
+    pass
+
+
 class CancelConflictMismatchError(ApplicationError):
     def __init__(self, expected_id: UUID) -> None:
         self.expected_id = expected_id
@@ -107,9 +111,10 @@ async def _get_existing_application(
     )
 
 
-def _application_to_read(app: Application) -> ApplicationRead:
+def _application_to_read(app: Application, *, include_worker: bool = False) -> ApplicationRead:
     slot = app.shift_slot
     job = app.job_request
+    worker = app.worker if include_worker else None
     return ApplicationRead(
         id=app.id,
         job_request_id=app.job_request_id,
@@ -124,6 +129,8 @@ def _application_to_read(app: Application) -> ApplicationRead:
         shift_date=slot.shift_date,
         start_time=slot.start_time,
         end_time=slot.end_time,
+        worker_first_name=worker.first_name if worker else None,
+        worker_last_name=worker.last_name if worker else None,
     )
 
 
@@ -265,7 +272,76 @@ async def accept_application(
     if is_job_headcount_filled(job, accepted_count):
         await _maybe_sync_group_posts(session, app)
 
-    return _application_to_read(app)
+    return _application_to_read(app, include_worker=True)
+
+
+async def reject_application(
+    session: AsyncSession,
+    employer_id: UUID,
+    application_id: UUID,
+) -> ApplicationRead:
+    app = await session.scalar(
+        select(Application)
+        .options(
+            selectinload(Application.shift_slot),
+            selectinload(Application.job_request).selectinload(JobRequest.category),
+            selectinload(Application.job_request).selectinload(JobRequest.metro_station),
+            selectinload(Application.worker),
+        )
+        .where(Application.id == application_id)
+    )
+    if app is None:
+        raise ApplicationNotFoundError("Application not found")
+
+    job = app.job_request
+    if job is None or job.employer_id != employer_id:
+        raise ApplicationNotFoundError("Application not found")
+
+    if app.status != ApplicationStatus.pending:
+        raise ApplicationNotRejectableError("Application cannot be rejected")
+
+    app.status = ApplicationStatus.rejected
+    await session.flush()
+    return _application_to_read(app, include_worker=True)
+
+
+async def list_employer_applications(
+    session: AsyncSession,
+    employer_id: UUID,
+    *,
+    job_id: UUID | None = None,
+    status: ApplicationStatus | None = None,
+) -> ApplicationListResponse:
+    stmt = (
+        select(Application)
+        .join(JobRequest, Application.job_request_id == JobRequest.id)
+        .options(
+            selectinload(Application.shift_slot),
+            selectinload(Application.job_request).selectinload(JobRequest.category),
+            selectinload(Application.job_request).selectinload(JobRequest.metro_station),
+            selectinload(Application.worker),
+        )
+        .where(JobRequest.employer_id == employer_id)
+        .order_by(Application.applied_at.desc())
+    )
+    if job_id is not None:
+        stmt = stmt.where(Application.job_request_id == job_id)
+    if status is not None:
+        stmt = stmt.where(Application.status == status)
+    else:
+        stmt = stmt.where(
+            Application.status.in_(
+                [
+                    ApplicationStatus.pending,
+                    ApplicationStatus.accepted,
+                    ApplicationStatus.rejected,
+                ]
+            )
+        )
+
+    result = await session.scalars(stmt)
+    items = [_application_to_read(app, include_worker=True) for app in result.all()]
+    return ApplicationListResponse(items=items, total=len(items))
 
 
 async def list_my_applications(

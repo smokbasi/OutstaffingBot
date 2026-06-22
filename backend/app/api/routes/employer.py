@@ -1,13 +1,13 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_employer, get_current_user
 from app.db.models import ApplicationStatus, Employer, User
 from app.db.session import get_db_session
 from app.schemas.employer import EmployerProfileRead, EmployerProfileUpdate
-from app.schemas.application import ApplicationRead, ApplicationStatusUpdate
+from app.schemas.application import ApplicationListResponse, ApplicationRead, ApplicationStatusUpdate
 from app.schemas.job_request import JobRequestCreate, JobRequestRead, JobRequestUpdate
 from app.services import application_service, employer_service, job_service
 
@@ -89,6 +89,39 @@ async def update_job(
     return job
 
 
+@router.get("/applications", response_model=ApplicationListResponse)
+async def list_applications(
+    job_id: UUID | None = Query(default=None),
+    status: ApplicationStatus | None = Query(default=None),
+    employer: Employer = Depends(get_current_employer),
+    session: AsyncSession = Depends(get_db_session),
+) -> ApplicationListResponse:
+    return await application_service.list_employer_applications(
+        session,
+        employer.id,
+        job_id=job_id,
+        status=status,
+    )
+
+
+@router.get("/jobs/{job_id}/applications", response_model=ApplicationListResponse)
+async def list_job_applications(
+    job_id: UUID,
+    status: ApplicationStatus | None = Query(default=None),
+    employer: Employer = Depends(get_current_employer),
+    session: AsyncSession = Depends(get_db_session),
+) -> ApplicationListResponse:
+    job = await job_service.get_job_request(session, employer.id, job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job request not found")
+    return await application_service.list_employer_applications(
+        session,
+        employer.id,
+        job_id=job_id,
+        status=status,
+    )
+
+
 @router.patch("/applications/{application_id}", response_model=ApplicationRead)
 async def update_application_status(
     application_id: UUID,
@@ -105,8 +138,15 @@ async def update_application_status(
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         except application_service.SlotUnavailableError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
+    elif data.status == ApplicationStatus.rejected:
+        try:
+            result = await application_service.reject_application(session, employer.id, application_id)
+        except application_service.ApplicationNotFoundError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        except application_service.ApplicationNotRejectableError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
     else:
-        raise HTTPException(status_code=400, detail="Only accept is supported in this phase")
+        raise HTTPException(status_code=400, detail="Only accept or reject is supported")
 
     await session.commit()
     return result

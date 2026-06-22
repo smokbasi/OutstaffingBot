@@ -6,9 +6,10 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 from app.api.deps import get_current_employer, get_current_user
-from app.db.models import Employer, JobRequestStatus, User, UserRole
+from app.db.models import ApplicationStatus, Employer, JobRequestStatus, User, UserRole
 from app.db.session import get_db_session
 from app.main import app
+from app.schemas.application import ApplicationListResponse, ApplicationRead
 from app.schemas.job_request import JobRequestRead, ShiftSlotRead
 from tests.helpers.init_data import build_test_init_data
 
@@ -318,3 +319,149 @@ async def test_employer_jobs_require_employer_profile(
     app.dependency_overrides.clear()
     config.get_settings.cache_clear()
     assert response.status_code == 404
+
+
+def _sample_application(employer_id=None) -> ApplicationRead:
+    from datetime import date
+
+    return ApplicationRead(
+        id=uuid4(),
+        job_request_id=uuid4(),
+        shift_slot_id=uuid4(),
+        status=ApplicationStatus.pending,
+        applied_at=datetime.now(timezone.utc),
+        cancelled_at=None,
+        job_title="Официант на смену",
+        category_name="Официант",
+        metro_station_name="Автово",
+        hourly_rate="400.00",
+        shift_date=date(2026, 6, 25),
+        start_time=time(10, 0),
+        end_time=time(22, 0),
+        worker_first_name="Анна",
+        worker_last_name="Иванова",
+    )
+
+
+@pytest.mark.asyncio
+async def test_list_employer_applications(
+    client: AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    sample = _sample_application()
+
+    async def mock_list(session, employer_id, *, job_id=None, status=None):
+        return ApplicationListResponse(items=[sample], total=1)
+
+    monkeypatch.setattr(
+        "app.api.routes.employer.application_service.list_employer_applications",
+        mock_list,
+    )
+    response = await client.get("/api/v1/employer/applications", headers=_auth_headers())
+    assert response.status_code == 200
+    data = response.json()
+    assert data["total"] == 1
+    assert data["items"][0]["worker_first_name"] == "Анна"
+    assert data["items"][0]["status"] == "pending"
+
+
+@pytest.mark.asyncio
+async def test_list_job_applications(
+    client: AsyncClient,
+    sample_job: JobRequestRead,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    sample = _sample_application()
+
+    async def mock_get(session, employer_id, job_id):
+        return sample_job if job_id == sample_job.id else None
+
+    async def mock_list(session, employer_id, *, job_id=None, status=None):
+        assert job_id == sample_job.id
+        return ApplicationListResponse(items=[sample], total=1)
+
+    monkeypatch.setattr("app.api.routes.employer.job_service.get_job_request", mock_get)
+    monkeypatch.setattr(
+        "app.api.routes.employer.application_service.list_employer_applications",
+        mock_list,
+    )
+    response = await client.get(
+        f"/api/v1/employer/jobs/{sample_job.id}/applications",
+        headers=_auth_headers(),
+    )
+    assert response.status_code == 200
+    assert response.json()["total"] == 1
+
+
+@pytest.mark.asyncio
+async def test_list_job_applications_not_found(
+    client: AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def mock_get(session, employer_id, job_id):
+        return None
+
+    monkeypatch.setattr("app.api.routes.employer.job_service.get_job_request", mock_get)
+    response = await client.get(
+        f"/api/v1/employer/jobs/{uuid4()}/applications",
+        headers=_auth_headers(),
+    )
+    assert response.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_patch_application_accept(
+    client: AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    sample = _sample_application()
+    accepted = sample.model_copy(update={"status": ApplicationStatus.accepted})
+
+    async def mock_accept(session, employer_id, application_id):
+        return accepted
+
+    monkeypatch.setattr(
+        "app.api.routes.employer.application_service.accept_application",
+        mock_accept,
+    )
+    response = await client.patch(
+        f"/api/v1/employer/applications/{sample.id}",
+        headers=_auth_headers(),
+        json={"status": "accepted"},
+    )
+    assert response.status_code == 200
+    assert response.json()["status"] == "accepted"
+
+
+@pytest.mark.asyncio
+async def test_patch_application_reject(
+    client: AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    sample = _sample_application()
+    rejected = sample.model_copy(update={"status": ApplicationStatus.rejected})
+
+    async def mock_reject(session, employer_id, application_id):
+        return rejected
+
+    monkeypatch.setattr(
+        "app.api.routes.employer.application_service.reject_application",
+        mock_reject,
+    )
+    response = await client.patch(
+        f"/api/v1/employer/applications/{sample.id}",
+        headers=_auth_headers(),
+        json={"status": "rejected"},
+    )
+    assert response.status_code == 200
+    assert response.json()["status"] == "rejected"
+
+
+@pytest.mark.asyncio
+async def test_patch_application_invalid_status(client: AsyncClient) -> None:
+    response = await client.patch(
+        f"/api/v1/employer/applications/{uuid4()}",
+        headers=_auth_headers(),
+        json={"status": "cancelled_by_worker"},
+    )
+    assert response.status_code == 400

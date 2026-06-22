@@ -149,7 +149,7 @@
 
 - [ ] Полный UI/UX всех экранов
 - [ ] Deep links, haptic, theme
-- [ ] Employer inbox (accept/reject applications)
+- [x] Employer inbox (accept/reject applications)
 
 **Verification:** полный user journey без бота (только Mini App).
 

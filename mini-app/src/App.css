@@ -572,3 +572,48 @@
 .application-item:last-child {
   border-bottom: none;
 }
+
+.application-item-employer {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.application-item-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+}
+
+.application-item-body {
+  flex: 1;
+}
+
+.application-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.application-actions .btn {
+  margin-top: 0;
+}
+
+.status-pending {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.status-accepted {
+  background: #d4edda;
+  color: #155724;
+}
+
+.status-rejected,
+.status-cancelled_by_worker,
+.status-cancelled_by_employer {
+  background: #f8d7da;
+  color: #721c24;
+}

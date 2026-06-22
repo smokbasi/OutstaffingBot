@@ -186,6 +186,8 @@ export type ApplicationRead = {
   shift_date: string;
   start_time: string;
   end_time: string;
+  worker_first_name?: string | null;
+  worker_last_name?: string | null;
 };
 
 export type ApplicationListResponse = {
@@ -593,6 +595,44 @@ export function cancelApplication(initData: string, applicationId: string): Prom
 
 export function listMyApplications(initData: string): Promise<ApplicationListResponse> {
   return apiFetch<ApplicationListResponse>("/applications/mine", initData);
+}
+
+export type EmployerApplicationsParams = {
+  job_id?: string;
+  status?: ApplicationStatus;
+};
+
+export function listEmployerApplications(
+  initData: string,
+  params: EmployerApplicationsParams = {},
+): Promise<ApplicationListResponse> {
+  const search = new URLSearchParams();
+  if (params.job_id) {
+    search.set("job_id", params.job_id);
+  }
+  if (params.status) {
+    search.set("status", params.status);
+  }
+  const query = search.toString();
+  return apiFetch<ApplicationListResponse>(
+    `/employer/applications${query ? `?${query}` : ""}`,
+    initData,
+  );
+}
+
+export function updateEmployerApplicationStatus(
+  initData: string,
+  applicationId: string,
+  status: "accepted" | "rejected",
+): Promise<ApplicationRead> {
+  return apiFetch<ApplicationRead>(`/employer/applications/${applicationId}`, initData, {
+    method: "PATCH",
+    body: JSON.stringify({ status }),
+  });
+}
+
+export function formatApplicationStatus(status: ApplicationStatus): string {
+  return APPLICATION_STATUS_LABELS[status] ?? status;
 }
 
 export async function searchMetroStations(q: string): Promise<MetroStation[]> {

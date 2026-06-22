@@ -33,6 +33,8 @@ class ApplicationRead(BaseModel):
     shift_date: date
     start_time: time
     end_time: time
+    worker_first_name: str | None = None
+    worker_last_name: str | None = None
 
 
 class ApplicationListResponse(BaseModel):

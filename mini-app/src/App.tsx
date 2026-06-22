@@ -8,6 +8,9 @@ const CreateJobPage = lazy(() =>
 const EmployerJobsPage = lazy(() =>
   import("./pages/EmployerJobsPage").then((m) => ({ default: m.EmployerJobsPage })),
 );
+const EmployerApplicationsPage = lazy(() =>
+  import("./pages/EmployerApplicationsPage").then((m) => ({ default: m.EmployerApplicationsPage })),
+);
 const ProfilePage = lazy(() =>
   import("./pages/ProfilePage").then((m) => ({ default: m.ProfilePage })),
 );
@@ -49,7 +52,7 @@ type TelegramContext = {
 };
 
 type AppMode = "worker" | "employer";
-type EmployerView = "jobs" | "create";
+type EmployerView = "jobs" | "create" | "applications";
 type WorkerView = "profile" | "vacancies" | "vacancy-detail" | "applications" | "notifications";
 
 type MeState =
@@ -230,6 +233,7 @@ function App() {
   const [workerView, setWorkerView] = useState<WorkerView>(initialRoute.workerView);
   const [selectedVacancyId, setSelectedVacancyId] = useState<string | null>(initialRoute.vacancyId);
   const [jobsReloadKey, setJobsReloadKey] = useState(0);
+  const [applicationsReloadKey, setApplicationsReloadKey] = useState(0);
   const [vacanciesReloadKey, setVacanciesReloadKey] = useState(0);
 
   useEffect(() => {
@@ -371,6 +375,11 @@ function App() {
             onCreated={handleJobCreated}
             onCancel={() => setEmployerView("jobs")}
           />
+        ) : employerView === "applications" ? (
+          <EmployerApplicationsPage
+            initData={telegram.initData}
+            reloadKey={applicationsReloadKey}
+          />
         ) : (
           <EmployerJobsPage
             initData={telegram.initData}
@@ -454,6 +463,16 @@ function App() {
             onClick={() => setEmployerView("jobs")}
           >
             Заявки
+          </button>
+          <button
+            type="button"
+            className={`nav-btn${employerView === "applications" ? " active" : ""}`}
+            onClick={() => {
+              setEmployerView("applications");
+              setApplicationsReloadKey((key) => key + 1);
+            }}
+          >
+            Отклики
           </button>
           <button
             type="button"
