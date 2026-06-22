@@ -1,5 +1,6 @@
-import { lazy, Suspense, useEffect, useState, type FormEvent } from "react";
+﻿import { lazy, Suspense, useEffect, useState, type FormEvent } from "react";
 import "./App.css";
+import { applyTelegramTheme } from "./lib/telegram";
 import { getMe, upsertEmployerProfile, type MeResponse } from "./api/client";
 
 const CreateJobPage = lazy(() =>
@@ -28,7 +29,7 @@ const NotificationsSettingsPage = lazy(() =>
 );
 
 function PageFallback() {
-  return <p className="status">Загрузка…</p>;
+  return <p className="status">Р—Р°РіСЂСѓР·РєР°вЂ¦</p>;
 }
 
 
@@ -64,14 +65,15 @@ type MeState =
 function readTelegramContext(): TelegramContext {
   const webApp = typeof window !== "undefined" ? window.Telegram?.WebApp : undefined;
   if (!webApp) {
-    return { inTelegram: false, initData: "", userLabel: "гость" };
+    return { inTelegram: false, initData: "", userLabel: "РіРѕСЃС‚СЊ" };
   }
   webApp.ready();
   webApp.expand();
+  applyTelegramTheme();
   const user = webApp.initDataUnsafe?.user;
   const userLabel = user?.username
     ? `@${user.username}`
-    : user?.first_name ?? "гость";
+    : user?.first_name ?? "РіРѕСЃС‚СЊ";
   return {
     inTelegram: true,
     initData: webApp.initData ?? "",
@@ -147,18 +149,18 @@ function RolePicker({
 }) {
   return (
     <section className="card role-picker">
-      <h2>Кто вы?</h2>
-      <p className="hint">Выберите режим — профиль работника и заявки работодателя показываются отдельно.</p>
+      <h2>РљС‚Рѕ РІС‹?</h2>
+      <p className="hint">Р’С‹Р±РµСЂРёС‚Рµ СЂРµР¶РёРј вЂ” РїСЂРѕС„РёР»СЊ СЂР°Р±РѕС‚РЅРёРєР° Рё Р·Р°СЏРІРєРё СЂР°Р±РѕС‚РѕРґР°С‚РµР»СЏ РїРѕРєР°Р·С‹РІР°СЋС‚СЃСЏ РѕС‚РґРµР»СЊРЅРѕ.</p>
       <div className="role-cards">
         <button type="button" className="role-card" onClick={() => onSelect("worker")}>
-          <span className="role-card-icon">👷</span>
-          <span className="role-card-title">Я ищу работу</span>
-          <span className="role-card-desc">Профиль, опыт и настройки для поиска смен</span>
+          <span className="role-card-icon">рџ‘·</span>
+          <span className="role-card-title">РЇ РёС‰Сѓ СЂР°Р±РѕС‚Сѓ</span>
+          <span className="role-card-desc">РџСЂРѕС„РёР»СЊ, РѕРїС‹С‚ Рё РЅР°СЃС‚СЂРѕР№РєРё РґР»СЏ РїРѕРёСЃРєР° СЃРјРµРЅ</span>
         </button>
         <button type="button" className="role-card" onClick={() => onSelect("employer")}>
-          <span className="role-card-icon">🏢</span>
-          <span className="role-card-title">Я работодатель</span>
-          <span className="role-card-desc">Заявки на персонал и создание новых смен</span>
+          <span className="role-card-icon">рџЏў</span>
+          <span className="role-card-title">РЇ СЂР°Р±РѕС‚РѕРґР°С‚РµР»СЊ</span>
+          <span className="role-card-desc">Р—Р°СЏРІРєРё РЅР° РїРµСЂСЃРѕРЅР°Р» Рё СЃРѕР·РґР°РЅРёРµ РЅРѕРІС‹С… СЃРјРµРЅ</span>
         </button>
       </div>
     </section>
@@ -180,7 +182,7 @@ function EmployerSetupPrompt({
     event.preventDefault();
     const trimmed = companyName.trim();
     if (!trimmed) {
-      setError("Укажите название компании");
+      setError("РЈРєР°Р¶РёС‚Рµ РЅР°Р·РІР°РЅРёРµ РєРѕРјРїР°РЅРёРё");
       return;
     }
     setBusy(true);
@@ -189,7 +191,7 @@ function EmployerSetupPrompt({
       await upsertEmployerProfile(initData, { company_name: trimmed });
       onRegistered();
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Не удалось сохранить профиль";
+      const message = err instanceof Error ? err.message : "РќРµ СѓРґР°Р»РѕСЃСЊ СЃРѕС…СЂР°РЅРёС‚СЊ РїСЂРѕС„РёР»СЊ";
       setError(message);
     } finally {
       setBusy(false);
@@ -198,25 +200,25 @@ function EmployerSetupPrompt({
 
   return (
     <section className="card">
-      <h2>Профиль работодателя</h2>
+      <h2>РџСЂРѕС„РёР»СЊ СЂР°Р±РѕС‚РѕРґР°С‚РµР»СЏ</h2>
       <p className="hint">
-        Зарегистрируйтесь как работодатель в боте (🏢) или укажите название компании ниже.
+        Р—Р°СЂРµРіРёСЃС‚СЂРёСЂСѓР№С‚РµСЃСЊ РєР°Рє СЂР°Р±РѕС‚РѕРґР°С‚РµР»СЊ РІ Р±РѕС‚Рµ (рџЏў) РёР»Рё СѓРєР°Р¶РёС‚Рµ РЅР°Р·РІР°РЅРёРµ РєРѕРјРїР°РЅРёРё РЅРёР¶Рµ.
       </p>
       <form className="profile-form" onSubmit={handleSubmit}>
         <label className="form-field">
-          <span>Название компании</span>
+          <span>РќР°Р·РІР°РЅРёРµ РєРѕРјРїР°РЅРёРё</span>
           <input
             type="text"
             value={companyName}
             onChange={(event) => setCompanyName(event.target.value)}
-            placeholder="ООО «Пример»"
+            placeholder="РћРћРћ В«РџСЂРёРјРµСЂВ»"
             disabled={busy}
           />
         </label>
         {error ? <p className="error">{error}</p> : null}
         <div className="form-actions">
           <button type="submit" className="btn" disabled={busy}>
-            {busy ? "Сохранение…" : "Сохранить"}
+            {busy ? "РЎРѕС…СЂР°РЅРµРЅРёРµвЂ¦" : "РЎРѕС…СЂР°РЅРёС‚СЊ"}
           </button>
         </div>
       </form>
@@ -255,7 +257,7 @@ function App() {
         if (cancelled) {
           return;
         }
-        const message = err instanceof Error ? err.message : "Не удалось загрузить профиль";
+        const message = err instanceof Error ? err.message : "РќРµ СѓРґР°Р»РѕСЃСЊ Р·Р°РіСЂСѓР·РёС‚СЊ РїСЂРѕС„РёР»СЊ";
         setMeState({ status: "error", message });
       });
 
@@ -303,8 +305,8 @@ function App() {
         <section className="card">
           <p>
             {telegram.inTelegram
-              ? "Нет initData — откройте приложение через синюю кнопку бота."
-              : "Откройте через бота (WebApp) для просмотра профиля."}
+              ? "РќРµС‚ initData вЂ” РѕС‚РєСЂРѕР№С‚Рµ РїСЂРёР»РѕР¶РµРЅРёРµ С‡РµСЂРµР· СЃРёРЅСЋСЋ РєРЅРѕРїРєСѓ Р±РѕС‚Р°."
+              : "РћС‚РєСЂРѕР№С‚Рµ С‡РµСЂРµР· Р±РѕС‚Р° (WebApp) РґР»СЏ РїСЂРѕСЃРјРѕС‚СЂР° РїСЂРѕС„РёР»СЏ."}
           </p>
         </section>
       );
@@ -344,7 +346,7 @@ function App() {
     }
 
     if (meState.status === "idle" || meState.status === "loading") {
-      return <p className="status">Загрузка профиля…</p>;
+      return <p className="status">Р—Р°РіСЂСѓР·РєР° РїСЂРѕС„РёР»СЏвЂ¦</p>;
     }
 
     if (meState.status === "error") {
@@ -413,7 +415,7 @@ function App() {
         </div>
         {showSwitchRole ? (
           <button type="button" className="link-btn switch-role-btn" onClick={handleSwitchRole}>
-            Сменить роль
+            РЎРјРµРЅРёС‚СЊ СЂРѕР»СЊ
           </button>
         ) : null}
       </div>
@@ -429,28 +431,28 @@ function App() {
               setVacanciesReloadKey((key) => key + 1);
             }}
           >
-            Поиск
+            РџРѕРёСЃРє
           </button>
           <button
             type="button"
             className={`nav-btn${workerView === "applications" ? " active" : ""}`}
             onClick={() => setWorkerView("applications")}
           >
-            Отклики
+            РћС‚РєР»РёРєРё
           </button>
           <button
             type="button"
             className={`nav-btn${workerView === "profile" ? " active" : ""}`}
             onClick={() => setWorkerView("profile")}
           >
-            Профиль
+            РџСЂРѕС„РёР»СЊ
           </button>
           <button
             type="button"
             className={`nav-btn${workerView === "notifications" ? " active" : ""}`}
             onClick={() => setWorkerView("notifications")}
           >
-            Уведомления
+            РЈРІРµРґРѕРјР»РµРЅРёСЏ
           </button>
         </nav>
       ) : null}
@@ -462,7 +464,7 @@ function App() {
             className={`nav-btn${employerView === "jobs" ? " active" : ""}`}
             onClick={() => setEmployerView("jobs")}
           >
-            Заявки
+            Р—Р°СЏРІРєРё
           </button>
           <button
             type="button"
@@ -472,14 +474,14 @@ function App() {
               setApplicationsReloadKey((key) => key + 1);
             }}
           >
-            Отклики
+            РћС‚РєР»РёРєРё
           </button>
           <button
             type="button"
             className={`nav-btn${employerView === "create" ? " active" : ""}`}
             onClick={() => setEmployerView("create")}
           >
-            Создать
+            РЎРѕР·РґР°С‚СЊ
           </button>
         </nav>
       ) : null}
