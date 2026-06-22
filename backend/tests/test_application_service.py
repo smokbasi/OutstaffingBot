@@ -82,7 +82,7 @@ async def test_apply_to_shift_reactivates_cancelled_application(monkeypatch: pyt
     from datetime import datetime, timezone
     from decimal import Decimal
 
-    from app.db.models import ApplicationStatus, JobRequestStatus
+    from app.db.models import ApplicationStatus, JobRequestStatus, VerificationStatus
     from app.services import application_service
 
     worker_id = uuid4()
@@ -91,6 +91,7 @@ async def test_apply_to_shift_reactivates_cancelled_application(monkeypatch: pyt
 
     class Worker:
         id = worker_id
+        verification_status = VerificationStatus.verified
 
     class Category:
         name_ru = "Официант"
@@ -165,3 +166,28 @@ async def test_apply_to_shift_reactivates_cancelled_application(monkeypatch: pyt
     assert existing.cancelled_at is None
     assert result.status == ApplicationStatus.pending
     assert result.job_title == "Официант"
+
+
+@pytest.mark.asyncio
+async def test_apply_to_shift_blocked_for_unverified_worker(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.db.models import VerificationStatus
+    from app.services import application_service
+
+    class Worker:
+        id = uuid4()
+        verification_status = VerificationStatus.pending
+
+    slot_id = uuid4()
+
+    async def mock_get_shift_slot(session, shift_slot_id):
+        return object()
+
+    class DummySession:
+        pass
+
+    monkeypatch.setattr(application_service, "_get_shift_slot", mock_get_shift_slot)
+
+    with pytest.raises(application_service.WorkerNotVerifiedError) as exc_info:
+        await application_service.apply_to_shift(DummySession(), Worker(), slot_id)
+
+    assert "не верифицирован" in str(exc_info.value).lower()

@@ -53,6 +53,7 @@ def _worker_to_profile(worker: Worker) -> WorkerProfileRead:
         metro_station_name=worker.metro_station.name if worker.metro_station else None,
         min_hourly_rate=worker.min_hourly_rate,
         resume_completed=worker.resume_completed,
+        verification_status=worker.verification_status,
         experiences=experiences,
     )
 

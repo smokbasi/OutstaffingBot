@@ -11,6 +11,7 @@ from app.db.models import (
     JobRequest,
     JobRequestStatus,
     ShiftSlot,
+    VerificationStatus,
     Worker,
 )
 from app.schemas.application import (
@@ -45,6 +46,10 @@ class AlreadyAppliedError(ApplicationError):
 
 
 class ApplicationNotFoundError(ApplicationError):
+    pass
+
+
+class WorkerNotVerifiedError(ApplicationError):
     pass
 
 
@@ -156,6 +161,11 @@ async def apply_to_shift(
     slot = await _get_shift_slot(session, shift_slot_id)
     if slot is None:
         raise ApplicationNotFoundError("Shift slot not found")
+
+    if worker.verification_status != VerificationStatus.verified:
+        raise WorkerNotVerifiedError(
+            "Профиль не верифицирован — дождитесь подтверждения администратором"
+        )
 
     job = slot.job_request
     if job is None or job.status != JobRequestStatus.active:

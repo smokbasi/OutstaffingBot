@@ -2,6 +2,7 @@ from uuid import UUID
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.db.models import (
     Application,
@@ -11,8 +12,9 @@ from app.db.models import (
     User,
     VerificationStatus,
     Worker,
+    WorkerExperience,
 )
-from app.schemas.admin import AdminAnalytics, AdminStats, PendingEmployerRead
+from app.schemas.admin import AdminAnalytics, AdminStats, PendingEmployerRead, PendingWorkerRead
 from app.services import audit_service
 
 
@@ -20,16 +22,24 @@ async def get_admin_stats(session: AsyncSession) -> AdminStats:
     workers = await session.scalar(select(func.count()).select_from(Worker)) or 0
     employers = await session.scalar(select(func.count()).select_from(Employer)) or 0
     jobs = await session.scalar(select(func.count()).select_from(JobRequest)) or 0
-    pending_verifications = await session.scalar(
+    pending_employers = await session.scalar(
         select(func.count())
         .select_from(Employer)
         .where(Employer.verification_status == VerificationStatus.pending)
+    ) or 0
+    pending_workers = await session.scalar(
+        select(func.count())
+        .select_from(Worker)
+        .where(
+            Worker.verification_status == VerificationStatus.pending,
+            Worker.resume_completed.is_(True),
+        )
     ) or 0
     return AdminStats(
         workers_count=workers,
         employers_count=employers,
         jobs_count=jobs,
-        pending_verifications=pending_verifications,
+        pending_verifications=pending_employers + pending_workers,
     )
 
 
@@ -106,3 +116,64 @@ async def verify_employer(
         metadata={"verification_status": new_status.value},
     )
     return employer
+
+
+async def list_pending_workers(session: AsyncSession) -> list[PendingWorkerRead]:
+    stmt = (
+        select(Worker, User)
+        .join(User, Worker.user_id == User.id)
+        .options(
+            selectinload(Worker.experiences).selectinload(WorkerExperience.category),
+            selectinload(Worker.metro_station),
+        )
+        .where(
+            Worker.verification_status == VerificationStatus.pending,
+            Worker.resume_completed.is_(True),
+        )
+        .order_by(Worker.created_at.asc())
+    )
+    rows = (await session.execute(stmt)).all()
+    return [
+        PendingWorkerRead(
+            id=worker.id,
+            first_name=worker.first_name,
+            last_name=worker.last_name,
+            age=worker.age,
+            metro_station_name=worker.metro_station.name if worker.metro_station else None,
+            categories=[
+                exp.category.name_ru
+                for exp in worker.experiences
+                if exp.category is not None
+            ],
+            telegram_id=user.telegram_id,
+            username=user.username,
+            created_at=worker.created_at,
+        )
+        for worker, user in rows
+    ]
+
+
+async def verify_worker(
+    session: AsyncSession,
+    worker_id: UUID,
+    *,
+    actor_id: UUID | None,
+    approve: bool,
+) -> Worker | None:
+    worker = await session.scalar(select(Worker).where(Worker.id == worker_id))
+    if worker is None:
+        return None
+
+    new_status = VerificationStatus.verified if approve else VerificationStatus.rejected
+    worker.verification_status = new_status
+    await session.flush()
+
+    await audit_service.log_audit(
+        session,
+        actor_id=actor_id,
+        action="worker.verify" if approve else "worker.reject",
+        entity_type="worker",
+        entity_id=worker.id,
+        metadata={"verification_status": new_status.value},
+    )
+    return worker

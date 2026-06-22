@@ -5,7 +5,7 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 from app.api.deps import get_current_user
-from app.db.models import Gender, User, UserRole
+from app.db.models import Gender, User, UserRole, VerificationStatus
 from app.db.session import get_db_session
 from app.main import app
 from app.schemas.worker import WorkerProfileRead, WorkerExperienceRead
@@ -38,6 +38,7 @@ def sample_profile() -> WorkerProfileRead:
         metro_station_name="Автово",
         min_hourly_rate=Decimal("350.00"),
         resume_completed=True,
+        verification_status=VerificationStatus.verified,
         experiences=[
             WorkerExperienceRead(
                 id=exp_id,

@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps_admin import get_current_admin
 from app.db.models import User
 from app.db.session import get_db_session
-from app.schemas.admin import AdminAnalytics, AdminStats, PendingEmployerRead
+from app.schemas.admin import AdminAnalytics, AdminStats, PendingEmployerRead, PendingWorkerRead
 from app.services import admin_service, audit_service
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -64,6 +64,44 @@ async def reject_employer(
         raise HTTPException(status_code=404, detail="Employer not found")
     await session.commit()
     return {"status": "rejected", "employer_id": str(employer.id)}
+
+
+@router.get("/workers/pending", response_model=list[PendingWorkerRead])
+async def list_pending_workers(
+    _: User = Depends(get_current_admin),
+    session: AsyncSession = Depends(get_db_session),
+) -> list[PendingWorkerRead]:
+    return await admin_service.list_pending_workers(session)
+
+
+@router.post("/workers/{worker_id}/verify")
+async def verify_worker(
+    worker_id: UUID,
+    admin: User = Depends(get_current_admin),
+    session: AsyncSession = Depends(get_db_session),
+) -> dict[str, str]:
+    worker = await admin_service.verify_worker(
+        session, worker_id, actor_id=admin.id, approve=True
+    )
+    if worker is None:
+        raise HTTPException(status_code=404, detail="Worker not found")
+    await session.commit()
+    return {"status": "verified", "worker_id": str(worker.id)}
+
+
+@router.post("/workers/{worker_id}/reject")
+async def reject_worker(
+    worker_id: UUID,
+    admin: User = Depends(get_current_admin),
+    session: AsyncSession = Depends(get_db_session),
+) -> dict[str, str]:
+    worker = await admin_service.verify_worker(
+        session, worker_id, actor_id=admin.id, approve=False
+    )
+    if worker is None:
+        raise HTTPException(status_code=404, detail="Worker not found")
+    await session.commit()
+    return {"status": "rejected", "worker_id": str(worker.id)}
 
 
 @router.get("/audit")

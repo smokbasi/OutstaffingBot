@@ -3,7 +3,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
-from app.db.models import Gender
+from app.db.models import Gender, VerificationStatus
 
 
 class WorkerExperienceRead(BaseModel):
@@ -27,6 +27,7 @@ class WorkerProfileRead(BaseModel):
     metro_station_name: str | None = None
     min_hourly_rate: Decimal | None = None
     resume_completed: bool
+    verification_status: VerificationStatus
     experiences: list[WorkerExperienceRead] = Field(default_factory=list)
 
     model_config = {"from_attributes": True}

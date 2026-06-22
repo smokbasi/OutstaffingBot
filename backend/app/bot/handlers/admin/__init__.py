@@ -24,6 +24,8 @@ async def cmd_admin(message: Message) -> None:
         "/admin_pending — ожидают верификации\n"
         "/admin_verify &lt;id&gt; — подтвердить работодателя\n"
         "/admin_reject &lt;id&gt; — отклонить работодателя\n"
+        "/admin_verify_worker &lt;id&gt; — подтвердить работника\n"
+        "/admin_reject_worker &lt;id&gt; — отклонить работника\n"
         "/admin_audit — последние записи аудита"
     )
 
@@ -50,15 +52,24 @@ async def cmd_admin_pending(message: Message, session: AsyncSession) -> None:
     if message.from_user is None or not _is_admin(message.from_user.id, settings):
         return
 
-    pending = await admin_service.list_pending_employers(session)
-    if not pending:
-        await message.answer("Нет работодателей, ожидающих верификации.")
+    pending_employers = await admin_service.list_pending_employers(session)
+    pending_workers = await admin_service.list_pending_workers(session)
+    if not pending_employers and not pending_workers:
+        await message.answer("Нет профилей, ожидающих верификации.")
         return
 
     lines = ["<b>⏳ Ожидают верификации:</b>\n"]
-    for item in pending[:20]:
-        username = f"@{item.username}" if item.username else f"tg:{item.telegram_id}"
-        lines.append(f"• <code>{item.id}</code> — {item.company_name} ({username})")
+    if pending_employers:
+        lines.append("<b>Компании:</b>")
+        for item in pending_employers[:10]:
+            username = f"@{item.username}" if item.username else f"tg:{item.telegram_id}"
+            lines.append(f"• <code>{item.id}</code> — {item.company_name} ({username})")
+    if pending_workers:
+        lines.append("\n<b>Работники:</b>")
+        for item in pending_workers[:10]:
+            username = f"@{item.username}" if item.username else f"tg:{item.telegram_id}"
+            name = f"{item.first_name} {item.last_name}"
+            lines.append(f"• <code>{item.id}</code> — {name} ({username})")
     await message.answer("\n".join(lines))
 
 
@@ -128,6 +139,78 @@ async def cmd_admin_reject(message: Message, session: AsyncSession) -> None:
         return
     await session.commit()
     await message.answer(f"❌ Работодатель <b>{employer.company_name}</b> отклонён.")
+
+
+@router.message(Command("admin_verify_worker"))
+async def cmd_admin_verify_worker(message: Message, session: AsyncSession) -> None:
+    settings = get_settings()
+    if message.from_user is None or not _is_admin(message.from_user.id, settings):
+        return
+
+    parts = (message.text or "").split(maxsplit=1)
+    if len(parts) < 2:
+        await message.answer("Использование: /admin_verify_worker &lt;worker_id&gt;")
+        return
+
+    from uuid import UUID
+
+    try:
+        worker_id = UUID(parts[1].strip())
+    except ValueError:
+        await message.answer("Неверный UUID работника.")
+        return
+
+    admin_user = await user_service.get_or_create_by_telegram_id(
+        session,
+        message.from_user.id,
+        username=message.from_user.username,
+    )
+    worker = await admin_service.verify_worker(
+        session, worker_id, actor_id=admin_user.id, approve=True
+    )
+    if worker is None:
+        await message.answer("Работник не найден.")
+        return
+    await session.commit()
+    await message.answer(
+        f"✅ Работник <b>{worker.first_name} {worker.last_name}</b> верифицирован."
+    )
+
+
+@router.message(Command("admin_reject_worker"))
+async def cmd_admin_reject_worker(message: Message, session: AsyncSession) -> None:
+    settings = get_settings()
+    if message.from_user is None or not _is_admin(message.from_user.id, settings):
+        return
+
+    parts = (message.text or "").split(maxsplit=1)
+    if len(parts) < 2:
+        await message.answer("Использование: /admin_reject_worker &lt;worker_id&gt;")
+        return
+
+    from uuid import UUID
+
+    try:
+        worker_id = UUID(parts[1].strip())
+    except ValueError:
+        await message.answer("Неверный UUID работника.")
+        return
+
+    admin_user = await user_service.get_or_create_by_telegram_id(
+        session,
+        message.from_user.id,
+        username=message.from_user.username,
+    )
+    worker = await admin_service.verify_worker(
+        session, worker_id, actor_id=admin_user.id, approve=False
+    )
+    if worker is None:
+        await message.answer("Работник не найден.")
+        return
+    await session.commit()
+    await message.answer(
+        f"❌ Работник <b>{worker.first_name} {worker.last_name}</b> отклонён."
+    )
 
 
 @router.message(Command("admin_audit"))

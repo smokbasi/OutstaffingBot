@@ -3,7 +3,7 @@ from uuid import uuid4
 import pytest
 
 from app.db.models import VerificationStatus
-from app.services.admin_service import verify_employer
+from app.services.admin_service import verify_employer, verify_worker
 
 
 class FakeEmployer:
@@ -56,3 +56,57 @@ async def test_verify_employer_reject(monkeypatch):
     result = await verify_employer(session, employer.id, actor_id=uuid4(), approve=False)
     assert result is employer
     assert employer.verification_status == VerificationStatus.rejected
+
+
+class FakeWorker:
+    def __init__(self):
+        self.id = uuid4()
+        self.first_name = "Иван"
+        self.last_name = "Иванов"
+        self.verification_status = VerificationStatus.pending
+
+
+class FakeWorkerSession:
+    def __init__(self, worker):
+        self.worker = worker
+        self.audit_calls = []
+
+    async def scalar(self, stmt):
+        return self.worker
+
+    async def flush(self):
+        pass
+
+
+@pytest.mark.asyncio
+async def test_verify_worker_approve(monkeypatch):
+    worker = FakeWorker()
+    session = FakeWorkerSession(worker)
+
+    async def fake_log_audit(session, **kwargs):
+        session.audit_calls.append(kwargs)
+
+    monkeypatch.setattr("app.services.admin_service.audit_service.log_audit", fake_log_audit)
+
+    actor_id = uuid4()
+    result = await verify_worker(session, worker.id, actor_id=actor_id, approve=True)
+    assert result is worker
+    assert worker.verification_status == VerificationStatus.verified
+    assert len(session.audit_calls) == 1
+    assert session.audit_calls[0]["action"] == "worker.verify"
+
+
+@pytest.mark.asyncio
+async def test_verify_worker_reject(monkeypatch):
+    worker = FakeWorker()
+    session = FakeWorkerSession(worker)
+
+    async def fake_log_audit(session, **kwargs):
+        session.audit_calls.append(kwargs)
+
+    monkeypatch.setattr("app.services.admin_service.audit_service.log_audit", fake_log_audit)
+
+    result = await verify_worker(session, worker.id, actor_id=uuid4(), approve=False)
+    assert result is worker
+    assert worker.verification_status == VerificationStatus.rejected
+    assert session.audit_calls[0]["action"] == "worker.reject"

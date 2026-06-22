@@ -116,6 +116,10 @@ class Worker(Base):
     metro_radius_km: Mapped[int] = mapped_column(SmallInteger, default=0)
     min_hourly_rate: Mapped[Decimal | None] = mapped_column(Numeric(10, 2))
     resume_completed: Mapped[bool] = mapped_column(Boolean, default=False)
+    verification_status: Mapped[VerificationStatus] = mapped_column(
+        Enum(VerificationStatus, name="verification_status"),
+        default=VerificationStatus.pending,
+    )
     notifications_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(

@@ -30,3 +30,17 @@ class PendingEmployerRead(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class PendingWorkerRead(BaseModel):
+    id: UUID
+    first_name: str
+    last_name: str
+    age: int
+    metro_station_name: str | None = None
+    categories: list[str] = Field(default_factory=list)
+    telegram_id: int
+    username: str | None = None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}

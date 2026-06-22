@@ -4,16 +4,21 @@ import {
   getAdminAuditLog,
   getAdminStats,
   listPendingEmployers,
+  listPendingWorkers,
   rejectEmployer,
+  rejectWorker,
   verifyEmployer,
+  verifyWorker,
   type AdminAnalytics,
   type AdminAuditEntry,
   type AdminStats,
   type PendingEmployer,
+  type PendingWorker,
 } from "../api/client";
 import { triggerHaptic, triggerNotificationHaptic } from "../lib/telegram";
 
 type AdminTab = "stats" | "verifications" | "audit";
+type VerificationSubTab = "employers" | "workers";
 
 type AdminPanelPageProps = {
   initData: string;
@@ -30,12 +35,16 @@ const AUDIT_ACTION_LABELS: Record<string, string> = {
   "application.cancelled_by_employer": "Отклик отменён работодателем",
   "employer.verify": "Работодатель верифицирован",
   "employer.reject": "Работодатель отклонён",
+  "worker.verify": "Работник верифицирован",
+  "worker.reject": "Работник отклонён",
 };
 
 const ENTITY_TYPE_LABELS: Record<string, string> = {
   job_request: "заявка",
   application: "отклик",
   employer_profile: "работодатель",
+  employer: "работодатель",
+  worker: "работник",
   user: "пользователь",
 };
 
@@ -167,8 +176,139 @@ function StatsTab({ initData }: { initData: string }) {
   );
 }
 
+function EmployerVerificationsList({
+  employers,
+  busyId,
+  onVerify,
+  onReject,
+}: {
+  employers: PendingEmployer[];
+  busyId: string | null;
+  onVerify: (id: string) => void;
+  onReject: (id: string) => void;
+}) {
+  if (employers.length === 0) {
+    return <p className="hint">Нет компаний, ожидающих верификации.</p>;
+  }
+
+  return (
+    <ul className="admin-list">
+      {employers.map((employer) => (
+        <li key={employer.id} className="admin-list-item">
+          <div className="admin-list-main">
+            <strong>{employer.company_name}</strong>
+            {employer.contact_person ? (
+              <span className="hint">{employer.contact_person}</span>
+            ) : null}
+            {employer.contact_phone ? (
+              <span className="hint">{employer.contact_phone}</span>
+            ) : null}
+            <span className="hint">
+              TG: {employer.username ? `@${employer.username}` : employer.telegram_id}
+              {" · "}
+              {formatDateTime(employer.created_at)}
+            </span>
+          </div>
+          <div className="admin-list-actions">
+            <button
+              type="button"
+              className="btn btn-sm"
+              disabled={busyId === employer.id}
+              onClick={() => {
+                triggerHaptic("light");
+                onVerify(employer.id);
+              }}
+            >
+              Верифицировать
+            </button>
+            <button
+              type="button"
+              className="btn btn-sm btn-danger"
+              disabled={busyId === employer.id}
+              onClick={() => {
+                triggerHaptic("light");
+                onReject(employer.id);
+              }}
+            >
+              Отклонить
+            </button>
+          </div>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function WorkerVerificationsList({
+  workers,
+  busyId,
+  onVerify,
+  onReject,
+}: {
+  workers: PendingWorker[];
+  busyId: string | null;
+  onVerify: (id: string) => void;
+  onReject: (id: string) => void;
+}) {
+  if (workers.length === 0) {
+    return <p className="hint">Нет работников, ожидающих верификации.</p>;
+  }
+
+  return (
+    <ul className="admin-list">
+      {workers.map((worker) => (
+        <li key={worker.id} className="admin-list-item">
+          <div className="admin-list-main">
+            <strong>
+              {worker.first_name} {worker.last_name}
+            </strong>
+            <span className="hint">
+              {worker.age} лет
+              {worker.metro_station_name ? ` · ${worker.metro_station_name}` : ""}
+            </span>
+            {worker.categories.length > 0 ? (
+              <span className="hint">{worker.categories.join(", ")}</span>
+            ) : null}
+            <span className="hint">
+              TG: {worker.username ? `@${worker.username}` : worker.telegram_id}
+              {" · "}
+              {formatDateTime(worker.created_at)}
+            </span>
+          </div>
+          <div className="admin-list-actions">
+            <button
+              type="button"
+              className="btn btn-sm"
+              disabled={busyId === worker.id}
+              onClick={() => {
+                triggerHaptic("light");
+                onVerify(worker.id);
+              }}
+            >
+              Верифицировать
+            </button>
+            <button
+              type="button"
+              className="btn btn-sm btn-danger"
+              disabled={busyId === worker.id}
+              onClick={() => {
+                triggerHaptic("light");
+                onReject(worker.id);
+              }}
+            >
+              Отклонить
+            </button>
+          </div>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 function VerificationsTab({ initData }: { initData: string }) {
+  const [subTab, setSubTab] = useState<VerificationSubTab>("employers");
   const [employers, setEmployers] = useState<PendingEmployer[]>([]);
+  const [workers, setWorkers] = useState<PendingWorker[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -177,8 +317,12 @@ function VerificationsTab({ initData }: { initData: string }) {
     setLoading(true);
     setError(null);
     try {
-      const items = await listPendingEmployers(initData);
-      setEmployers(items);
+      const [employerItems, workerItems] = await Promise.all([
+        listPendingEmployers(initData),
+        listPendingWorkers(initData),
+      ]);
+      setEmployers(employerItems);
+      setWorkers(workerItems);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Не удалось загрузить список");
     } finally {
@@ -190,7 +334,7 @@ function VerificationsTab({ initData }: { initData: string }) {
     void load();
   }, [load]);
 
-  async function handleVerify(employerId: string) {
+  async function handleVerifyEmployer(employerId: string) {
     setBusyId(employerId);
     setError(null);
     try {
@@ -205,11 +349,41 @@ function VerificationsTab({ initData }: { initData: string }) {
     }
   }
 
-  async function handleReject(employerId: string) {
+  async function handleRejectEmployer(employerId: string) {
     setBusyId(employerId);
     setError(null);
     try {
       await rejectEmployer(initData, employerId);
+      triggerNotificationHaptic("success");
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Не удалось отклонить");
+      triggerNotificationHaptic("error");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function handleVerifyWorker(workerId: string) {
+    setBusyId(workerId);
+    setError(null);
+    try {
+      await verifyWorker(initData, workerId);
+      triggerNotificationHaptic("success");
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Не удалось верифицировать");
+      triggerNotificationHaptic("error");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function handleRejectWorker(workerId: string) {
+    setBusyId(workerId);
+    setError(null);
+    try {
+      await rejectWorker(initData, workerId);
       triggerNotificationHaptic("success");
       await load();
     } catch (err) {
@@ -226,54 +400,45 @@ function VerificationsTab({ initData }: { initData: string }) {
 
   return (
     <div className="admin-verifications">
+      <nav className="app-nav admin-subtabs">
+        <button
+          type="button"
+          className={`nav-btn${subTab === "employers" ? " active" : ""}`}
+          onClick={() => {
+            triggerHaptic("light");
+            setSubTab("employers");
+          }}
+        >
+          Компании ({employers.length})
+        </button>
+        <button
+          type="button"
+          className={`nav-btn${subTab === "workers" ? " active" : ""}`}
+          onClick={() => {
+            triggerHaptic("light");
+            setSubTab("workers");
+          }}
+        >
+          Работники ({workers.length})
+        </button>
+      </nav>
+
       {error ? <p className="error">{error}</p> : null}
-      {employers.length === 0 ? (
-        <p className="hint">Нет работодателей, ожидающих верификации.</p>
+
+      {subTab === "employers" ? (
+        <EmployerVerificationsList
+          employers={employers}
+          busyId={busyId}
+          onVerify={(id) => void handleVerifyEmployer(id)}
+          onReject={(id) => void handleRejectEmployer(id)}
+        />
       ) : (
-        <ul className="admin-list">
-          {employers.map((employer) => (
-            <li key={employer.id} className="admin-list-item">
-              <div className="admin-list-main">
-                <strong>{employer.company_name}</strong>
-                {employer.contact_person ? (
-                  <span className="hint">{employer.contact_person}</span>
-                ) : null}
-                {employer.contact_phone ? (
-                  <span className="hint">{employer.contact_phone}</span>
-                ) : null}
-                <span className="hint">
-                  TG: {employer.username ? `@${employer.username}` : employer.telegram_id}
-                  {" · "}
-                  {formatDateTime(employer.created_at)}
-                </span>
-              </div>
-              <div className="admin-list-actions">
-                <button
-                  type="button"
-                  className="btn btn-sm"
-                  disabled={busyId === employer.id}
-                  onClick={() => {
-                    triggerHaptic("light");
-                    void handleVerify(employer.id);
-                  }}
-                >
-                  Верифицировать
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-sm btn-danger"
-                  disabled={busyId === employer.id}
-                  onClick={() => {
-                    triggerHaptic("light");
-                    void handleReject(employer.id);
-                  }}
-                >
-                  Отклонить
-                </button>
-              </div>
-            </li>
-          ))}
-        </ul>
+        <WorkerVerificationsList
+          workers={workers}
+          busyId={busyId}
+          onVerify={(id) => void handleVerifyWorker(id)}
+          onReject={(id) => void handleRejectWorker(id)}
+        />
       )}
     </div>
   );

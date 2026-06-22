@@ -21,6 +21,7 @@ export type WorkerProfile = {
   metro_station_name: string | null;
   min_hourly_rate: string | null;
   resume_completed: boolean;
+  verification_status: "pending" | "verified" | "rejected";
   experiences: WorkerExperience[];
 };
 
@@ -543,6 +544,18 @@ export type PendingEmployer = {
   created_at: string;
 };
 
+export type PendingWorker = {
+  id: string;
+  first_name: string;
+  last_name: string;
+  age: number;
+  metro_station_name: string | null;
+  categories: string[];
+  telegram_id: number;
+  username: string | null;
+  created_at: string;
+};
+
 export type AdminAuditEntry = {
   id: string;
   actor_id: string | null;
@@ -573,6 +586,22 @@ export function verifyEmployer(initData: string, employerId: string): Promise<{ 
 
 export function rejectEmployer(initData: string, employerId: string): Promise<{ status: string }> {
   return apiFetch<{ status: string }>(`/admin/employers/${employerId}/reject`, initData, {
+    method: "POST",
+  });
+}
+
+export function listPendingWorkers(initData: string): Promise<PendingWorker[]> {
+  return apiFetch<PendingWorker[]>("/admin/workers/pending", initData);
+}
+
+export function verifyWorker(initData: string, workerId: string): Promise<{ status: string }> {
+  return apiFetch<{ status: string }>(`/admin/workers/${workerId}/verify`, initData, {
+    method: "POST",
+  });
+}
+
+export function rejectWorker(initData: string, workerId: string): Promise<{ status: string }> {
+  return apiFetch<{ status: string }>(`/admin/workers/${workerId}/reject`, initData, {
     method: "POST",
   });
 }

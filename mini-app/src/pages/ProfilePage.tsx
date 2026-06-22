@@ -386,6 +386,17 @@ export function ProfilePage({ initData }: ProfilePageProps) {
           Редактировать
         </button>
       </div>
+
+      {profile.resume_completed && profile.verification_status === "pending" ? (
+        <p className="hint verification-banner">
+          ⏳ Профиль на проверке. Отклики на вакансии будут доступны после подтверждения
+          администратором.
+        </p>
+      ) : null}
+      {profile.verification_status === "rejected" ? (
+        <p className="error">❌ Верификация отклонена. Свяжитесь с поддержкой.</p>
+      ) : null}
+
       <dl className="profile-fields">
         <div>
           <dt>Имя</dt>
