@@ -36,6 +36,7 @@ async def test_activate_job_enqueues_match_task(monkeypatch):
             self.contact_info = None
             self.post_to_groups = False
             self.address = None
+            self.includes_lunch = False
             self.created_at = now
             self.updated_at = now
             self.shift_slots = []

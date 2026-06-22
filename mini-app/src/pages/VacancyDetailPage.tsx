@@ -33,7 +33,10 @@ function formatTime(value: string): string {
 }
 
 function triggerHaptic(type: "light" | "medium" | "heavy" = "medium") {
-  window.Telegram?.WebApp?.HapticFeedback?.impactOccurred?.(type);
+  const haptic = (
+    window.Telegram?.WebApp as { HapticFeedback?: { impactOccurred?: (t: string) => void } } | undefined
+  )?.HapticFeedback;
+  haptic?.impactOccurred?.(type);
 }
 
 export function VacancyDetailPage({ initData, vacancyId, onBack }: VacancyDetailPageProps) {

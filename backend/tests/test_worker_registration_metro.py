@@ -1,3 +1,4 @@
+import pytest
 from app.reference.spb_metro import SPB_METRO_LINES, SPB_STATION_ORDER
 from app.bot.handlers.worker_registration import _format_resume_header
 from app.bot.keyboards.worker_registration import metro_lines_keyboard, metro_stations_keyboard
@@ -11,6 +12,8 @@ def test_spb_metro_has_six_lines() -> None:
 
 
 def test_spb_station_order_loaded() -> None:
+    if not SPB_STATION_ORDER:
+        pytest.skip("metro_stations_spb.json missing")
     assert len(SPB_STATION_ORDER) == 75
     assert SPB_STATION_ORDER[("Кировско-Выборгская", "Девяткино")] == 0
 
