@@ -6,8 +6,8 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects import postgresql
 
-revision: str = "002_phase_9_10"
-down_revision: Union[str, None] = "001_initial"
+revision: str = "003_phase_9_10"
+down_revision: Union[str, None] = "002_add_includes_lunch"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
