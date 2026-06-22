@@ -1,7 +1,9 @@
 ﻿OutstaffingBot — release notes (staging)
 
 2026-06-22 — Исправлена публикация вакансий в Telegram-группы
-- Кнопка «Откликнуться» больше не ломает пост при MINI_APP_URL с query-параметрами (?v=2)
+- В группах WebApp-кнопки не поддерживаются Telegram — используется ссылка t.me/...?startapp=vacancy_{id}
+- Mini App открывает карточку вакансии по start_param из группового поста
+- Корректная сборка deep link URL при MINI_APP_URL с query (?v=2)
 - /register_group корректно сохраняет группу при апгрейде в supergroup (TelegramMigrateToChat)
 - Ошибки отправки в группу пишутся в лог worker/bot
 

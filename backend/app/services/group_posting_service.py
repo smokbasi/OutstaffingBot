@@ -4,13 +4,13 @@ from uuid import UUID
 
 from aiogram import Bot
 from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError, TelegramMigrateToChat
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.config import Settings
-from app.core.mini_app_urls import vacancy_deep_link
+from app.core.mini_app_urls import job_start_deep_link
 
 logger = logging.getLogger(__name__)
 from app.db.models import Application, ApplicationStatus, GroupPost, JobRequest, JobRequestStatus, TelegramGroup
@@ -46,7 +46,13 @@ def format_group_post_message(job: JobRequest, *, closed: bool = False) -> str:
     return "\n".join(lines)
 
 
-def group_post_keyboard(job: JobRequest, settings: Settings, *, closed: bool = False) -> InlineKeyboardMarkup | None:
+def group_post_keyboard(
+    job: JobRequest,
+    settings: Settings,
+    *,
+    bot_username: str | None = None,
+    closed: bool = False,
+) -> InlineKeyboardMarkup | None:
     if closed:
         return None
     return InlineKeyboardMarkup(
@@ -54,7 +60,7 @@ def group_post_keyboard(job: JobRequest, settings: Settings, *, closed: bool = F
             [
                 InlineKeyboardButton(
                     text="Откликнуться 👷",
-                    web_app=WebAppInfo(url=vacancy_deep_link(settings, job.id)),
+                    url=job_start_deep_link(settings, job.id, bot_username=bot_username),
                 )
             ]
         ]
@@ -106,6 +112,11 @@ async def _get_group_posts(session: AsyncSession, job_id: UUID) -> list[GroupPos
     return list(await session.scalars(stmt))
 
 
+async def _resolve_bot_username(bot: Bot) -> str | None:
+    me = await bot.get_me()
+    return me.username
+
+
 async def _edit_group_posts(
     session: AsyncSession,
     bot: Bot,
@@ -116,7 +127,8 @@ async def _edit_group_posts(
     closed: bool,
 ) -> int:
     text = format_group_post_message(job, closed=closed)
-    keyboard = group_post_keyboard(job, settings, closed=closed)
+    bot_username = await _resolve_bot_username(bot)
+    keyboard = group_post_keyboard(job, settings, bot_username=bot_username, closed=closed)
     updated_count = 0
 
     for post in posts:
@@ -213,7 +225,8 @@ async def post_job_to_groups(session: AsyncSession, bot: Bot, settings: Settings
         return 0
 
     text = format_group_post_message(job)
-    keyboard = group_post_keyboard(job, settings)
+    bot_username = await _resolve_bot_username(bot)
+    keyboard = group_post_keyboard(job, settings, bot_username=bot_username)
     posted_count = 0
 
     for group in groups:

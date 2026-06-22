@@ -34,7 +34,7 @@ declare global {
     Telegram?: {
       WebApp?: {
         initData: string;
-        initDataUnsafe: { user?: { first_name?: string; username?: string } };
+        initDataUnsafe: { user?: { first_name?: string; username?: string }; start_param?: string };
         ready: () => void;
         expand: () => void;
       };
@@ -79,6 +79,7 @@ function readTelegramContext(): TelegramContext {
 
 
 const VACANCY_DEEP_LINK_RE = /^\/vacancy\/([0-9a-f-]{36})$/i;
+const STARTAPP_VACANCY_RE = /^vacancy_([0-9a-f-]{36})$/i;
 
 function parseVacancyDeepLink(): string | null {
   if (typeof window === "undefined") {
@@ -88,12 +89,21 @@ function parseVacancyDeepLink(): string | null {
   return match?.[1] ?? null;
 }
 
+function parseVacancyStartParam(): string | null {
+  const startParam = window.Telegram?.WebApp?.initDataUnsafe?.start_param;
+  if (!startParam) {
+    return null;
+  }
+  const match = startParam.match(STARTAPP_VACANCY_RE);
+  return match?.[1] ?? null;
+}
+
 function readInitialWorkerRoute(): {
   appMode: AppMode | null;
   workerView: WorkerView;
   vacancyId: string | null;
 } {
-  const vacancyId = parseVacancyDeepLink();
+  const vacancyId = parseVacancyDeepLink() ?? parseVacancyStartParam();
   if (vacancyId) {
     return { appMode: "worker", workerView: "vacancy-detail", vacancyId };
   }

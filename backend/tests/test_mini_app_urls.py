@@ -23,3 +23,12 @@ def test_build_mini_app_url_without_query() -> None:
 def test_vacancy_deep_link_helper() -> None:
     settings = Settings(mini_app_url="https://example.com/app")
     assert vacancy_deep_link(settings, JOB_ID) == f"https://example.com/app/vacancy/{JOB_ID}"
+
+
+def test_vacancy_telegram_startapp_link() -> None:
+    from app.core.mini_app_urls import vacancy_telegram_startapp_link
+
+    assert (
+        vacancy_telegram_startapp_link("Outstaffing_Work_BOT", JOB_ID)
+        == f"https://t.me/Outstaffing_Work_BOT?startapp=vacancy_{JOB_ID}"
+    )
