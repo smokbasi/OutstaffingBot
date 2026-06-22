@@ -5,8 +5,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.arq_pool import enqueue_job
-from app.db.models import JobCategory, JobRequest, JobRequestStatus, MetroStation, ShiftSlot
+from app.db.models import Employer, JobCategory, JobRequest, JobRequestStatus, MetroStation, ShiftSlot, VerificationStatus
 from app.schemas.job_request import JobRequestCreate, JobRequestRead, JobRequestUpdate
+from app.services import audit_service
 
 _ALLOWED_STATUS_TRANSITIONS: dict[JobRequestStatus, set[JobRequestStatus]] = {
     JobRequestStatus.draft: {JobRequestStatus.active, JobRequestStatus.cancelled},
@@ -36,6 +37,7 @@ def _job_to_read(job: JobRequest) -> JobRequestRead:
         description=job.description,
         metro_station_id=job.metro_station_id,
         metro_station_name=job.metro_station.name if job.metro_station else None,
+        city=job.city,
         address=job.address,
         hourly_rate=job.hourly_rate,
         workers_needed=job.workers_needed,
@@ -72,7 +74,7 @@ async def _validate_references(session: AsyncSession, data: JobRequestCreate) ->
         raise ValueError("Category not found")
 
     metro_exists = await session.scalar(
-        select(MetroStation.id).where(
+        select(MetroStation).where(
             MetroStation.id == data.metro_station_id,
             MetroStation.is_active.is_(True),
         )
@@ -85,6 +87,8 @@ async def create_job_request(
     session: AsyncSession,
     employer_id: UUID,
     data: JobRequestCreate,
+    *,
+    actor_id: UUID | None = None,
 ) -> JobRequestRead:
     await _validate_references(session, data)
 
@@ -94,6 +98,7 @@ async def create_job_request(
         title=data.title,
         description=data.description,
         metro_station_id=data.metro_station_id,
+        city=data.city or metro_exists.city,
         address=data.address,
         hourly_rate=data.hourly_rate,
         workers_needed=data.workers_needed,
@@ -125,6 +130,15 @@ async def create_job_request(
     await session.flush()
     job = await session.scalar(await _get_job_stmt(job.id, employer_id))
     assert job is not None
+
+    await audit_service.log_audit(
+        session,
+        actor_id=actor_id,
+        action="job.create",
+        entity_type="job_request",
+        entity_id=job.id,
+        metadata={"status": job.status.value},
+    )
     return _job_to_read(job)
 
 
@@ -167,6 +181,8 @@ async def update_job_request(
     employer_id: UUID,
     job_id: UUID,
     data: JobRequestUpdate,
+    *,
+    actor_id: UUID | None = None,
 ) -> JobRequestRead:
     job = await session.scalar(await _get_job_stmt(job_id, employer_id))
     if job is None:
@@ -174,6 +190,10 @@ async def update_job_request(
 
     previous_status = job.status
     if data.status is not None:
+        if data.status == JobRequestStatus.active:
+            employer = await session.scalar(select(Employer).where(Employer.id == employer_id))
+            if employer is None or employer.verification_status != VerificationStatus.verified:
+                raise ValueError("Employer not verified — contact admin for verification")
         _validate_status_transition(job.status, data.status)
         job.status = data.status
 
@@ -187,5 +207,15 @@ async def update_job_request(
         and job.notify_matching_workers
     ):
         await enqueue_job("match_workers_for_job", str(job.id))
+
+    if data.status is not None and previous_status != job.status:
+        await audit_service.log_audit(
+            session,
+            actor_id=actor_id,
+            action="job.status_change",
+            entity_type="job_request",
+            entity_id=job.id,
+            metadata={"from": previous_status.value, "to": job.status.value},
+        )
 
     return _job_to_read(job)

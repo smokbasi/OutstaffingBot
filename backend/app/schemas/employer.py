@@ -1,6 +1,8 @@
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, computed_field
+
+from app.db.models import VerificationStatus
 
 
 class EmployerProfileRead(BaseModel):
@@ -8,9 +10,14 @@ class EmployerProfileRead(BaseModel):
     company_name: str
     contact_phone: str | None = None
     contact_person: str | None = None
-    verified: bool
+    verification_status: VerificationStatus
 
     model_config = {"from_attributes": True}
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def verified(self) -> bool:
+        return self.verification_status == VerificationStatus.verified
 
 
 class EmployerProfileUpdate(BaseModel):

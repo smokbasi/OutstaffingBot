@@ -36,6 +36,7 @@ class JobRequestCreate(BaseModel):
     title: str = Field(min_length=1, max_length=200)
     description: str = Field(min_length=1)
     metro_station_id: int
+    city: str | None = Field(default=None, max_length=50)
     address: str | None = Field(default=None, max_length=300)
     hourly_rate: Decimal = Field(ge=0)
     workers_needed: int = Field(ge=1, le=100)
@@ -64,6 +65,7 @@ class JobRequestRead(BaseModel):
     description: str
     metro_station_id: int
     metro_station_name: str | None = None
+    city: str | None = None
     address: str | None = None
     hourly_rate: Decimal
     workers_needed: int

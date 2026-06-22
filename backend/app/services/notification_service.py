@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.config import Settings
-from app.db.models import JobRequest, Notification, NotificationType, User, Worker
+from app.db.models import Employer, JobRequest, Notification, NotificationType, User, Worker
 from app.services import matching_service
 
 
@@ -97,3 +97,65 @@ async def mark_user_blocked(session: AsyncSession, user_id: UUID) -> None:
     if user is not None:
         user.is_blocked = True
         await session.commit()
+
+
+def format_new_worker_message(worker: Worker, job: JobRequest) -> str:
+    category = job.category.name_ru if job.category else "—"
+    name = f"{worker.first_name} {worker.last_name[0]}." if worker.last_name else worker.first_name
+    return (
+        "👷 <b>Новый подходящий работник!</b>\n\n"
+        f"Кандидат: <b>{name}</b>, {worker.age} лет\n"
+        f"Подходит к заявке: <b>{job.title}</b>\n"
+        f"{category} · {job.hourly_rate} ₽/час"
+    )
+
+
+async def _get_worker_with_relations(session: AsyncSession, worker_id: UUID) -> Worker | None:
+    return await session.scalar(
+        select(Worker)
+        .options(
+            selectinload(Worker.experiences),
+            selectinload(Worker.user),
+            selectinload(Worker.metro_station),
+        )
+        .where(Worker.id == worker_id)
+    )
+
+
+async def notify_employers_for_worker(
+    session: AsyncSession,
+    bot: Bot,
+    settings: Settings,
+    worker_id: UUID,
+) -> int:
+    worker = await _get_worker_with_relations(session, worker_id)
+    if worker is None:
+        return 0
+
+    jobs = await matching_service.find_active_jobs_for_worker(session, worker)
+    if not jobs:
+        return 0
+
+    sent_count = 0
+    for job in jobs:
+        employer = job.employer
+        if employer is None or employer.user is None:
+            continue
+        user = employer.user
+        text = format_new_worker_message(worker, job)
+        try:
+            await bot.send_message(user.telegram_id, text)
+            session.add(
+                Notification(
+                    user_id=user.id,
+                    type=NotificationType.new_matching_worker,
+                    payload={"worker_id": str(worker.id), "job_id": str(job.id)},
+                    sent_at=datetime.now(timezone.utc),
+                )
+            )
+            sent_count += 1
+        except TelegramForbiddenError:
+            user.is_blocked = True
+
+    await session.commit()
+    return sent_count

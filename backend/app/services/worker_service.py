@@ -5,6 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.core.arq_pool import enqueue_job
 from app.db.models import JobCategory, MetroStation, User, Worker, WorkerExperience
 from app.schemas.worker import WorkerExperienceCreate, WorkerProfileRead, WorkerProfileUpdate
 from app.reference.job_categories import sort_job_categories
@@ -74,6 +75,10 @@ async def upsert_worker_profile(
 
     worker.gender = data.gender
     worker.metro_station_id = data.metro_station_id
+    if data.metro_station_id is not None:
+        metro = await get_metro_station_by_id(session, data.metro_station_id)
+        if metro is not None:
+            worker.city = metro.city
     worker.min_hourly_rate = data.min_hourly_rate
     if resume_completed is not None:
         worker.resume_completed = resume_completed
@@ -133,6 +138,13 @@ async def save_worker_registration(
     await session.flush()
     worker = await get_worker_by_user_id(session, user.id)
     assert worker is not None
+
+    metro = await get_metro_station_by_id(session, metro_station_id)
+    if metro is not None:
+        worker.city = metro.city
+        await session.flush()
+
+    await enqueue_job("notify_employers_for_worker", str(worker.id))
     return _worker_to_profile(worker)
 
 

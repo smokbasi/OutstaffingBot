@@ -5,7 +5,7 @@ from app.worker import tasks
 
 
 class WorkerSettings:
-    functions = [tasks.match_workers_for_job]
+    functions = [tasks.match_workers_for_job, tasks.notify_employers_for_worker]
     redis_settings = RedisSettings.from_dsn(get_settings().redis_url)
     max_jobs = 10
     job_timeout = 120

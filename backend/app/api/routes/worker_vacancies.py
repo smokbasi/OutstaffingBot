@@ -23,6 +23,7 @@ async def _get_worker_or_404(session: AsyncSession, user: User):
 async def list_worker_vacancies(
     category_id: int | None = Query(default=None),
     metro_station_id: int | None = Query(default=None),
+    city: str | None = Query(default=None),
     min_hourly_rate: float | None = Query(default=None, ge=0),
     page: int = Query(default=1, ge=1),
     limit: int = Query(default=20, ge=1, le=100),
@@ -33,6 +34,7 @@ async def list_worker_vacancies(
     filters = VacancyFilters(
         category_id=category_id,
         metro_station_id=metro_station_id,
+        city=city,
         min_hourly_rate=min_hourly_rate,
         page=page,
         limit=limit,

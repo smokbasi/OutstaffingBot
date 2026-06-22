@@ -65,6 +65,9 @@ async def test_update_application_accept_increments_slots_filled() -> None:
         async def scalar(self, stmt):
             return application
 
+        def add(self, _obj) -> None:
+            return None
+
         async def flush(self) -> None:
             return None
 
@@ -89,6 +92,9 @@ async def test_update_application_reject_does_not_increment_slots() -> None:
     class DummySession:
         async def scalar(self, stmt):
             return application
+
+        def add(self, _obj) -> None:
+            return None
 
         async def flush(self) -> None:
             return None

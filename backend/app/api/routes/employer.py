@@ -44,10 +44,11 @@ async def update_employer_profile_route(
 async def create_job(
     data: JobRequestCreate,
     employer: Employer = Depends(get_current_employer),
+    user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db_session),
 ) -> JobRequestRead:
     try:
-        job = await job_service.create_job_request(session, employer.id, data)
+        job = await job_service.create_job_request(session, employer.id, data, actor_id=user.id)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     await session.commit()
@@ -79,12 +80,15 @@ async def update_job(
     job_id: UUID,
     data: JobRequestUpdate,
     employer: Employer = Depends(get_current_employer),
+    user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db_session),
 ) -> JobRequestRead:
     if data.status is None:
         raise HTTPException(status_code=400, detail="No fields to update")
     try:
-        job = await job_service.update_job_request(session, employer.id, job_id, data)
+        job = await job_service.update_job_request(
+            session, employer.id, job_id, data, actor_id=user.id
+        )
     except ValueError as exc:
         detail = str(exc)
         status_code = 404 if detail == "Job request not found" else 400
@@ -110,6 +114,7 @@ async def update_application_status(
     application_id: UUID,
     data: EmployerApplicationUpdate,
     employer: Employer = Depends(get_current_employer),
+    user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db_session),
 ) -> EmployerApplicationRead:
     try:
@@ -118,6 +123,7 @@ async def update_application_status(
             employer.id,
             application_id,
             data.status,
+            actor_id=user.id,
         )
     except application_service.ApplicationNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc

@@ -7,11 +7,13 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.routes.admin import router as admin_router
 from app.api.routes.applications import router as applications_router
 from app.api.routes.employer import router as employer_router
 from app.api.routes.health import router as health_router
 from app.api.routes.me import router as me_router
 from app.api.routes.reference import router as reference_router
+from app.api.routes.reviews import router as reviews_router
 from app.api.routes.webhook import router as webhook_router
 from app.api.routes.worker import router as worker_router
 from app.api.routes.worker_vacancies import router as worker_vacancies_router
@@ -73,6 +75,8 @@ for api_prefix in ("/api/v1", "/v1"):
     app.include_router(worker_vacancies_router, prefix=api_prefix)
     app.include_router(applications_router, prefix=api_prefix)
     app.include_router(employer_router, prefix=api_prefix)
+    app.include_router(admin_router, prefix=api_prefix)
+    app.include_router(reviews_router, prefix=api_prefix)
     app.include_router(reference_router, prefix=api_prefix)
 
 

@@ -5,7 +5,7 @@ from uuid import uuid4
 
 import pytest
 
-from app.db.models import JobRequestStatus
+from app.db.models import JobRequestStatus, VerificationStatus
 from app.schemas.job_request import JobRequestUpdate
 from app.services import job_service
 
@@ -36,21 +36,31 @@ async def test_activate_job_enqueues_match_task(monkeypatch):
             self.contact_info = None
             self.post_to_groups = False
             self.address = None
+            self.city = "spb"
             self.created_at = now
             self.updated_at = now
             self.shift_slots = []
             self.category = None
             self.metro_station = None
 
+    class FakeEmployer:
+        verification_status = VerificationStatus.verified
+
     fake_job = FakeJob(JobRequestStatus.draft)
     active_job = FakeJob(JobRequestStatus.active)
 
     async def fake_scalar(stmt):
+        sql = str(stmt)
+        if "employers" in sql:
+            return FakeEmployer()
         if fake_job.status == JobRequestStatus.draft:
             return fake_job
         return active_job
 
     class DummySession:
+        def add(self, _obj) -> None:
+            return None
+
         async def flush(self):
             fake_job.status = JobRequestStatus.active
 

@@ -6,7 +6,7 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 from app.api.deps import get_current_employer, get_current_user
-from app.db.models import Employer, JobRequestStatus, User, UserRole
+from app.db.models import Employer, JobRequestStatus, User, UserRole, VerificationStatus
 from app.db.session import get_db_session
 from app.main import app
 from app.schemas.job_request import JobRequestRead, ShiftSlotRead
@@ -33,7 +33,7 @@ def test_employer(test_user: User) -> Employer:
         company_name="ООО Тест",
         contact_phone="+79990001122",
         contact_person="Иван Руководитель",
-        verified=False,
+        verification_status=VerificationStatus.pending,
     )
 
 
@@ -136,7 +136,7 @@ async def test_create_job_draft(
     sample_job: JobRequestRead,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    async def mock_create(session, employer_id, data):
+    async def mock_create(session, employer_id, data, **kwargs):
         assert data.title == "Официант на смену"
         return sample_job
 
@@ -199,7 +199,7 @@ async def test_patch_job_status_active(
 ) -> None:
     active_job = sample_job.model_copy(update={"status": JobRequestStatus.active})
 
-    async def mock_update(session, employer_id, job_id, data):
+    async def mock_update(session, employer_id, job_id, data, **kwargs):
         assert data.status == JobRequestStatus.active
         return active_job
 
@@ -219,7 +219,7 @@ async def test_patch_job_invalid_transition(
     sample_job: JobRequestRead,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    async def mock_update(session, employer_id, job_id, data):
+    async def mock_update(session, employer_id, job_id, data, **kwargs):
         raise ValueError("Cannot transition from draft to filled")
 
     monkeypatch.setattr("app.api.routes.employer.job_service.update_job_request", mock_update)

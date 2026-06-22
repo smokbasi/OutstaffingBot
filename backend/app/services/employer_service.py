@@ -3,7 +3,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models import Employer, User
+from app.db.models import Employer, User, VerificationStatus
 from app.schemas.employer import EmployerProfileRead, EmployerProfileUpdate
 
 
@@ -17,7 +17,7 @@ def _employer_to_profile(employer: Employer) -> EmployerProfileRead:
         company_name=employer.company_name,
         contact_phone=employer.contact_phone,
         contact_person=employer.contact_person,
-        verified=employer.verified,
+        verification_status=employer.verification_status,
     )
 
 
@@ -40,6 +40,7 @@ async def upsert_employer_profile(
             company_name=data.company_name,
             contact_phone=data.contact_phone,
             contact_person=data.contact_person,
+            verification_status=VerificationStatus.pending,
         )
         session.add(employer)
     else:

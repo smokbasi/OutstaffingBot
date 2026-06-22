@@ -19,7 +19,7 @@ from app.schemas.application import (
     EmployerApplicationListResponse,
     EmployerApplicationRead,
 )
-from app.services import matching_service
+from app.services import audit_service, matching_service
 
 
 def shifts_overlap(a_start: time, a_end: time, b_start: time, b_end: time) -> bool:
@@ -322,6 +322,8 @@ async def update_application_by_employer(
     employer_id: UUID,
     application_id: UUID,
     new_status: ApplicationStatus,
+    *,
+    actor_id: UUID | None = None,
 ) -> EmployerApplicationRead:
     app = await session.scalar(
         select(Application)
@@ -350,4 +352,14 @@ async def update_application_by_employer(
         raise ApplicationNotPendingError("Invalid status transition")
 
     await session.flush()
+
+    await audit_service.log_audit(
+        session,
+        actor_id=actor_id,
+        action=f"application.{new_status.value}",
+        entity_type="application",
+        entity_id=app.id,
+        metadata={"job_request_id": str(app.job_request_id)},
+    )
+
     return _application_to_employer_read(app)

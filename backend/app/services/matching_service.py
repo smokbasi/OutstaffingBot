@@ -9,6 +9,7 @@ from sqlalchemy.orm import selectinload
 
 from app.db.models import (
     Gender,
+    Employer,
     JobRequest,
     JobRequestStatus,
     MetroStation,
@@ -18,6 +19,7 @@ from app.db.models import (
     Worker,
     WorkerPreferences,
 )
+from app.services import geo_service
 from app.schemas.vacancy import VacancyDetail, VacancyFilters, VacancyListItem, VacancyListResponse
 
 
@@ -71,6 +73,30 @@ def _gender_filter(worker: Worker):
     )
 
 
+def _effective_city(worker: Worker, filters: VacancyFilters) -> str | None:
+    if filters.city is not None:
+        return filters.city
+    return worker.city or None
+
+
+def _effective_max_distance_km(worker: Worker, filters: VacancyFilters) -> int | None:
+    if filters.max_distance_km is not None:
+        return filters.max_distance_km
+    if worker.metro_radius_km and worker.metro_radius_km > 0:
+        return worker.metro_radius_km
+    return None
+
+
+def _distance_km_between_stations(worker_station: MetroStation | None, job_station: MetroStation | None) -> float | None:
+    if worker_station is None or job_station is None:
+        return None
+    if worker_station.lat is None or worker_station.lon is None:
+        return None
+    if job_station.lat is None or job_station.lon is None:
+        return None
+    return geo_service.haversine_km(worker_station.lat, worker_station.lon, job_station.lat, job_station.lon)
+
+
 def _base_vacancy_conditions(worker: Worker, filters: VacancyFilters, category_ids: list[int]):
     min_rate = effective_min_rate(worker, filters)
     conditions = [
@@ -85,6 +111,9 @@ def _base_vacancy_conditions(worker: Worker, filters: VacancyFilters, category_i
     ]
     if filters.metro_station_id is not None:
         conditions.append(JobRequest.metro_station_id == filters.metro_station_id)
+    city = _effective_city(worker, filters)
+    if city is not None:
+        conditions.append(JobRequest.city == city)
     return conditions
 
 
@@ -176,12 +205,32 @@ async def find_matching_vacancies(
     stmt = (
         select(JobRequest, ShiftSlot)
         .join(ShiftSlot, JobRequest.id == ShiftSlot.job_request_id)
+        .options(selectinload(JobRequest.metro_station))
         .where(*conditions)
         .order_by(ShiftSlot.shift_date, ShiftSlot.start_time)
-        .limit(filters.limit)
+        .limit(filters.limit * 3)
     )
     rows = (await session.execute(stmt)).all()
-    return [VacancyMatch(job=row[0], slot=row[1]) for row in rows]
+    matches = [VacancyMatch(job=row[0], slot=row[1]) for row in rows]
+
+    max_km = _effective_max_distance_km(worker, filters)
+    if max_km is None:
+        return matches[: filters.limit]
+
+    worker_station = worker.metro_station
+    if worker_station is None and worker.metro_station_id is not None:
+        worker_station = await session.scalar(
+            select(MetroStation).where(MetroStation.id == worker.metro_station_id)
+        )
+
+    filtered: list[VacancyMatch] = []
+    for match in matches:
+        distance = _distance_km_between_stations(worker_station, match.job.metro_station)
+        if distance is None or distance <= max_km:
+            filtered.append(match)
+        if len(filtered) >= filters.limit:
+            break
+    return filtered
 
 
 async def list_vacancies_for_worker(
@@ -230,6 +279,23 @@ async def list_vacancies_for_worker(
             .order_by(JobRequest.created_at.desc())
         )
     )
+
+    max_km = _effective_max_distance_km(worker, filters)
+    if max_km is not None:
+        worker_station = worker.metro_station
+        if worker_station is None and worker.metro_station_id is not None:
+            worker_station = await session.scalar(
+                select(MetroStation).where(MetroStation.id == worker.metro_station_id)
+            )
+        jobs = [
+            job
+            for job in jobs
+            if (
+                (d := _distance_km_between_stations(worker_station, job.metro_station)) is None
+                or d <= max_km
+            )
+        ]
+
     return VacancyListResponse(
         items=[_job_to_list_item(job) for job in jobs],
         total=total,
@@ -352,6 +418,43 @@ def _job_has_available_slots(job: JobRequest) -> bool:
     return any(
         slot.shift_date >= today and slot.slots_filled < slot.slots_total for slot in job.shift_slots
     )
+
+
+async def find_active_jobs_for_worker(session: AsyncSession, worker: Worker) -> list[JobRequest]:
+    """Active jobs matching a newly registered worker (employer push)."""
+    category_ids = worker_category_ids(worker)
+    if not category_ids:
+        return []
+
+    stmt = (
+        select(JobRequest)
+        .options(
+            selectinload(JobRequest.shift_slots),
+            selectinload(JobRequest.category),
+            selectinload(JobRequest.metro_station),
+            selectinload(JobRequest.employer).selectinload(Employer.user),
+        )
+        .where(
+            JobRequest.status == JobRequestStatus.active,
+            JobRequest.notify_matching_workers.is_(True),
+            JobRequest.category_id.in_(category_ids),
+        )
+    )
+    jobs = list(await session.scalars(stmt))
+    matched: list[JobRequest] = []
+    for job in jobs:
+        if not _job_has_available_slots(job):
+            continue
+        if job.hourly_rate < _worker_effective_min_rate(worker, None):
+            continue
+        if not _worker_matches_job_gender(worker, job):
+            continue
+        if not _worker_matches_job_age(worker, job):
+            continue
+        if worker.city and job.city and worker.city != job.city:
+            continue
+        matched.append(job)
+    return matched
 
 
 async def find_workers_for_job(session: AsyncSession, job: JobRequest) -> list[Worker]:

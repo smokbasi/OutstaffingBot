@@ -5,7 +5,7 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 from app.api.deps import get_current_employer, get_current_user
-from app.db.models import ApplicationStatus, Employer, User, UserRole
+from app.db.models import ApplicationStatus, Employer, User, UserRole, VerificationStatus
 from app.db.session import get_db_session
 from app.main import app
 from app.schemas.application import EmployerApplicationListResponse, EmployerApplicationRead
@@ -32,7 +32,7 @@ def test_employer(test_user: User) -> Employer:
         company_name="ООО Тест",
         contact_phone="+79990001122",
         contact_person="Иван Руководитель",
-        verified=False,
+        verification_status=VerificationStatus.pending,
     )
 
 
@@ -156,7 +156,7 @@ async def test_patch_application_accept(
     app_id = sample_employer_application.id
     accepted = sample_employer_application.model_copy(update={"status": ApplicationStatus.accepted})
 
-    async def mock_update(session, employer_id, application_id, status):
+    async def mock_update(session, employer_id, application_id, status, **kwargs):
         assert employer_id == test_employer.id
         assert application_id == app_id
         assert status == ApplicationStatus.accepted
@@ -186,7 +186,7 @@ async def test_patch_application_reject(
     app_id = sample_employer_application.id
     rejected = sample_employer_application.model_copy(update={"status": ApplicationStatus.rejected})
 
-    async def mock_update(session, employer_id, application_id, status):
+    async def mock_update(session, employer_id, application_id, status, **kwargs):
         assert status == ApplicationStatus.rejected
         return rejected
 
@@ -226,7 +226,7 @@ async def test_patch_application_not_pending(
 
     app_id = uuid4()
 
-    async def mock_update(session, employer_id, application_id, status):
+    async def mock_update(session, employer_id, application_id, status, **kwargs):
         raise ApplicationNotPendingError()
 
     monkeypatch.setattr(
@@ -251,7 +251,7 @@ async def test_patch_application_not_found(
 
     app_id = uuid4()
 
-    async def mock_update(session, employer_id, application_id, status):
+    async def mock_update(session, employer_id, application_id, status, **kwargs):
         raise ApplicationNotFoundError("Application not found")
 
     monkeypatch.setattr(
