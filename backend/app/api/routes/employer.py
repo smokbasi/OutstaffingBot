@@ -6,9 +6,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_current_employer, get_current_user
 from app.db.models import Employer, User
 from app.db.session import get_db_session
+from app.schemas.application import (
+    EmployerApplicationListResponse,
+    EmployerApplicationRead,
+    EmployerApplicationUpdate,
+)
 from app.schemas.employer import EmployerProfileRead, EmployerProfileUpdate
 from app.schemas.job_request import JobRequestCreate, JobRequestRead, JobRequestUpdate
-from app.services import employer_service, job_service
+from app.services import application_service, employer_service, job_service
 
 router = APIRouter(prefix="/employer", tags=["employer"])
 
@@ -86,3 +91,40 @@ async def update_job(
         raise HTTPException(status_code=status_code, detail=detail) from exc
     await session.commit()
     return job
+
+
+@router.get("/jobs/{job_id}/applications", response_model=EmployerApplicationListResponse)
+async def list_job_applications(
+    job_id: UUID,
+    employer: Employer = Depends(get_current_employer),
+    session: AsyncSession = Depends(get_db_session),
+) -> EmployerApplicationListResponse:
+    try:
+        return await application_service.list_job_applications(session, employer.id, job_id)
+    except application_service.JobNotFoundForEmployerError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.patch("/applications/{application_id}", response_model=EmployerApplicationRead)
+async def update_application_status(
+    application_id: UUID,
+    data: EmployerApplicationUpdate,
+    employer: Employer = Depends(get_current_employer),
+    session: AsyncSession = Depends(get_db_session),
+) -> EmployerApplicationRead:
+    try:
+        result = await application_service.update_application_by_employer(
+            session,
+            employer.id,
+            application_id,
+            data.status,
+        )
+    except application_service.ApplicationNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except application_service.ApplicationNotPendingError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except application_service.SlotFullError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    await session.commit()
+    return result

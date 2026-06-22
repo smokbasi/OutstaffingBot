@@ -1,4 +1,4 @@
-from datetime import datetime, time, timezone
+from datetime import date, datetime, time, timezone
 from uuid import UUID
 
 from sqlalchemy import select
@@ -13,7 +13,12 @@ from app.db.models import (
     ShiftSlot,
     Worker,
 )
-from app.schemas.application import ApplicationListResponse, ApplicationRead
+from app.schemas.application import (
+    ApplicationListResponse,
+    ApplicationRead,
+    EmployerApplicationListResponse,
+    EmployerApplicationRead,
+)
 from app.services import matching_service
 
 
@@ -44,6 +49,18 @@ class ApplicationNotFoundError(ApplicationError):
 
 
 class ApplicationNotCancellableError(ApplicationError):
+    pass
+
+
+class JobNotFoundForEmployerError(ApplicationError):
+    pass
+
+
+class ApplicationNotPendingError(ApplicationError):
+    pass
+
+
+class SlotFullError(ApplicationError):
     pass
 
 
@@ -231,3 +248,89 @@ async def list_my_applications(
     )
     items = [_application_to_read(app) for app in result.all()]
     return ApplicationListResponse(items=items, total=len(items))
+
+
+def _worker_experience_months(worker: Worker) -> int | None:
+    if not worker.experiences:
+        return None
+    return max(exp.duration_months for exp in worker.experiences)
+
+
+def _application_to_employer_read(app: Application) -> EmployerApplicationRead:
+    slot = app.shift_slot
+    worker = app.worker
+    return EmployerApplicationRead(
+        id=app.id,
+        job_request_id=app.job_request_id,
+        shift_slot_id=app.shift_slot_id,
+        status=app.status,
+        applied_at=app.applied_at,
+        shift_date=slot.shift_date if slot else date.min,
+        start_time=slot.start_time if slot else time.min,
+        end_time=slot.end_time if slot else time.min,
+        worker_id=worker.id if worker else app.worker_id,
+        worker_first_name=worker.first_name if worker else "",
+        worker_last_name=worker.last_name if worker else "",
+        worker_age=worker.age if worker else 0,
+        worker_experience_months=_worker_experience_months(worker) if worker else None,
+    )
+
+
+async def list_job_applications(
+    session: AsyncSession,
+    employer_id: UUID,
+    job_id: UUID,
+) -> EmployerApplicationListResponse:
+    job = await session.scalar(
+        select(JobRequest).where(JobRequest.id == job_id, JobRequest.employer_id == employer_id)
+    )
+    if job is None:
+        raise JobNotFoundForEmployerError("Job request not found")
+
+    result = await session.scalars(
+        select(Application)
+        .options(
+            selectinload(Application.shift_slot),
+            selectinload(Application.worker).selectinload(Worker.experiences),
+        )
+        .where(Application.job_request_id == job_id)
+        .order_by(Application.applied_at.desc())
+    )
+    items = [_application_to_employer_read(app) for app in result.all()]
+    return EmployerApplicationListResponse(items=items, total=len(items))
+
+
+async def update_application_by_employer(
+    session: AsyncSession,
+    employer_id: UUID,
+    application_id: UUID,
+    new_status: ApplicationStatus,
+) -> EmployerApplicationRead:
+    app = await session.scalar(
+        select(Application)
+        .options(
+            selectinload(Application.shift_slot),
+            selectinload(Application.job_request),
+            selectinload(Application.worker).selectinload(Worker.experiences),
+        )
+        .where(Application.id == application_id)
+    )
+    if app is None or app.job_request is None or app.job_request.employer_id != employer_id:
+        raise ApplicationNotFoundError("Application not found")
+
+    if app.status != ApplicationStatus.pending:
+        raise ApplicationNotPendingError("Application is not pending")
+
+    slot = app.shift_slot
+    if new_status == ApplicationStatus.accepted:
+        if slot is None or slot.slots_filled >= slot.slots_total:
+            raise SlotFullError("No free slots on this shift")
+        slot.slots_filled += 1
+        app.status = ApplicationStatus.accepted
+    elif new_status == ApplicationStatus.rejected:
+        app.status = ApplicationStatus.rejected
+    else:
+        raise ApplicationNotPendingError("Invalid status transition")
+
+    await session.flush()
+    return _application_to_employer_read(app)

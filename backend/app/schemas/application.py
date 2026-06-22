@@ -1,4 +1,5 @@
 from datetime import date, datetime, time
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -38,6 +39,31 @@ class ApplicationRead(BaseModel):
 class ApplicationListResponse(BaseModel):
     items: list[ApplicationRead]
     total: int
+
+
+class EmployerApplicationRead(BaseModel):
+    id: UUID
+    job_request_id: UUID
+    shift_slot_id: UUID
+    status: ApplicationStatus
+    applied_at: datetime
+    shift_date: date
+    start_time: time
+    end_time: time
+    worker_id: UUID
+    worker_first_name: str
+    worker_last_name: str
+    worker_age: int
+    worker_experience_months: int | None = None
+
+
+class EmployerApplicationListResponse(BaseModel):
+    items: list[EmployerApplicationRead]
+    total: int
+
+
+class EmployerApplicationUpdate(BaseModel):
+    status: Literal[ApplicationStatus.accepted, ApplicationStatus.rejected]
 
 
 class ShiftConflictResponse(BaseModel):
