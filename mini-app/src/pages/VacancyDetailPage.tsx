@@ -74,7 +74,7 @@ export function VacancyDetailPage({ initData, vacancyId, onBack }: VacancyDetail
       const result = await applyToShift(initData, slotId, cancelConflictingId);
       triggerHaptic("medium");
       setSuccessMessage(
-        `Отклик отправлен: ${result.job_title}, ${formatDate(result.shift_date)} ${formatTime(result.start_time)}–${formatTime(result.end_time)}`,
+        `Отклик отправлен: ${result.job_title}, ${formatDate(result.shift_date)} ${formatTime(result.start_time)}-${formatTime(result.end_time)}`,
       );
       if (state.status === "ready" || state.status === "conflict") {
         setState({ status: "ready", vacancy: state.vacancy });
@@ -122,7 +122,7 @@ export function VacancyDetailPage({ initData, vacancyId, onBack }: VacancyDetail
         <p>{conflict.detail}</p>
         <p className="hint">
           Текущая: {formatDate(conflict.conflicting.shift_date)}{" "}
-          {formatTime(conflict.conflicting.start_time)}–{formatTime(conflict.conflicting.end_time)} (
+          {formatTime(conflict.conflicting.start_time)}-{formatTime(conflict.conflicting.end_time)} (
           {conflict.conflicting.job_title})
         </p>
         <div className="form-actions">
@@ -175,7 +175,7 @@ export function VacancyDetailPage({ initData, vacancyId, onBack }: VacancyDetail
           {vacancy.shift_slots.map((slot) => (
             <li key={slot.id} className="shift-row">
               <span>
-                {formatDate(slot.shift_date)} {formatTime(slot.start_time)}–{formatTime(slot.end_time)} ·
+                {formatDate(slot.shift_date)} {formatTime(slot.start_time)}-{formatTime(slot.end_time)} ·
                 свободно {slot.slots_total - slot.slots_filled}/{slot.slots_total}
               </span>
               <button
