@@ -49,7 +49,7 @@ async def cmd_start_job(
     )
     worker = await worker_service.get_worker_by_user_id(session, user.id)
 
-    if worker is None or not worker.resume_completed:
+    if not worker_service.is_profile_complete(worker):
         await message.answer(
             "Чтобы откликнуться на вакансию, сначала заполните профиль работника."
         )

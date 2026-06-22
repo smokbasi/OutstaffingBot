@@ -31,6 +31,15 @@ def experience_more_keyboard() -> InlineKeyboardMarkup:
     )
 
 
+def profile_already_complete_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="✏️ Обновить профиль", callback_data="reg:update")],
+            [InlineKeyboardButton(text="❌ Отмена", callback_data="reg:dismiss")],
+        ]
+    )
+
+
 def confirm_inline_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[

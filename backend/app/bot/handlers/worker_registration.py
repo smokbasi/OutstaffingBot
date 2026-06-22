@@ -16,6 +16,7 @@ from app.bot.keyboards.worker_registration import (
     gender_inline_keyboard,
     metro_lines_keyboard,
     metro_stations_keyboard,
+    profile_already_complete_keyboard,
 )
 from app.bot.states.worker_registration import WorkerRegistration
 from app.db.models import Gender
@@ -131,12 +132,21 @@ async def _begin_registration(
     state: FSMContext,
     *,
     pending_job_id: str | None = None,
+    prefill: dict | None = None,
 ) -> None:
     await state.clear()
     if pending_job_id is not None:
         await state.update_data(pending_job_id=pending_job_id)
+    if prefill:
+        await state.update_data(**prefill, edit_mode=True)
     await state.set_state(WorkerRegistration.first_name)
-    await _start_resume_message(message, state, FIRST_NAME_PROMPT)
+    prompt = FIRST_NAME_PROMPT
+    if prefill:
+        prompt = (
+            "Можете изменить данные — пройдите шаги заново или сохраните как есть на последнем шаге.\n\n"
+            + FIRST_NAME_PROMPT
+        )
+    await _start_resume_message(message, state, prompt)
 
 
 @router.message(F.text == "👷 Работник")
@@ -146,17 +156,9 @@ async def select_worker(message: Message, session: AsyncSession, state: FSMConte
         return
 
     profile = await worker_service.get_worker_profile(session, user)
-    if profile and profile.resume_completed:
-        exp_lines = "\n".join(
-            f"• {e.category_name}: {e.role_title} ({e.duration_months} мес.)"
-            for e in profile.experiences
-        ) or "—"
+    if profile and worker_service.is_profile_read_complete(profile):
         await message.answer(
-            f"<b>Ваш профиль</b>\n"
-            f"{profile.first_name} {profile.last_name}, {profile.age} лет\n"
-            f"Метро: {profile.metro_station_name or '—'}\n"
-            f"Мин. ставка: {profile.min_hourly_rate or '—'} ₽/час\n\n"
-            f"<b>Опыт:</b>\n{exp_lines}\n\n"
+            f"{worker_service.format_worker_profile_text(profile)}\n\n"
             "Чтобы обновить профиль — нажмите «📝 Заполнить профиль».",
             reply_markup=main_menu_keyboard(),
         )
@@ -170,7 +172,52 @@ async def start_registration(message: Message, session: AsyncSession, state: FSM
     user = await _ensure_user(message, session)
     if user is None:
         return
+
+    profile = await worker_service.get_worker_profile(session, user)
+    if profile and worker_service.is_profile_read_complete(profile):
+        await message.answer(
+            f"{worker_service.format_worker_profile_text(profile)}\n\n"
+            "<b>Профиль уже заполнен.</b> Хотите обновить данные?",
+            reply_markup=profile_already_complete_keyboard(),
+        )
+        return
+
     await _begin_registration(message, state)
+
+
+@router.callback_query(F.data == "reg:update")
+async def start_registration_update(callback: CallbackQuery, session: AsyncSession, state: FSMContext) -> None:
+    if callback.from_user is None:
+        await callback.answer()
+        return
+
+    user = await user_service.get_or_create_by_telegram_id(
+        session,
+        callback.from_user.id,
+        username=callback.from_user.username,
+        language_code=callback.from_user.language_code,
+    )
+    profile = await worker_service.get_worker_profile(session, user)
+    if profile is None or not worker_service.is_profile_read_complete(profile):
+        if callback.message:
+            await callback.message.edit_text("Профиль не найден. Начинаем заполнение с начала.")
+            await _begin_registration(callback.message, state)
+        await callback.answer()
+        return
+
+    prefill = worker_service.profile_to_registration_state(profile)
+    if callback.message:
+        await callback.message.edit_text("Обновление профиля…")
+        await _begin_registration(callback.message, state, prefill=prefill)
+    await callback.answer()
+
+
+@router.callback_query(F.data == "reg:dismiss")
+async def dismiss_profile_update(callback: CallbackQuery) -> None:
+    if callback.message:
+        await callback.message.edit_text("Ок, профиль без изменений.")
+        await callback.message.answer("Главное меню:", reply_markup=main_menu_keyboard())
+    await callback.answer()
 
 
 @router.message(Command("cancel"), StateFilter(WorkerRegistration))

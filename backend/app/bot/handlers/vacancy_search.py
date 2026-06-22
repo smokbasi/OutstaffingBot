@@ -144,7 +144,7 @@ async def _start_search(message: Message, session: AsyncSession, state: FSMConte
         return
 
     worker = await worker_service.get_worker_by_user_id(session, user.id)
-    if worker is None or not worker.resume_completed:
+    if not worker_service.is_profile_complete(worker):
         await message.answer(
             "Сначала заполните профиль работника: «📝 Заполнить профиль».",
             reply_markup=main_menu_keyboard(),

@@ -30,6 +30,70 @@ async def get_worker_profile(session: AsyncSession, user: User) -> WorkerProfile
     return _worker_to_profile(worker)
 
 
+def is_profile_complete(worker: Worker | None) -> bool:
+    """True when profile is ready to show as «Ваш профиль» and apply to jobs."""
+    if worker is None:
+        return False
+    if worker.resume_completed:
+        return True
+    return (
+        bool(worker.first_name and worker.last_name)
+        and worker.age is not None
+        and worker.metro_station_id is not None
+        and worker.min_hourly_rate is not None
+        and len(worker.experiences) > 0
+    )
+
+
+def is_profile_read_complete(profile: WorkerProfileRead | None) -> bool:
+    if profile is None:
+        return False
+    if profile.resume_completed:
+        return True
+    return (
+        bool(profile.first_name and profile.last_name)
+        and profile.age
+        and profile.metro_station_id is not None
+        and profile.min_hourly_rate is not None
+        and len(profile.experiences) > 0
+    )
+
+
+def format_worker_profile_text(profile: WorkerProfileRead) -> str:
+    exp_lines = "\n".join(
+        f"• {e.category_name}: {e.role_title} ({e.duration_months} мес.)"
+        for e in profile.experiences
+    ) or "—"
+    return (
+        f"<b>Ваш профиль</b>\n"
+        f"{profile.first_name} {profile.last_name}, {profile.age} лет\n"
+        f"Метро: {profile.metro_station_name or '—'}\n"
+        f"Мин. ставка: {profile.min_hourly_rate or '—'} ₽/час\n\n"
+        f"<b>Опыт:</b>\n{exp_lines}"
+    )
+
+
+def profile_to_registration_state(profile: WorkerProfileRead) -> dict:
+    return {
+        "first_name": profile.first_name,
+        "last_name": profile.last_name,
+        "age": profile.age,
+        "gender": profile.gender,
+        "metro_station_id": profile.metro_station_id,
+        "metro_name": profile.metro_station_name,
+        "min_hourly_rate": str(profile.min_hourly_rate) if profile.min_hourly_rate is not None else None,
+        "experiences": [
+            {
+                "category_id": exp.category_id,
+                "category_name": exp.category_name,
+                "role_title": exp.role_title,
+                "duration_months": exp.duration_months,
+            }
+            for exp in profile.experiences
+        ],
+    }
+
+
 def _worker_to_profile(worker: Worker) -> WorkerProfileRead:
     experiences = [
         {
