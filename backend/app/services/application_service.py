@@ -104,7 +104,16 @@ async def _get_shift_slot(session: AsyncSession, shift_slot_id: UUID) -> ShiftSl
     )
 
 
-async def _get_existing_application(
+_REAPPLYABLE_STATUSES = frozenset(
+    {
+        ApplicationStatus.rejected,
+        ApplicationStatus.cancelled_by_worker,
+        ApplicationStatus.cancelled_by_employer,
+    }
+)
+
+
+async def _get_application_for_slot(
     session: AsyncSession,
     worker_id: UUID,
     shift_slot_id: UUID,
@@ -113,7 +122,6 @@ async def _get_existing_application(
         select(Application).where(
             Application.worker_id == worker_id,
             Application.shift_slot_id == shift_slot_id,
-            Application.status.in_([ApplicationStatus.pending, ApplicationStatus.accepted]),
         )
     )
 
@@ -160,8 +168,11 @@ async def apply_to_shift(
     if vacancy is None:
         raise SlotUnavailableError("Vacancy does not match your profile")
 
-    existing = await _get_existing_application(session, worker.id, shift_slot_id)
-    if existing is not None:
+    existing = await _get_application_for_slot(session, worker.id, shift_slot_id)
+    if existing is not None and existing.status in (
+        ApplicationStatus.pending,
+        ApplicationStatus.accepted,
+    ):
         raise AlreadyAppliedError("You already applied to this shift")
 
     conflict = await has_shift_conflict(session, worker.id, slot)
@@ -176,13 +187,19 @@ async def apply_to_shift(
         else:
             raise ShiftConflictError(conflict)
 
-    application = Application(
-        worker_id=worker.id,
-        job_request_id=job.id,
-        shift_slot_id=slot.id,
-        status=ApplicationStatus.pending,
-    )
-    session.add(application)
+    if existing is not None and existing.status in _REAPPLYABLE_STATUSES:
+        existing.status = ApplicationStatus.pending
+        existing.cancelled_at = None
+        existing.applied_at = datetime.now(timezone.utc)
+        application = existing
+    else:
+        application = Application(
+            worker_id=worker.id,
+            job_request_id=job.id,
+            shift_slot_id=slot.id,
+            status=ApplicationStatus.pending,
+        )
+        session.add(application)
     await session.flush()
 
     loaded = await session.scalar(
