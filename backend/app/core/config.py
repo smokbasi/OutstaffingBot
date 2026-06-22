@@ -17,6 +17,8 @@ class Settings(BaseSettings):
     bot_username: str = "Outstaffing_Work_BOT"
     webhook_secret: str = ""
     webhook_url: str = ""
+    sentry_dsn: str = ""
+    sentry_traces_sample_rate: float = 0.1
 
     database_url: str = "postgresql+asyncpg://outstaffing:outstaffing@localhost:5432/outstaffing"
     redis_url: str = "redis://localhost:6379/0"
@@ -46,6 +48,14 @@ class Settings(BaseSettings):
     @property
     def bot_enabled(self) -> bool:
         return bool(self.bot_token.strip())
+
+    @property
+    def webhook_enabled(self) -> bool:
+        return bool(self.webhook_url.strip() and self.webhook_secret.strip())
+
+    @property
+    def webhook_allowed_updates(self) -> list[str] | None:
+        return None
 
 
 @lru_cache
