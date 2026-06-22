@@ -1,0 +1,17 @@
+stop_words_profanity.txt=8348
+stop_words_sex.txt=313
+stop_words_drugs.txt=363
+stop_words_translit.txt=50
+allow_words_alcohol.txt=62
+src_badwords_py=3571
+src_readme_svg=4241
+src_krugozor_profanity=1849
+src_krugozor_drugs=359
+src_krugozor_sex=105
+src_censureblock=45
+src_kugimiya_sex=68
+src_kugimiya_drugs=16
+src_hacking_buds=74
+src_drugs_manual=59
+src_sex_manual=72
+src_translit_manual=55

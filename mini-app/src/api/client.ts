@@ -216,6 +216,24 @@ export class ShiftConflictError extends Error {
   }
 }
 
+export type ContentRejectedBody = {
+  detail: string;
+  code: "content_rejected";
+  field?: string | null;
+};
+
+export class ContentRejectedError extends Error {
+  code: "content_rejected";
+  field: string | null;
+
+  constructor(body: ContentRejectedBody) {
+    super(body.detail);
+    this.name = "ContentRejectedError";
+    this.code = "content_rejected";
+    this.field = body.field ?? null;
+  }
+}
+
 export type JobRequest = {
   id: string;
   category_id: number;
@@ -525,10 +543,41 @@ export function updateJobStatus(
   id: string,
   status: JobRequestStatus,
 ): Promise<JobRequest> {
-  return apiFetch<JobRequest>(`/employer/jobs/${id}`, initData, {
+  return apiFetchWithContentRejected<JobRequest>(`/employer/jobs/${id}`, initData, {
     method: "PATCH",
     body: JSON.stringify({ status }),
   });
+}
+
+async function apiFetchWithContentRejected<T>(
+  path: string,
+  initData: string,
+  init?: RequestInit,
+): Promise<T> {
+  const response = await fetchWithTimeout(`${API_BASE}/api/v1${path}`, {
+    ...init,
+    headers: {
+      ...authHeaders(initData),
+      ...(init?.headers ?? {}),
+    },
+  });
+  if (!response.ok) {
+    const body = await response.text();
+    if (response.status === 400) {
+      try {
+        const parsed = JSON.parse(body) as ContentRejectedBody;
+        if (parsed.code === "content_rejected") {
+          throw new ContentRejectedError(parsed);
+        }
+      } catch (error) {
+        if (error instanceof ContentRejectedError) {
+          throw error;
+        }
+      }
+    }
+    throw new Error(parseApiError(body, response.status));
+  }
+  return response.json() as Promise<T>;
 }
 
 export function listWorkerVacancies(

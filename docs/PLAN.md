@@ -662,6 +662,34 @@ WHERE a.worker_id = :worker_id
 - Web admin panel (FastAPI + simple React)
 - Жалобы на заявки
 
+#### 10.1 Content Moderation & Compliance
+
+> Чеклист задач: [TASKS.md § Phase 9](./TASKS.md#phase-9--admin--moderation-23-недели-p1p2).
+
+**Источники wordlists:**
+
+| Источник | Назначение |
+|----------|------------|
+| [badwords-py](https://github.com/PranavBhalotia/badwords-py) | Базовый EN/RU profanity |
+| readme-SVG | Доп. списки из SVG/readme-источника проекта |
+| `stop_words` (custom, в репо) | Доменные запреты (наркотики, escort и т.д.) |
+| Transliteration map | `GOVNO`, `PIDOR`, `Mephedron`, … → кириллица для матчинга |
+
+**Pipeline:** `raw text` → segment (для `contact_info`) → normalize (obfuscation + translit, **без** порчи легитимных скобок) → wordlist match → log violation → при N нарушениях → admin queue.
+
+**Brackets / special chars (pattern rules):**
+
+- **Obfuscation (normalize only):** `SE[X`, `зак[лад]ка`, leetspeak, разделители внутри токена — схлопывать для match.
+- **Legitimate (preserve):** `(стр. 2)`, `(удобный график)`, скобки вокруг целых фраз в description/address.
+
+**contact_info:** email и `@telegram` / `t.me/` сегменты — **skip wordlist**; остальной текст — полная проверка.
+
+**Алкогольная тематика:** разрешена **на всей платформе** для легитимных заявок (бар, коктейли, алкогольное меню и т.д.) — **во всех категориях**; escort-list — **без ослаблений**.
+
+**Violation threshold:** env `MODERATION_VIOLATION_THRESHOLD` (default 3) → `moderation_violations` + admin review → `/admin block_user <telegram_id>`.
+
+**Metro search (Mini App):** см. [TASKS.md § Phase 7](./TASKS.md#phase-7--mini-app-polish-2-недели-p1) — substring, case-insensitive, multi-word в `GET /reference/metro?q=`.
+
 ---
 
 ### 11. Деплой на сервер
@@ -1075,15 +1103,20 @@ Ruflo удалён. Агентный harness — **ECC** ([github.com/affaan-m/E
 
 ### Phase 7: Mini App Polish (2 недели) — P1
 
+> **Статус main:** employer inbox выполнен; polish/metro — открыто. Код Dev2 на eature/phase-7-mini-app-polish без merge в main.
+
 - [ ] Полный UI/UX всех экранов
 - [ ] Deep links, haptic, theme
 - [x] Employer inbox (accept/reject applications)
+- [ ] Metro search (Mini App): substring, case-insensitive, multi-word — см. [TASKS.md § 7](./TASKS.md#phase-7--mini-app-polish-2-недели-p1)
 
-**Verification:** полный user journey без бота (только Mini App).
+**Verification:** полный user journey без бота (только Mini App); metro autocomplete по части названия.
 
 ---
 
 ### Phase 8: Production Deploy (1 неделя) — P1
+
+> **Статус main:** staging (nginx/systemd) частично; production webhook/backup/Sentry — на ветке eature/phase-8-production-deploy, не в main.
 
 - [ ] VPS setup, nginx, TLS
 - [ ] Webhook mode
@@ -1094,11 +1127,20 @@ Ruflo удалён. Агентный harness — **ECC** ([github.com/affaan-m/E
 
 ---
 
-### Phase 9: Admin + Moderation (1 неделя) — P2
+### Phase 9: Admin + Moderation (2–3 недели) — P1/P2
 
-- [ ] Admin commands
-- [ ] Employer verification
-- [ ] Audit log
+> Детальный чеклист: [TASKS.md § Phase 9](./TASKS.md#phase-9--admin--moderation-23-недели-p1p2). Архитектура: [§ 10.1 Content Moderation](#101-content-moderation--compliance).
+
+- [ ] Content moderation pipeline (wordlists + normalization)
+- [ ] Brackets/special chars — pattern rules (obfuscation vs legitimate)
+- [ ] Transliteration detection (GOVNO, PIDOR, Mephedron, …)
+- [ ] contact_info: skip wordlist on email / @telegram segments
+- [ ] Алкогольная тематика: разрешена во всех категориях; escort list unchanged
+- [ ] Violation threshold + `moderation_violations` log
+- [ ] Admin: violation review + block/unblock by Telegram ID (bot commands)
+- [ ] Admin commands, employer verification, audit log
+
+**Verification:** мат/obfuscation/translit блокируются с логом; легитимные alcohol-формулировки проходят в любой категории; admin блокирует после N нарушений.
 
 ---
 

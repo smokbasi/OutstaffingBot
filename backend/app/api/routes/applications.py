@@ -14,7 +14,7 @@ from app.schemas.application import (
     ConflictingShiftInfo,
     ShiftConflictResponse,
 )
-from app.services import application_service, worker_service
+from app.services import application_service, worker_service, user_block_service
 
 router = APIRouter(prefix="/applications", tags=["applications"])
 
@@ -74,6 +74,8 @@ async def apply_to_shift(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except application_service.ApplicationNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except user_block_service.UserBlockedError as exc:
+        raise HTTPException(status_code=403, detail=exc.message) from exc
 
     await session.commit()
     return result

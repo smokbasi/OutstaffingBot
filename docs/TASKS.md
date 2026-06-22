@@ -186,7 +186,7 @@
 
 #### 9.1 Content Moderation — базовый pipeline [P0]
 
-- [ ] Сервис модерации: нормализация текста → проверка по объединённым wordlists → результат (ok / violation + matched term + field)
+- [x] Сервис модерации: нормализация текста → проверка по объединённым wordlists → результат (ok / violation + matched term + field)
   - **Acceptance criteria:**
     - Единая точка входа для полей заявки/профиля: `description`, `contact_info`, `venue_name`, опыт работника и т.д.
     - Wordlists загружаются из [`backend/data/moderation/stop_words_*.txt`](../backend/data/moderation/); escort-список (`stop_words_sex.txt`) **остаётся** активным; alcohol-whitelist — `allow_words_alcohol.txt` (Phase 9.5).
@@ -195,7 +195,7 @@
 
 #### 9.2 Brackets / special chars — pattern rules (не слепое удаление) [P0]
 
-- [ ] Разделить **обфускацию** и **легитимные** скобки; нормализовать только для матчинга, исходный текст пользователю не портить
+- [x] Разделить **обфускацию** и **легитимные** скобки; нормализовать только для матчинга, исходный текст пользователю не портить
   - **Правила обфускации (normalize for matching):**
     - Внутри слова: `SE[X` → `sex`, `зак[лад]ка` → `закладка`, `п[и]дор` → `пidor` — удалить `[`, `]`, `{`, `}` **между буквами одного токена**.
     - Разделители внутри токена: `.`, `-`, `_`, `|` между буквами одного слова (кроме осмысленных аббревиатур) — схлопнуть для матчинга.
@@ -208,13 +208,13 @@
 
 #### 9.3 Translit detection [P0]
 
-- [ ] Расширить normalization: латиница, имитирующая русский мат/наркотики
+- [x] Расширить normalization: латиница, имитирующая русский мат/наркотики
   - **Примеры для словаря/правил:** `GOVNO`, `PIDOR`, `Mephedron`, `HUY`, `BLYAT`, `suka`, `pizda` → каноническая кириллица перед wordlist-match.
   - **Acceptance criteria:** translit-варианты ловятся так же, как кириллические; false positive на латинские бренды/IT-термины минимизирован whitelist-ом контекста (имена компаний в `venue_name` — отдельный кейс в тестах).
 
 #### 9.4 contact_info — ослабление модерации [P1]
 
-- [ ] Перед wordlist-check разбить `contact_info` на сегменты; **email** и **@telegram** сегменты не прогонять через stop_words
+- [x] Перед wordlist-check разбить `contact_info` на сегменты; **email** и **@telegram** сегменты не прогонять через stop_words
   - **Правила сегментации:**
     - Email: RFC-подобный паттерн `local@domain`.
     - Telegram: `@username`, `t.me/username`, `https://t.me/...`.
@@ -223,20 +223,20 @@
 
 #### 9.5 Category whitelist — alcohol [P1]
 
-- [ ] Алкогольная тематика **разрешена на всей платформе** для легитимных заявок на работу — **во всех категориях**, не только bar / bartender (бар, коктейли, алкогольное меню, винный бар, сомелье и т.д.)
+- [x] Алкогольная тематика **разрешена на всей платформе** для легитимных заявок на работу — **во всех категориях**, не только bar / bartender (бар, коктейли, алкогольное меню, винный бар, сомелье и т.д.)
   - Escort / prostitution wordlist **без изменений**.
   - Убрать alcohol-related термины из block-листов (или не применять блокировку по ним): легитимные упоминания алкоголя не должны давать false positive в **любой** категории.
   - **Acceptance criteria:** заявки с формулировками «бармен, коктейли, алкогольное меню», «сомелье, винная карта» и аналогичными проходят **в любой категории**; escort-формулировки по-прежнему блокируются.
 
 #### 9.6 Violation threshold + persistence [P0]
 
-- [ ] Счётчик нарушений на пользователя (`telegram_id`); после **N** нарушений (env `MODERATION_VIOLATION_THRESHOLD`, default 3) — статус «требует review admin»
+- [x] Счётчик нарушений на пользователя (`telegram_id`); после **N** нарушений (env `MODERATION_VIOLATION_THRESHOLD`, default 3) — статус «требует review admin»
   - Таблица/модель `moderation_violations`: `user_id`, `telegram_id`, `field`, `raw_snippet`, `matched_term`, `normalized_snippet`, `source` (bot/mini-app/api), `created_at`.
   - **Acceptance criteria:** каждое срабатывание логируется; порог N настраивается; API/бот возвращают понятное сообщение пользователю без утечки полного wordlist.
 
 #### 9.7 Admin: violation log & user ban [P0]
 
-- [ ] Просмотр логов и блокировка по Telegram ID — **Phase 9 MVP: команды бота** (`ADMIN_TELEGRAM_IDS`); опционально позже — Mini App admin (Phase 10+)
+- [x] Просмотр логов и блокировка по Telegram ID — **Phase 9 MVP: команды бота** (`ADMIN_TELEGRAM_IDS`); опционально позже — Mini App admin (Phase 10+)
   - Команды (или подменю `/admin`): список пользователей с violations ≥ N, детализация по `telegram_id`, `/admin block_user <telegram_id>`, `/admin unblock_user <telegram_id>`.
   - Admin видит примеры срабатываний (snippet + matched term + дата), принимает решение о блокировке.
   - Заблокированный пользователь: создание заявок/откликов запрещено; сообщение «аккаунт заблокирован».
@@ -244,11 +244,11 @@
 
 #### 9.8 Admin — базовое (из roadmap) [P2]
 
-- [ ] Admin commands (`/admin stats`, …)
-- [ ] Employer verification
-- [ ] Audit log (create/update; включая moderation actions)
+- [x] Admin commands (`/admin stats`, …)
+- [x] Employer verification
+- [x] Audit log (create/update; включая moderation actions)
 
-**Verification:** заведомо запрещённый текст блокируется с логом; после N попыток user попадает в admin-очередь; admin блокирует по ID; легитимные alcohol-формулировки проходят в любой категории; contact с @telegram не даёт false positive.
+**Verification:** заведомо запрещённый текст блокируется с логом; после N попыток user попадает в admin-очередь; admin блокирует по ID; легитимные alcohol-формулировки проходят в любой категории; contact с @telegram не даёт false positive; `/admin_stats` показывает счётчики; `/verify_employer` верифицирует работодателя (без verify — заявка остаётся в draft); audit_log записывает block/unblock и verify.
 
 **Как выполнять:** solo — `python-patterns`, `security-review`; wordlists — отдельный модуль + `tdd-workflow`.
 

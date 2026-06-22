@@ -19,7 +19,7 @@ from app.bot.keyboards.vacancy_search import (
 from app.bot.states.vacancy_search import VacancySearch
 from app.reference.spb_metro import SPB_METRO_LINE_BY_ID
 from app.schemas.vacancy import VacancyFilters
-from app.services import application_service, matching_service, user_service, worker_service
+from app.services import application_service, matching_service, user_service, user_block_service, worker_service
 
 router = Router(name="vacancy_search")
 
@@ -570,6 +570,9 @@ async def apply_to_shift(callback: CallbackQuery, session: AsyncSession, state: 
     except application_service.ApplicationNotFoundError:
         await callback.answer("Смена не найдена", show_alert=True)
         return
+    except user_block_service.UserBlockedError as exc:
+        await callback.answer(exc.message, show_alert=True)
+        return
 
     await callback.message.edit_text(
         f"✅ <b>Отклик отправлен!</b>\n\n"
@@ -615,6 +618,9 @@ async def apply_with_cancel_previous(callback: CallbackQuery, session: AsyncSess
         return
     except (application_service.SlotUnavailableError, application_service.AlreadyAppliedError) as exc:
         await callback.answer(str(exc), show_alert=True)
+        return
+    except user_block_service.UserBlockedError as exc:
+        await callback.answer(exc.message, show_alert=True)
         return
 
     await state.set_state(VacancySearch.detail)

@@ -51,12 +51,22 @@ async def test_activate_job_enqueues_match_task(monkeypatch):
             return fake_job
         return active_job
 
+    class VerifiedEmployer:
+        verified = True
+
     class DummySession:
         async def flush(self):
             fake_job.status = JobRequestStatus.active
 
         async def scalar(self, stmt):
             return await fake_scalar(stmt)
+
+        async def get(self, model, pk):
+            from app.db.models import Employer
+
+            if model is Employer and pk == employer_id:
+                return VerifiedEmployer()
+            return None
 
     enqueue_mock = AsyncMock(return_value="job-123")
     monkeypatch.setattr(job_service, "enqueue_job", enqueue_mock)
@@ -112,12 +122,22 @@ async def test_activate_job_enqueues_group_post_when_enabled(monkeypatch):
             return fake_job
         return active_job
 
+    class VerifiedEmployer:
+        verified = True
+
     class DummySession:
         async def flush(self):
             fake_job.status = JobRequestStatus.active
 
         async def scalar(self, stmt):
             return await fake_scalar(stmt)
+
+        async def get(self, model, pk):
+            from app.db.models import Employer
+
+            if model is Employer and pk == employer_id:
+                return VerifiedEmployer()
+            return None
 
     enqueue_mock = AsyncMock(return_value="job-456")
     monkeypatch.setattr(job_service, "enqueue_job", enqueue_mock)

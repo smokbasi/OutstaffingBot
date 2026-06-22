@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import {
+  ContentRejectedError,
   createJob,
   listCategories,
   MAX_HOURLY_RATE,
@@ -336,7 +337,12 @@ export function CreateJobPage({ initData, onCreated, onCancel }: CreateJobPagePr
       setMetroQuery("");
       onCreated?.();
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Не удалось сохранить заявку";
+      const message =
+        err instanceof ContentRejectedError
+          ? err.message
+          : err instanceof Error
+            ? err.message
+            : "Не удалось сохранить заявку";
       setSaveError(message);
     } finally {
       setIsSaving(false);

@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     mini_app_url: str = "http://localhost:5173"
     api_base_url: str = "http://localhost:8000"
     admin_telegram_ids: Annotated[list[int], NoDecode] = Field(default_factory=list)
+    moderation_violation_threshold: int = 3
     bot_release_notes: str = ""
     release_notes_file: str = "RELEASE_NOTES.txt"
 

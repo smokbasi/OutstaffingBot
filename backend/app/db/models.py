@@ -70,6 +70,12 @@ class NotificationType(str, enum.Enum):
     shift_reminder = "shift_reminder"
 
 
+class ModerationViolationSource(str, enum.Enum):
+    bot = "bot"
+    mini_app = "mini_app"
+    api = "api"
+
+
 class User(Base):
     __tablename__ = "users"
 
@@ -79,6 +85,7 @@ class User(Base):
     role: Mapped[UserRole] = mapped_column(Enum(UserRole, name="user_role"), default=UserRole.worker)
     language_code: Mapped[str | None] = mapped_column(String(5))
     is_blocked: Mapped[bool] = mapped_column(Boolean, default=False)
+    moderation_flagged_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
@@ -88,6 +95,27 @@ class User(Base):
     employer: Mapped["Employer | None"] = relationship(back_populates="user", uselist=False)
     preferences: Mapped["WorkerPreferences | None"] = relationship(back_populates="user", uselist=False)
     notifications: Mapped[list["Notification"]] = relationship(back_populates="user")
+    moderation_violations: Mapped[list["ModerationViolationLog"]] = relationship(back_populates="user")
+
+
+class ModerationViolationLog(Base):
+    __tablename__ = "moderation_violations"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    telegram_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    field: Mapped[str] = mapped_column(String(100), nullable=False)
+    category: Mapped[str | None] = mapped_column(String(50))
+    matched_term: Mapped[str] = mapped_column(String(200), nullable=False)
+    raw_snippet: Mapped[str] = mapped_column(Text, nullable=False)
+    normalized_snippet: Mapped[str] = mapped_column(Text, nullable=False)
+    source: Mapped[ModerationViolationSource] = mapped_column(
+        Enum(ModerationViolationSource, name="moderation_violation_source"),
+        nullable=False,
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    user: Mapped["User"] = relationship(back_populates="moderation_violations")
 
 
 class Worker(Base):
@@ -281,6 +309,18 @@ class Notification(Base):
     read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     user: Mapped["User"] = relationship(back_populates="notifications")
+
+
+class AuditLog(Base):
+    __tablename__ = "audit_log"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    action: Mapped[str] = mapped_column(String(100), nullable=False)
+    actor_telegram_id: Mapped[int | None] = mapped_column(BigInteger)
+    target_user_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
+    target_telegram_id: Mapped[int | None] = mapped_column(BigInteger)
+    details: Mapped[dict | None] = mapped_column(JSONB)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 class TelegramGroup(Base):

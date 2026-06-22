@@ -1,15 +1,18 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_employer, get_current_user
-from app.db.models import ApplicationStatus, Employer, User
+from app.api.moderation_errors import content_rejected_response
+from app.db.models import ApplicationStatus, Employer, ModerationViolationSource, User
 from app.db.session import get_db_session
 from app.schemas.employer import EmployerProfileRead, EmployerProfileUpdate
 from app.schemas.application import ApplicationListResponse, ApplicationRead, ApplicationStatusUpdate
 from app.schemas.job_request import JobRequestCreate, JobRequestRead, JobRequestUpdate
-from app.services import application_service, employer_service, job_service
+from app.services import application_service, content_moderation_service, employer_service, job_service
+from app.services import moderation_violation_service, user_block_service
 
 router = APIRouter(prefix="/employer", tags=["employer"])
 
@@ -30,8 +33,18 @@ async def update_employer_profile_route(
     data: EmployerProfileUpdate,
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db_session),
-) -> EmployerProfileRead:
-    profile = await employer_service.upsert_employer_profile(session, user, data)
+) -> EmployerProfileRead | JSONResponse:
+    try:
+        profile = await employer_service.upsert_employer_profile(session, user, data)
+    except content_moderation_service.ContentRejectedError as exc:
+        await moderation_violation_service.record_content_rejection(
+            session,
+            user,
+            exc,
+            source=ModerationViolationSource.mini_app,
+        )
+        await session.commit()
+        return content_rejected_response(exc)
     await session.commit()
     return profile
 
@@ -44,6 +57,10 @@ async def create_job(
 ) -> JobRequestRead:
     try:
         job = await job_service.create_job_request(session, employer.id, data)
+    except user_block_service.UserBlockedError as exc:
+        raise HTTPException(status_code=403, detail=exc.message) from exc
+    except employer_service.EmployerNotVerifiedError as exc:
+        raise HTTPException(status_code=403, detail=exc.message) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     await session.commit()
@@ -74,13 +91,25 @@ async def get_job(
 async def update_job(
     job_id: UUID,
     data: JobRequestUpdate,
+    user: User = Depends(get_current_user),
     employer: Employer = Depends(get_current_employer),
     session: AsyncSession = Depends(get_db_session),
-) -> JobRequestRead:
+) -> JobRequestRead | JSONResponse:
     if data.status is None:
         raise HTTPException(status_code=400, detail="No fields to update")
     try:
         job = await job_service.update_job_request(session, employer.id, job_id, data)
+    except user_block_service.UserBlockedError as exc:
+        raise HTTPException(status_code=403, detail=exc.message) from exc
+    except content_moderation_service.ContentRejectedError as exc:
+        await moderation_violation_service.record_content_rejection(
+            session,
+            user,
+            exc,
+            source=ModerationViolationSource.mini_app,
+        )
+        await session.commit()
+        return content_rejected_response(exc)
     except ValueError as exc:
         detail = str(exc)
         status_code = 404 if detail == "Job request not found" else 400

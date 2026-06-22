@@ -1,0 +1,422 @@
+//
+// Ex-USSR подписка для CensureBlock
+//
+// Составил: Vasiliy Temnikov (censureblock@gmail.com)
+//
+// UTF-8, всё в нижнем регистре
+//
+// Минимальная Версия CensureBlock
+[CensureBlock_minimal_version]{
+0.42
+}
+
+// Здесь слова, по которым блокируются <title>, <meta>, body и <a>text</a>,
+// но не обязательно, можно и сайты
+// Этот Regexp приплюсовывается к основной подписке
+// Список регексов по которым блокируются Title Meta Body a.innerHTML
+// без пробелов
+[List_Regexps_for_Block_on_Title_and_Meta_and_Body_and_a.innerHTML]{
+(?:с(?:екс|овокупл|триптиз|ук[аи])
+(?:по|от|о)трах[ан]
+эро(?:ти|под|-видео)
+и(?:звра|н(?:тим|цест)|ськ)
+к(?:литор|унилл?ингус)
+минь?ет
+де(?:в(?:к|ствен)|флорац)
+п(?:роститу|и(?:зд|д[ао]р)|ор(?:ево|н))
+лесби
+х(?:ентай|уй)
+шлю[хш]
+бляд
+жоп
+ебать
+г(?:олые|руд[ьи])
+обнаж
+анус
+развра
+н(?:асил[уо]|ю\-)
+трах[ан]
+целочк
+ххх)
+}
+
+
+// Здесь слова, по которым не будут блокироваться <title>, <meta>, body и <a>text</a>,
+// но не обязательно, можно и сайты
+// Этот Regexp приплюсовывается к основной подписке 
+// Список регексов для игнорирования блокировки в Title Meta Body a.innerHTML
+// без пробелов
+[List_Regexps_for_Ignore_Block_on_Title_and_Meta_and_Body_and_a.innerHTML]{
+//(?:(?:бес|бесс|у|с|то|о)порн[аоы]|(?:с|цен)трах)
+[а-я]{1,}(?:порн|хуй)
+//(?:с|цен)трах
+манускрипт
+джоплин
+сукач[eё]в
+меню-
+издевк(?:а|ой)
+xxxviii?
+колебаться
+поколебать
+астрахан
+страха
+останусь
+}
+
+// Здесь лучше указывать список сайтов, на которых не будут блокироваться <title>, <meta>, body и <a>text</a>,
+// но не обязательно, можно и слова
+// Сравнение идет с URL
+// т.е. Если на каком-то сайте, CensureBlock скрывает страницу, и Вы не хотите этого, добавьте сюда этот сайт
+// Этот Regexp приплюсовывается к основной подписке 
+// Список сайтов на которых не будут проверяться Title Meta Body a.innerHTML
+[List_Regexps_for_dont_check_Title_and_Meta_and_Body_and_a.innerHTML]{
+\.nya\.sh/
+\.bash\.org\.
+\.(?:hover-club|baby|avito|dnevnik|e\.mail|icensor|xumuk|pravdu|rlsnet|sewlink|sbrf|slovari\.yandex|top-page|loveplanet|babyblog|mashabear|studyapps|ryazangov)\.ru/
+\.rutracker\.org/forum/(?:tracker|search)\.php
+\.(?:24tv|62|rbc|aquafanat\.com|translate\.yandex)\.ua/
+\.(amur|bobfilm)\.net/
+}
+
+// Здесь слова и сайты, по которым блокируются URL, <a href=url>, <img src=url>
+// Этот Regexp приплюсовывается к основной подписке 
+// Список регексов для блокировки на URL.spec и a.href и img.src
+[List_Regexps_for_Block_on_URL.spec_and_a.href_and_img.src]{
+
+// два и больше слова в домене, до посл .word/
+//(?:(?:spb|piter|girl|love|vip|lady).*){2,}\.\w+/
+//  [a-z\d\.\-]
+
+
+
+
+
+// Начинается с ... только в домене
+//\.(?:bcero|ebat|gey|mamais|mnogo|pleshka|zadok)[a-z\d\.\-]*\.\w{2,4}/
+
+// Заканчивается на ... только в домене
+//xuk\.\w{2,4}/
+
+// одно слово в домене и ищем по всей строке
+(?:b(?:anya|erkova|l[iuy]ad)
+c(?:icek|elk[ao]|hastnoe-foto)
+[ct]elok
+[ck]lubni(?:4-?|ch?|k[ai])
+dam(?:[ao](?:4|ch)k)
+d(?:e(?:ff?|v|w)(?:axi|k[ai]?|ch(?:atk|[eo]n)|o(?:4?k|chk)|stveni(?:c|ts)|ushk)|[-0o]su[gk]|ro(?:4|ch?))
+eb[uy]m
+g(?:lotk[ai]|ol[oy]e)
+f(?:lirt|oto4k)
+i(?:ndivid[uy]al[ko]|zvra(?:t|shen))
+lolitk?a
+kisk[ai]
+o(?:nani[sz]|tsos)
+p[ei](?:lotk[ai]|zd[aeuy])
+p(?:arnuh[ai]|o(?:p(?:k[ai]|ik|ochk)|r(?:evo|k[ai]|vid?))|is(?:i|j|ek|k[ai])|r[ao]stit[uy]t)
+s(?:aun[ay]|is(?:i|ja|ya|ek|k[ai])|os(?:i|k[ai]|u)|u(?:4|ch)?k[aiu]|hl(?:u(?:h[ai]|shk|x)|y(?:h[ai]|ushk)))
+[cs]eka?[cs]
+razvra
+t(?:e[lt]k[aiy]|ra[hx])
+znakom(?:cia|stv)
+[hx]uy)[a-z\d.-]*\.\w{2,4}/
+
+
+
+
+
+//\.\w{2,4}/[a-z]*search.*[&?](?:q|search|text|query)=
+//(?:по|от|о)трах(?:а|н)
+\.\w{2,4}/.*(?:(?:%d0%bf%d0%be|%d0%be%d1%82|%d0%be)%d1%82%d1%80%d0%b0%d1%85(?:%d0%b0|%d0%bd)
+//[=+]хуй
+[=+]%d1%85%d1%83%d0%b9
+//и(?:звра|н(?:тим|цест)|ськ)
+%d(?:0%b(?:8(?:%d0%b7%d0%b2%d1%80%d0%b0|%d0%bd(?:%d1%82%d0%b8%d0%bc|%d1%86%d0%b5%d1%81%d1%82)|%d1%81%d1%8c%d0%ba)
+//к(?:литор|унилл?ингус)
+a(?:%d0%bb%d0%b8%d1%82%d0%be%d1%80|%d1%83%d0%bd%d0%b8%d0%bb(?:%d0%bb)?%d0%b8%d0%bd%d0%b3%d1%83%d1%81)
+//минь?ет
+c%d0%b8%d0%bd(?:%d1%8c)?%d0%b5%d1%82
+//де(?:в(?:к|ствен)|флорац)
+4%d0%b5(?:%d0%b2(?:%d0%ba|%d1%81%d1%82%d0%b2%d0%b5%d0%bd)|%d1%84%d0%bb%d0%be%d1%80%d0%b0%d1%86)
+//п(?:роститу|и(?:зд|д(?:а|о)р)|ор(?:ево|н))
+f(?:%d1%80%d0%be%d1%81%d1%82%d0%b8%d1%82%d1%83|%d0%b8(?:%d0%b7%d0%b4|%d0%b4(?:%d0%b0|%d0%be)%d1%80)|%d0%be%d1%80(?:%d0%b5%d0%b2%d0%be|%d0%bd))
+//лесби
+b%d0%b5%d1%81%d0%b1%d0%b8
+//бляд
+1%d0%bb%d1%8f%d0%b4
+//жоп
+6%d0%be%d0%bf
+//ебать
+5%d0%b1%d0%b0%d1%82%d1%8c
+//г(?:олые|руд)
+3(?:%d0%be%d0%bb%d1%8b%d0%b5|%d1%80%d1%83%d0%b4)
+//обнаж
+e%d0%b1%d0%bd%d0%b0%d0%b6
+//анус
+0%d0%bd%d1%83%d1%81
+//н(?:асил(?:у|о)|ю-)
+d(?:%d0%b0%d1%81%d0%b8%d0%bb(?:%d1%83|%d0%be)|%d1%8e-))
+
+//с(?:екс|овокупл|триптиз|ук(?:а|и))
+1%8(?:1(?:%d0%b5%d0%ba%d1%81|%d0%be%d0%b2%d0%be%d0%ba%d1%83%d0%bf%d0%bb|%d1%82%d1%80%d0%b8%d0%bf%d1%82%d0%b8%d0%b7|%d1%83%d0%ba(?:%d0%b0|%d0%b8))
+//эро(?:ти|под)
+d%d1%80%d0%be(?:%d1%82%d0%b8|%d0%bf%d0%be%d0%b4)
+//хентай
+5%d0%b5%d0%bd%d1%82%d0%b0%d0%b9
+//шлю(?:х|ш)
+8%d0%bb%d1%8e(?:%d1%85|%d1%88)
+//развра
+0%d0%b0%d0%b7%d0%b2%d1%80%d0%b0))
+
+//rutube.ru
+//[=+]хуй
+[=+]%c8%d5%ca
+//(?:по|от|о)трах(?:а|н)
+(?:%d0%cf|%cf%d4|%cf)%d4%d2%c1%c8(?:%c1|%ce)
+//и(?:звра|н(?:тим|цест)|ськ)
+%c(?:9(?:%da%d7%d2%c1|%ce(?:%d4%c9%cd|%c3%c5%d3%d4)|%d3%d8%cb)
+//к(?:литор|унилл?ингус)
+b(?:%cc%c9%d4%cf%d2|%d5%ce%c9%cc(?:%cc)?%c9%ce%c7%d5%d3)
+//минь?ет
+d%c9%ce(?:%d8)?%c5%d4
+//де(?:в(?:к|ствен)|флорац)
+4%c5(?:%d7(?:%cb|%d3%d4%d7%c5%ce)|%c6%cc%cf%d2%c1%c3)
+//лесби
+c%c5%d3%c2%c9
+//хентай
+8%c5%ce%d4%c1%ca
+//бляд
+2%cc%d1%c4
+//ебать
+5%c2%c1%d4%d8
+//г(?:олые|руд)
+7(?:%cf%cc%d9%c5|%d2%d5%c4)
+//обнаж
+f%c2%ce%c1%d6
+//анус
+1%ce%d5%d3
+//н(?:асил(?:у|о)|ю-)
+e(?:%c1%d3%c9%cc(?:%d5|%cf)|%c0-))
+
+//п(?:роститу|и(?:зд|д(?:а|о)р)|ор(?:ево|н))
+%d(?:0(?:%d2%cf%d3%d4%c9%d4%d5|%c9(?:%da%c4|%c4(?:%c1|%cf)%d2)|%cf%d2(?:%c5%d7%cf|%ce))
+//с(?:екс|овокупл|триптиз|ук(?:а|и))
+3(?:%c5%cb%d3|%cf%d7%cf%cb%d5%d0%cc|%d4%d2%c9%d0%d4%c9%da|%d5%cb(?:%c1|%c9))
+//эро(?:ти|под)
+c%d2%cf(?:%d4%c9|%d0%cf%c4)
+//шлю(?:х|ш)
+b%cc%c0(?:%c8|%db)
+//жоп
+6%cf%d0
+//развра
+2%c1%da%d7%d2%c1)
+
+
+//vk.com
+//[=+]хуй
+[=+]%f5%f3%e9
+//(?:по|от|о)трах(?:а|н)
+(?:%ef%ee|%ee%f2|%ee)%f2%f0%e0%f5(?:%e0|%ed)
+//и(?:звра|н(?:тим|цест)|ськ)
+%e(?:8(?:%e7%e2%f0%e0|%ed(?:%f2%e8%ec|%f6%e5%f1%f2)|%f1%fc%ea)
+//к(?:литор|унилл?ингус)
+a(?:%eb%e8%f2%ee%f0|%f3%ed%e8%eb%eb?%e8%ed%e3%f3%f1)
+//минь?ет
+c%e8%ed(?:%fc)?%e5%f2
+//де(?:в(?:к|ствен)|флорац)
+4%e5(?:%e2(?:%ea|%f1%f2%e2%e5%ed)|%f4%eb%ee%f0%e0%f6)
+//п(?:роститу|и(?:зд|д(?:а|о)р)|ор(?:ево|н))
+f(?:%f0%ee%f1%f2%e8%f2%f3|%e8(?:%e7%e4|%e4(?:%e0|%ee)%f0)|%ee%f0(?:%e5%e2%ee|%ed))
+//лесби
+b%e5%f1%e1%e8
+//бляд
+1%eb%ff%e4
+//жоп
+6%ee%ef
+//ебать
+5%e1%e0%f2%fc
+//г(?:олые|руд)
+3(?:%ee%eb%fb%e5|%f0%f3%e4)
+//обнаж
+e%e1%ed%e0%e6
+//анус
+0%ed%f3%f1
+//н(?:асил(?:у|о)|ю-)
+d(?:%e0%f1%e8%eb(?:%f3|%ee)|%fe-))
+
+//с(?:екс|овокупл|триптиз|ук(?:а|и))
+%f(?:1(?:%e5%ea%f1|%ee%e2%ee%ea%f3%ef%eb|%f2%f0%e8%ef%f2%e8%e7|%f3%ea(?:%e0|%e8))
+//эро(?:ти|под)
+d%f0%ee(?:%f2%e8|%ef%ee%e4)
+//хентай
+5%e5%ed%f2%e0%e9
+//шлю(?:х|ш)
+8%eb%fe(?:%f5|%f8)
+//развра
+0%e0%e7%e2%f0%e0))
+
+
+
+
+
+
+// Ищем точно по домену.
+\.(?:\d\dkomnata
+1(?:00000b|00000ii|000rolikov|50kg|gav|mov|nax|plus|rek|xxxtv)
+2(?:4lux|4new|8cm|game)
+3(?:211976|gpbest|gpletitbit)
+4(?:allforum|asnoe|astn|ernuha|ernuxa|ertik|ez|ogli|oli)
+5(?:eks|if)
+6-9
+7(?:07|68|7x)
+9009
+
+a(?:d(?:altfoto|multik|top)|f(?:4|rodita-salon)|h(?:eh|kak)|l(?:bom\.zonesale|ida|lforqs|lgenres|lwareza|sover|vier)|murspb|n(?:-club|anasik|anist|anuga|gelochki|imedot|imeshik)|o73ky|r(?:buzik|dor|hiv)|s(?:all|ensia|lanova)|top|xax|xueno|yldomer|ziatka)
+
+b(?:0f|6b|8b|a(?:ba50|bishi|boeb|bruysk|burxan|dan|gira\.net|nan|rhat|zarkino)|bska|e(?:-mine|bivam|rega|splatno|st-dat|st-datin|stsekret|vp|zplatno\.com)|i(?:boba|gmammas|gmix|gnucbku|rna|tero)|levota\.moy|o(?:bby|mba|nita|npocob|ogy-jam|shka)|roska|u(?:duar|fera|lleye|m|terbrod))
+
+c(?:a(?:mo4ek|ra\.36f|rol|ts-show)|e(?:kus|nsored|ntrochat|nzure|xa)|h(?:ert|estnaiadavalka|ikspalace|illouts|udesnyjsad)|i(?:candra|pochki)|kazka|ladbone|mexota|o(?:olmix|oltop|promania)|tapyxa)
+
+d(?:a(?:dim|ma50|mlubomu|mvam|olyubvi|shenka|valka|yana\.com|zae)|e(?:ath\.com|athcom2|bauchery|ja-vu\.kiev|vahy)|i(?:kayaorxideya|mx|vdiva)|ji|ngay\.at|o(?:-sug|chki|figa|hrena|jki|lboeb|lina-lubvi|m2prn|mstudentok|rgroup|rk|t-net\.if|wnload-rar|yki)|r(?:a4i|odro|osel|ukni)|uimovochka|v(?:dkinoteatr|dmove|ish\.com)|y(?:avolenok|avolx|rka))
+
+e(?:b(?:aco|ala|anas|emsa|ibobi|li|lius|lya|lyk|oogle)|fotos|g(?:e-gey|o|oista|oportal)|k(?:aterinburg-life|aterinburgnu|zotiki)|lit(?:a|e-eskort|vip)|nergy-world|ogli|partner|potuka|r(?:astika|ios|knuga|rio)|top|xtaz)
+
+f(?:a(?:brikagrez\.spb|kes\.alfamoon|ntaziya|p2be)|e(?:els|i|kla)|g-spb|i(?:l(?:edepo|m-avi|m-in|m4ik|mfan|ms-sms|on)|stashki)|o(?:nep|rum\.verhu\.com|tki4you|to(?:banda|djek|good|polyana|resoures|s\.msk|seleb|tut|zhenshin)|ts|voritki)|r(?:eeseex|ih|ishnik)|un(?:era|nation|way)|yfk)
+
+g(?:a(?:lerki|mer-off|ndon|ramoff|rem)|e(?:e|i-gei|isha\.com)|imnastki|ipnosa|lam(?:ur|urki|urko|y)|o(?:ds-foto|dsoft|lden-time\.com|ldengate-ru|ldprn|lisnimki|lovka|lozhopik|lyaki|odtrack)|reh|renstop|reshno|u(?:bki\.do|bug|lyairuka))
+
+h(?:a(?:ljawy|nbuc|rdru)|e(?:avensbomb|ntoy|rov)|ight-world|itlife|o(?:4uha|chu-ya|dokspb|om|t4iks|tpic)|renvam\.com)
+
+i(?:-(?:need-you|tools)|balka|llegal-video\.pp|meet|mperia-mas\.kiev|n(?:39|teem|ternetrelax|terweb\.spb|tm|tshop\.yes-br)|snu|vno|wantyou\.com|xi\.kiev|zmenazhen)
+
+j(?:d(?:[uy]|y\.co)|estko\.pp|ingayo)
+
+k(?:a(?:ifa|masutry|shtanka|tafot|zanova52)|eks|exparty|i(?:cki|no(?:-kino|20|live\.org|real|run)|p-house)|l(?:adoffka|ava|ipak|itor)|nam|o(?:bil|dstar|ketkivip|koko|kosik|kotka|mmiln|nchitut|ney\.net|nffetka|ntaktos|shku|tama555|tpiter|zlodoev|zochki)|pacomku|pacotka|r(?:asivie|asotkilux|issy\.net|itet|oliktv)|u(?:driavaia|kolka|lachok|raga|rez|stiki)|zwarez)
+
+l(?:-market|a(?:pochki|ricka|stop)|e(?:dy\.com|onardclark|rusik)|i(?:-lu|amur|chinka|ebbe|fe-meet|femeet24|fepromo|kelife|kesnake|lit\.kiev|nks\.cnt|stx|ubovnitsa)|net|o(?:l\.34in|la100|lito|lki|ok2us|tgoran|vn)|u(?:bovniki|brico|iza|nka|nopark|x-latex|xhome\.moy)|yamur|zarzo)
+
+m(?:a(?:gazinsoblaznov|inlibe|lchikov|lina-mix|linda|linky|linovka\.kiev|lonepokajetsa|mka|nda\.3dn|ramour|rketgid|rmeladki|rylu|shenki|shki|skvichki|ssaj\.msk|umenina|v\.rv|w|ximka|xtoxanxa\.t35|zuta)|e(?:endo|eva|gaklipi|galad|nstyles)|free|i(?:chicos|rotik|rpopok|rzvezd|vsetut|xbee)|ladshe20|o(?:bi2u|bilezzz|evideo1|imamashi|kpo4elka|lodaya|lodie|lotilka|m-and-son|may\.0fees|nfoto|rkovka|rss|shonka|skovskiy|skvavip|tulek|vsbest|x)|rsparky|uviki|y(?:-cls|-tdska|magazin|mail\.5hostru|-webs))
+
+n(?:87|a(?:gishom|halka|jtidruga|kfot|krovati|kukan|mevip|shy-mashy|t\.3dn|tashki|turalov)|e(?:aktivnih|kon|oasia|otop\.com|realno|tsmska|videl|wssvet)|i(?:cogo|ght-casino|ghts\.in|zar)|o(?:4vkontakte|kich|namenko\.mybb|pebo|tprovod)|skfei|u(?:\.tomsk|cek|club|land))
+
+o(?:-o|boi\.cdom|d(?:aa|ezhdi|indoma|inplus|inplus\.com|nalubovnici|nidoma)|gli|gurchik|h-oh|n(?:-set|line-24x|line-por|omo|video24|video7|xtv)|pytnyemamki|r(?:actic|angic|xidea)|t(?:damsya|deri|dupli|kazov\.net)|xaxdvd|xyeeno|zabochka|zornik\.org)
+
+p(?:0m0|a(?:dla|levo|nza|radis-amour|radisehill|stushka)|e(?:dewikia|ites|jnya|r4ik|rekur|rsik)|hotohit|hotozvezd|i(?:cfun|ckupforum|cmir|cweek|dovka|ebee|edea|f-funds|hach|halka|javka|nup|pisa|pison|pisus|sechki|sun|zna)|l(?:anetageev|ay-me|ombir|us10sm|us2razmera)|malin|o(?:-no|d(?:rostka|ruzhim|solnuh|sos|ubockoy|zapretom)|eban|ebok|fig|hui|imel|kaifu|kupkin|lzynixa|mladshe|nel|oz|p2u|pa\.com|pofoto|r(?:cast2|ero|f|ich|povidlo|talsait|tpro|tx|us|vem)|stnext|tehi|vd|vstar|xyu|zhilaya)|ptop|r(?:avila-etiketa|eid|elest|ezikoff|ikolsait|n|nomom|o(?:-stitutki|ero|smotr\.net|stinn|zvezd))|u(?:cex|hovi4ok|pok|psik)|ytka-naulice|ytny|zdc)
+
+q(?:ep|orety|vak\.makewap)
+
+r(?:a(?:slabon|sskazhi-ka|sskazi\.in|zdetye-odnoklassniki|zvle4enie|zvlekis|zvlekuha\.in)|e(?:alix|dclub|demptionradio|dpistol|drose\.in|dstop|laxportal|laxtourz)|o(?:likam|mano-fanseka|ndic|salia\.com|zoviykrolik)|pvo|u(?:-foto|bar|ero|koblud|lib|lier|queen|s(?:-molodeg|-top|alki|babka|relax|siangogo|skiedevuchki|smolodeg|sms|torrents|x|ypusy)|top))
+
+s(?:a(?:b\.blox|madura|mka|mok|movolka|peman)|e(?:e-foto|e-hot|kesu|ledki|noval|rdechko\.com|rliparous\.8m)|h(?:aaf|alavi|allava|alnaya|ipovnik|irinka|irley|izik|opmag|oq|ulz|vetsik\.clan)|i(?:beriaclub|brem|bxforum|lvena|magazin|sbki)|kandalnoe|kver|lize|m(?:art39|ena8m|otribla|s2army)|n27|nupic|o(?:blaznenie|derganka|lmov|salka|sc|sochechki|sochka)|p(?:bfl|blady|bnimfetki|oki-noki|shop)|ramu|runet|t(?:arshe30|aruha|atovo|ervo4ki|on|ory18plus|oyachok|oyak|rawberryteam|ruchok|ulchika?)|u(?:4ko|chek|ero|eta|ltana|mish|nshine|nul|per(?:dat\.narod|jopa|koshka|rike|samka|trach|world\.com)|rart|teners)|verch|vini|xnarod|xshop)
+
+t(?:1o|aktoda|e(?:lochki|rka|techki)|hefarm|heinc|imego|imeplays\.com|o(?:ksikoz|lstuxi|p-lux|pchpok|rchit|rgbu|rtyga)|ra(?:ffer|mpotter|nsclub|nsspace)|u(?:alet|bozavr|feit|pko|t-file|t-foto|tki)|viks|ys)
+
+u(?:faluxe|garim|ltimatetds|nasvse|pep|rga|rod|sacarry)
+
+v(?:ag-gina|ayyy|duplo|e(?:in|kgirls\.cv|neramars|ni-vidi\.vndv)|i(?:cepiter|doblako|dunetz|duxa|p(?:-kapriz|-mulatki|-zona|bux|by|dama|elita|koketka|lady\.in|nimfa|pa|relax\.com|rest|seruj|story)|rtsms|soru)|k(?:inohe|ontakte-24|ontaktez|ontnakte|rovate)|laga|lz-life|maline|nuchka|o(?:nlinetv|obzi|tetozhopa|zbudin|zimi)|p-site|posadke|s(?:a4ina\.st8|efei|emogu|erusskoe|evzlomaem|ezaraz|ezoo|ya)|u(?:fel|ku|lgo)|yebi|z(?:aimno|dohy|rosloekino))
+
+w(?:a(?:pday|pik|rezoff|rezsoft)|ebkams|ebcam-rus\.110mb|otan|wwramble|xxw)
+
+x(?:aba|alyavax\.my1|bazka|cinema|drug|dvd|e(?:ngine|p|s\.com|sdn|x[as])|fontan|gall|hub|isty|l(?:-tv|aski|ass\.3dn|ive-?tv|oad)|mob|n(?:--h1aafsl0e|--h1aazb|atashka|iche)|oxmi|pnx|puls|qwerty|rest|rips|rol|s(?:ait|how-project|tory)|t(?:ime|or|ubetv|v24|vru)|uk\.pop3|vidon|y|y(?:eet|ou|yandex))
+
+y(?:2000|a(?:-ebu|bun|poma-mamax)|e(?:balka|bubabu|llowmedia|llowstop)|iff)
+
+z(?:a(?:40|cada\.my1|dniza|dorno|ds|eb|glazeyka|gloti|gruzi|iki|jigalka|lupa|mbaza|pretnoe|sos|varka|zamkom)|dig|e(?:bra2000|rkalos|vez)|hdy|news|oozel|rel(?:a|ie)|vero|xcv)
+
+(?:bakc2
+domero
+goldengate
+goldengay
+milashka
+mvmmm
+narcoz
+organza
+p(?:erdolim|lus18|rikol-na)
+utiputi
+virtuagirl
+xt)\.ucoz)\.\w{2,4}/
+
+
+
+// Конкретные сайты (?:по просьбам)
+\.photo(?:sight\.ru/photos/category/15/|file\.ru/genres/29/)
+
+
+//\.(?:blackstop\.info|babeposting\.com|kinolive\.org\.ua|pipison\.com|xcinema\.org)/
+
+}
+
+// Здесь слова и сайты, по которым не будут блокироваться URL, <a href=url>, <img src=url>
+// Этот Regexp приплюсовывается к основной подписке 
+// Список регексов для блокировки на URL.spec и a.href и img.src
+[List_Regexps_for_Ignore_Block_on_URL.spec_and_a.href_and_img.src]{
+// Разблокируем сайты
+
+//[а-я]{1,}(?:порн|хуй)
+(%..%..){1,}(?:%d0%bf%d0%be%d1%80%d0%bd|%d1%85%d1%83%d0%b9)
+//(?:с|цен)трах
+//(?:%d1%81|%d1%86%d0%b5%d0%bd)%d1%82%d1%80%d0%b0%d1%85
+\.\w{2,4}/.*(?:s(?:trah[aeiou_/]|uchonskaya|tranny\w|porn(?:aya|[io]e))|zapisk?i|dlya-vsex
+\whuyu-|zashit|spyashuyu|hardrock
+\/smilies\/puss\.gif
+\/photoface\.\d)
+//tranny в int
+//\/.*hardrock
+//droc в rus
+//\/.*zapisk?i
+// не нужно, но хотят
+//\/.*dlya-vsex
+//\/.*\whuyu-
+//\/.*zashit
+//assortiment
+//http://images.people.overclockers.ru/preview/203952.jpg
+
+//\/.*sporn(?:aya|[io]e)
+/////////////////////////////p(?:odpisk|erepisk?i)       где?
+
+\.(?:(?:yabs|video-tub|img-fotki|clck)\.yandex
+101
+3dtop
+5-tv
+a(?:dmomsk|donweb|llbest|mi-tass|pi-maps\.yandex|rchives21|utoplustv)
+b(?:aby|abyblog|b3x|est-hosting|igpicture)
+c(?:dnvideo|l(?:ick\.hotlog|ub51|ub-rf|ubs\.ya)|omicsbook|ontent-video|ity(?:dom|celebrity)|razymama|rimeaguide|yber(?:info|style|security|forum))
+d(?:i(?:rty|monvideo)|ominfo\.cf1|nevnik)
+e(?:-(?:izhevsk|mail|xpedition|katalog|nk|nkama|vid)|va)
+f(?:il(?:epost|m|m-vip)|lowersdream|reeschool\.nnov)
+gallery
+h(?:elp\.yandex|over-club|eadbanger|ella|otcharts|omepage)
+i(?:magepost|picture|mages\.people\.overclockers|vanamp\.pdj)
+j(?:oblist|ust|ustcom|ustmedia)
+k(?:amin-magazine|c18|eep4u|urskweb)
+l(?:oveplanet|ah|ove\.mail|inguee|ib|ittle-tales|oveopium|overadio|ivejournal)
+m(?:ashabear|arket-click2\.yandex|agicwall|aillist|ajordomo|egashop|y-shop|ylivepage|video|yshows)
+news(?:inphoto|tube)
+o(?:dnoklassniki|ldi|ld\.osp|nlyfilms|mmassage|verhard)
+p(?:ejnya|hotoblog|hotofile|ics\.top\.rbc|layhard|layground|lanetviolets|okupki21|ool-magazine|ronto|rophotos|rime-tass|rivat24)
+r(?:yazangov|c-love|osnet|oyalrangers\.ucoz|ussianpost|zd)
+qbank
+s(?:aunamax|aransk|aratoff|aratov|aratov\.[a-z\d._-]*|brf|ibmama|m-city|mi21|martflash|pbpost|portmaster|tudent\.altstu|uperjob|chool-club|tudents|vyaznoybank|vpressa|ushitokio31|tudyapps)
+t(?:op-page|errikon|erritory-pc|imeweb|op100-images\.rambler|ranslate|retyakovgallery|sya|sigan)
+u(?:kfootball|ralweb)
+v(?:ersion6|esmaster|ideo(?:roms|tuts))
+w(?:ebmoney|ebplanet|etfly|ildberries|orldcrisis|orld-art)
+x(?:-memory|gu|vidvideo)
+ya(?:dro|hosuka))\.ru/
+\.(?:documental|business-class)\.su/
+\.(?:novafilm|kinofilms|onlyfilms|tuber)\.tv/
+\.onlyfilms\.ws/
+\.(?:(?:aquafanat|crimeaguide|privatblog)\.com|(?:7-zip|e-reading)\.org|62|aukro|analitika\.at|donbass|assa\.intertelecom|intime|privat24|rbc|24tv|translate\.yandex)\.ua/
+\.(?:amur|arjlover|kavkazweb|mytop-in|royalrangers-cr|ukr|website-ru|video-tub-f-ru\.yandex|video-tub-ru\.yandex|bobfilm)\.net/
+\.(?:7-sky|anyfilm|clipnews|forum\.sevastopol|invak|legalpo|solovei|rusfootball)\.info/
+\.(?:tiny|school-city)\.by/
+\.x-torrents\.org/
+}
+
+[End]
+// После [End] ничего не проверяется
+// Коментарии могут начинаться с символов ! или # или ; или /
+
+// http://gskinner.com/RegExr/    - help for Regexps
+// http://2cyr.com/decode/
+
+// idn кодер нужен

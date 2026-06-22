@@ -30,12 +30,13 @@ from app.bot.validators.job_request import (
     upcoming_shift_dates,
     validate_shift_times,
 )
-from app.db.models import JobRequestStatus, RequiredGender
+from app.db.models import JobRequestStatus, ModerationViolationSource, RequiredGender
 from app.reference.job_request_status import job_request_status_label
 from app.reference.spb_metro import SPB_METRO_LINE_BY_ID
 from app.schemas.employer import EmployerProfileUpdate
 from app.schemas.job_request import JobRequestCreate, JobRequestUpdate, ShiftSlotCreate
-from app.services import employer_service, job_service, user_service, worker_service
+from app.services import content_moderation_service, employer_service, job_service, user_service, worker_service
+from app.services import moderation_violation_service, user_block_service
 
 router = Router(name="job_request")
 
@@ -231,11 +232,24 @@ async def process_company_name(message: Message, session: AsyncSession, state: F
     if user is None:
         return
 
-    profile = await employer_service.upsert_employer_profile(
-        session,
-        user,
-        EmployerProfileUpdate(company_name=name),
-    )
+    try:
+        profile = await employer_service.upsert_employer_profile(
+            session,
+            user,
+            EmployerProfileUpdate(company_name=name),
+        )
+    except content_moderation_service.ContentRejectedError as exc:
+        await moderation_violation_service.record_content_rejection(
+            session,
+            user,
+            exc,
+            source=ModerationViolationSource.bot,
+        )
+        await message.answer(
+            f"{content_moderation_service.CONTENT_REJECTED_MESSAGE}\n\n{COMPANY_NAME_PROMPT}"
+        )
+        return
+
     await state.clear()
     await message.answer(f"✅ Компания «{profile.company_name}» сохранена.")
     await _show_employer_menu(message, profile.company_name)
@@ -937,15 +951,51 @@ async def process_confirm(callback: CallbackQuery, state: FSMContext, session: A
 
     data = await state.get_data()
     payload = _build_job_create_payload(data)
-    job = await job_service.create_job_request(session, employer.id, payload)
+    try:
+        job = await job_service.create_job_request(session, employer.id, payload)
+    except user_block_service.UserBlockedError as exc:
+        await state.clear()
+        if callback.message:
+            await callback.message.edit_text(exc.message)
+            await callback.message.answer("Главное меню:", reply_markup=main_menu_keyboard())
+        await callback.answer()
+        return
 
     if action == "publish":
-        job = await job_service.update_job_request(
-            session,
-            employer.id,
-            job.id,
-            JobRequestUpdate(status=JobRequestStatus.active),
-        )
+        try:
+            job = await job_service.update_job_request(
+                session,
+                employer.id,
+                job.id,
+                JobRequestUpdate(status=JobRequestStatus.active),
+            )
+        except user_block_service.UserBlockedError as exc:
+            await state.clear()
+            if callback.message:
+                await callback.message.edit_text(exc.message)
+                await callback.message.answer("Главное меню:", reply_markup=main_menu_keyboard())
+            await callback.answer()
+            return
+        except employer_service.EmployerNotVerifiedError as exc:
+            await state.clear()
+            if callback.message:
+                await callback.message.edit_text(exc.message)
+                await callback.message.answer("Главное меню:", reply_markup=main_menu_keyboard())
+            await callback.answer()
+            return
+        except content_moderation_service.ContentRejectedError as exc:
+            await moderation_violation_service.record_content_rejection(
+                session,
+                user,
+                exc,
+                source=ModerationViolationSource.bot,
+            )
+            await state.clear()
+            if callback.message:
+                await callback.message.edit_text(content_moderation_service.CONTENT_REJECTED_MESSAGE)
+                await callback.message.answer("Главное меню:", reply_markup=main_menu_keyboard())
+            await callback.answer()
+            return
 
     await state.clear()
     status_label = "опубликована" if job.status == JobRequestStatus.active else "сохранена как черновик"

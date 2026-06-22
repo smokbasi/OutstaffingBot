@@ -5,8 +5,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.arq_pool import enqueue_job
-from app.db.models import JobCategory, JobRequest, JobRequestStatus, MetroStation, ShiftSlot
+from app.db.models import JobCategory, JobRequest, JobRequestStatus, MetroStation, ShiftSlot, Employer
 from app.schemas.job_request import JobRequestCreate, JobRequestRead, JobRequestUpdate
+from app.services import content_moderation_service
+from app.services import employer_service
+from app.services import user_block_service
 
 _ALLOWED_STATUS_TRANSITIONS: dict[JobRequestStatus, set[JobRequestStatus]] = {
     JobRequestStatus.draft: {JobRequestStatus.active, JobRequestStatus.cancelled},
@@ -88,6 +91,7 @@ async def create_job_request(
     data: JobRequestCreate,
 ) -> JobRequestRead:
     await _validate_references(session, data)
+    await user_block_service.ensure_employer_not_blocked(session, employer_id)
 
     job = JobRequest(
         employer_id=employer_id,
@@ -177,6 +181,18 @@ async def update_job_request(
     previous_status = job.status
     if data.status is not None:
         _validate_status_transition(job.status, data.status)
+        if previous_status != JobRequestStatus.active and data.status == JobRequestStatus.active:
+            await user_block_service.ensure_employer_not_blocked(session, employer_id)
+            employer = await session.get(Employer, employer_id)
+            if employer is not None:
+                employer_service.ensure_verified(employer)
+            content_moderation_service.moderate_job_for_publish(
+                title=job.title,
+                description=job.description,
+                address=job.address,
+                dress_code=job.dress_code,
+                contact_info=job.contact_info,
+            )
         job.status = data.status
 
     if data.includes_lunch is not None:

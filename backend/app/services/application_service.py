@@ -17,6 +17,7 @@ from app.db.models import (
 from app.schemas.application import ApplicationListResponse, ApplicationRead
 from app.services import matching_service
 from app.services.group_posting_service import count_accepted_applications, is_job_headcount_filled
+from app.services import user_block_service
 
 
 def shifts_overlap(a_start: time, a_end: time, b_start: time, b_end: time) -> bool:
@@ -149,6 +150,8 @@ async def apply_to_shift(
     *,
     cancel_conflicting_id: UUID | None = None,
 ) -> ApplicationRead:
+    await user_block_service.ensure_worker_not_blocked(session, worker)
+
     slot = await _get_shift_slot(session, shift_slot_id)
     if slot is None:
         raise ApplicationNotFoundError("Shift slot not found")

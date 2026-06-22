@@ -2,7 +2,9 @@ from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 
+from app.bot.handlers.admin_basic import router as admin_basic_router
 from app.bot.handlers.admin_groups import router as admin_groups_router
+from app.bot.handlers.admin_moderation import router as admin_moderation_router
 from app.bot.handlers.applications import router as applications_router
 from app.bot.handlers.job_request import router as job_request_router
 from app.bot.handlers.notifications import router as notifications_router
@@ -25,6 +27,8 @@ def create_dispatcher() -> Dispatcher:
     dp = Dispatcher()
     dp.update.middleware(DbSessionMiddleware())
     dp.include_router(admin_groups_router)
+    dp.include_router(admin_basic_router)
+    dp.include_router(admin_moderation_router)
     dp.include_router(worker_registration_router)
     dp.include_router(applications_router)
     dp.include_router(vacancy_search_router)

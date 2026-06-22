@@ -1,5 +1,13 @@
 ﻿OutstaffingBot — release notes (staging)
 
+2026-06-23 — Phase 9: модерация контента и админ
+- Модерация текста заявок и профилей: wordlists (profanity, sex, drugs, translit), обфускация, translit, alcohol-whitelist
+- Нарушения логируются; после N попыток (MODERATION_VIOLATION_THRESHOLD) — очередь модерации
+- Админ-команды: /moderation_queue, /violation_log, /block_user, /unblock_user
+- Админ-команды: /admin_stats, /unverified_employers, /verify_employer, /audit_log
+- Новые работодатели verified=false — опубликовать заявку только после /verify_employer
+- audit_log: block/unblock, employer.verify
+
 2026-06-22 — Mini App: работодатель принимает отклики
 - В режиме «Я работодатель» появилась вкладка «Отклики» — список откликов на ваши заявки
 - Кнопки «Принять» и «Отклонить» для статуса «на рассмотрении»
