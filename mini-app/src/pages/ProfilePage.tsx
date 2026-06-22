@@ -37,6 +37,7 @@ type ProfileFormData = {
   age: string;
   gender: string;
   min_hourly_rate: string;
+  phone: string;
   metro_station_id: number | null;
   metro_label: string;
 };
@@ -50,6 +51,7 @@ function profileToForm(profile: WorkerProfile): ProfileFormData {
     age: String(profile.age),
     gender: profile.gender ?? "",
     min_hourly_rate: profile.min_hourly_rate ?? "",
+    phone: profile.phone ?? "",
     metro_station_id: profile.metro_station_id,
     metro_label: profile.metro_station_name ?? "",
   };
@@ -74,6 +76,9 @@ function validateForm(form: ProfileFormData): FormErrors {
     if (Number.isNaN(rate) || rate < 0) {
       errors.min_hourly_rate = "Ставка должна быть ≥ 0";
     }
+  }
+  if (form.phone.trim() && form.phone.trim().length > 20) {
+    errors.phone = "Телефон не длиннее 20 символов";
   }
   return errors;
 }
@@ -216,6 +221,7 @@ export function ProfilePage({ initData }: ProfilePageProps) {
         gender: form.gender || null,
         metro_station_id: form.metro_station_id,
         min_hourly_rate: form.min_hourly_rate.trim() || null,
+        phone: form.phone.trim() || null,
       });
       setState({ status: "ready", profile: updated });
       cancelEditing();
@@ -322,6 +328,19 @@ export function ProfilePage({ initData }: ProfilePageProps) {
             ) : null}
           </label>
 
+          <label className="form-field">
+            <span>Телефон</span>
+            <input
+              type="tel"
+              value={form.phone}
+              maxLength={20}
+              placeholder="+79991234567"
+              disabled={isSaving}
+              onChange={(e) => updateField("phone", e.target.value)}
+            />
+            {formErrors.phone ? <em className="field-error">{formErrors.phone}</em> : null}
+          </label>
+
           <div className="form-field">
             <span>Метро</span>
             <input
@@ -415,6 +434,16 @@ export function ProfilePage({ initData }: ProfilePageProps) {
         <div>
           <dt>Метро</dt>
           <dd>{profile.metro_station_name ?? "—"}</dd>
+        </div>
+        <div>
+          <dt>Телефон</dt>
+          <dd>
+            {profile.phone ? (
+              <a href={`tel:${profile.phone}`}>{profile.phone}</a>
+            ) : (
+              "—"
+            )}
+          </dd>
         </div>
         <div>
           <dt>Мин. ставка</dt>

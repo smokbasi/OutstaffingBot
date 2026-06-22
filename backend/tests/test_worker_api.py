@@ -37,6 +37,7 @@ def sample_profile() -> WorkerProfileRead:
         metro_station_id=1,
         metro_station_name="Автово",
         min_hourly_rate=Decimal("350.00"),
+        phone="+79991234567",
         resume_completed=True,
         verification_status=VerificationStatus.verified,
         experiences=[
@@ -109,6 +110,7 @@ async def test_get_worker_profile_success(
     data = response.json()
     assert data["first_name"] == "Иван"
     assert data["last_name"] == "Петров"
+    assert data["phone"] == "+79991234567"
     assert len(data["experiences"]) == 1
 
 
@@ -128,10 +130,12 @@ async def test_put_worker_profile(client: AsyncClient, sample_profile: WorkerPro
             "gender": "male",
             "metro_station_id": 1,
             "min_hourly_rate": "350.00",
+            "phone": "+79991234567",
         },
     )
     assert response.status_code == 200
     assert response.json()["resume_completed"] is True
+    assert response.json()["phone"] == "+79991234567"
 
 
 @pytest.mark.asyncio

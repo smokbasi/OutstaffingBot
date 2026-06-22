@@ -115,6 +115,7 @@ class Worker(Base):
     city: Mapped[str] = mapped_column(String(50), default="spb")
     metro_radius_km: Mapped[int] = mapped_column(SmallInteger, default=0)
     min_hourly_rate: Mapped[Decimal | None] = mapped_column(Numeric(10, 2))
+    phone: Mapped[str | None] = mapped_column(String(20))
     resume_completed: Mapped[bool] = mapped_column(Boolean, default=False)
     verification_status: Mapped[VerificationStatus] = mapped_column(
         Enum(VerificationStatus, name="verification_status"),

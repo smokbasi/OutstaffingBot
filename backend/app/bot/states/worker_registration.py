@@ -12,4 +12,5 @@ class WorkerRegistration(StatesGroup):
     experience_months = State()
     experience_more = State()
     min_rate = State()
+    phone = State()
     confirm = State()

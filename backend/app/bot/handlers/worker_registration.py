@@ -18,6 +18,7 @@ from app.bot.keyboards.worker_registration import (
 )
 from app.bot.states.worker_registration import WorkerRegistration
 from app.db.models import Gender
+from app.schemas.phone import normalize_phone
 from app.services import user_service, worker_service
 
 router = Router(name="worker_registration")
@@ -66,6 +67,8 @@ def _format_resume_header(data: dict) -> str:
         lines.append(f"Метро: {data['metro_name']}")
     if data.get("min_hourly_rate"):
         lines.append(f"Мин. ставка: {data['min_hourly_rate']} ₽/час")
+    if data.get("phone"):
+        lines.append(f"Телефон: {data['phone']}")
     experiences = data.get("experiences") or []
     if experiences:
         lines.append("")
@@ -506,6 +509,36 @@ async def process_min_rate(message: Message, state: FSMContext) -> None:
 
     await _delete_user_message(message)
     await state.update_data(min_hourly_rate=str(rate))
+    await state.set_state(WorkerRegistration.phone)
+    await _update_resume_message(
+        message.bot,
+        state,
+        "Укажите <b>номер телефона</b> (например +79991234567).\n"
+        "Отправьте «—» или «пропустить», чтобы пропустить:",
+        None,
+    )
+
+
+@router.message(WorkerRegistration.phone)
+async def process_phone(message: Message, state: FSMContext) -> None:
+    raw = (message.text or "").strip()
+    skip_tokens = {"—", "-", "пропустить", "skip", "нет"}
+    phone: str | None = None
+    if raw.lower() not in skip_tokens:
+        try:
+            phone = normalize_phone(raw)
+        except ValueError:
+            await _delete_user_message(message)
+            await _update_resume_message(
+                message.bot,
+                state,
+                "Некорректный номер. Пример: +79991234567\n\n"
+                "Укажите <b>номер телефона</b> или «—» чтобы пропустить:",
+            )
+            return
+
+    await _delete_user_message(message)
+    await state.update_data(phone=phone)
     await state.set_state(WorkerRegistration.confirm)
     await _update_resume_message(
         message.bot,
@@ -553,6 +586,7 @@ async def process_confirm_save(callback: CallbackQuery, state: FSMContext, sessi
         metro_station_id=data["metro_station_id"],
         min_hourly_rate=Decimal(data["min_hourly_rate"]),
         experiences=data.get("experiences", []),
+        phone=data.get("phone"),
     )
     await state.clear()
 

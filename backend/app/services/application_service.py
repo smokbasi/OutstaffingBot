@@ -8,6 +8,7 @@ from sqlalchemy.orm import selectinload
 from app.db.models import (
     Application,
     ApplicationStatus,
+    Employer,
     JobRequest,
     JobRequestStatus,
     ShiftSlot,
@@ -134,6 +135,9 @@ async def _get_application_for_slot(
 def _application_to_read(app: Application) -> ApplicationRead:
     slot = app.shift_slot
     job = app.job_request
+    accepted = app.status == ApplicationStatus.accepted
+    employer = job.employer if job else None
+    employer_user = employer.user if employer else None
     return ApplicationRead(
         id=app.id,
         job_request_id=app.job_request_id,
@@ -148,6 +152,10 @@ def _application_to_read(app: Application) -> ApplicationRead:
         shift_date=slot.shift_date,
         start_time=slot.start_time,
         end_time=slot.end_time,
+        employer_contact_phone=employer.contact_phone if accepted and employer else None,
+        employer_company_name=employer.company_name if accepted and employer else "",
+        employer_telegram_username=employer_user.username if accepted and employer_user else None,
+        employer_telegram_id=employer_user.telegram_id if accepted and employer_user else None,
     )
 
 
@@ -266,6 +274,7 @@ async def list_my_applications(
             selectinload(Application.shift_slot),
             selectinload(Application.job_request).selectinload(JobRequest.category),
             selectinload(Application.job_request).selectinload(JobRequest.metro_station),
+            selectinload(Application.job_request).selectinload(JobRequest.employer).selectinload(Employer.user),
         )
         .where(
             Application.worker_id == worker.id,
@@ -286,6 +295,8 @@ def _worker_experience_months(worker: Worker) -> int | None:
 def _application_to_employer_read(app: Application) -> EmployerApplicationRead:
     slot = app.shift_slot
     worker = app.worker
+    accepted = app.status == ApplicationStatus.accepted
+    worker_user = worker.user if worker else None
     return EmployerApplicationRead(
         id=app.id,
         job_request_id=app.job_request_id,
@@ -300,6 +311,9 @@ def _application_to_employer_read(app: Application) -> EmployerApplicationRead:
         worker_last_name=worker.last_name if worker else "",
         worker_age=worker.age if worker else 0,
         worker_experience_months=_worker_experience_months(worker) if worker else None,
+        worker_phone=worker.phone if accepted and worker else None,
+        worker_telegram_username=worker_user.username if accepted and worker_user else None,
+        worker_telegram_id=worker_user.telegram_id if accepted and worker_user else None,
     )
 
 
@@ -319,6 +333,7 @@ async def list_job_applications(
         .options(
             selectinload(Application.shift_slot),
             selectinload(Application.worker).selectinload(Worker.experiences),
+            selectinload(Application.worker).selectinload(Worker.user),
         )
         .where(Application.job_request_id == job_id)
         .order_by(Application.applied_at.desc())
@@ -341,6 +356,7 @@ async def update_application_by_employer(
             selectinload(Application.shift_slot),
             selectinload(Application.job_request),
             selectinload(Application.worker).selectinload(Worker.experiences),
+            selectinload(Application.worker).selectinload(Worker.user),
         )
         .where(Application.id == application_id)
     )

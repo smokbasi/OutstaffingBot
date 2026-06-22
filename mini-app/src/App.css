@@ -527,6 +527,22 @@
   margin-top: 0.5rem;
 }
 
+.contact-block {
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  background: var(--tg-theme-secondary-bg-color, #f2f2f7);
+}
+
+.contact-block p {
+  margin: 0.25rem 0 0;
+}
+
+.contact-block a {
+  color: var(--tg-theme-link-color, #007aff);
+  text-decoration: none;
+}
+
 .application-actions .btn {
   margin-top: 0;
 }

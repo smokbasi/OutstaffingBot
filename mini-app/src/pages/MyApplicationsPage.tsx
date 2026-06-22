@@ -8,6 +8,7 @@ import {
   type ApplicationStatus,
 } from "../api/client";
 import { triggerHaptic } from "../lib/telegram";
+import { ContactBlock } from "../lib/contacts";
 
 type MyApplicationsPageProps = {
   initData: string;
@@ -129,6 +130,15 @@ export function MyApplicationsPage({ initData }: MyApplicationsPageProps) {
                   {APPLICATION_STATUS_LABELS[item.status as ApplicationStatus] ?? item.status}
                 </span>
               </p>
+              {item.status === "accepted" ? (
+                <ContactBlock
+                  title="Контакты работодателя"
+                  companyName={item.employer_company_name}
+                  phone={item.employer_contact_phone}
+                  telegramUsername={item.employer_telegram_username}
+                  telegramId={item.employer_telegram_id}
+                />
+              ) : null}
             </div>
             <button
               type="button"

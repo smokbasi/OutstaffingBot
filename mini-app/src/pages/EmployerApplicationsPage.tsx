@@ -7,6 +7,7 @@ import {
   type EmployerApplicationRead,
 } from "../api/client";
 import { triggerHaptic, triggerNotificationHaptic } from "../lib/telegram";
+import { ContactBlock } from "../lib/contacts";
 
 type EmployerApplicationsPageProps = {
   initData: string;
@@ -138,6 +139,14 @@ export function EmployerApplicationsPage({
                 <span className={`status-badge status-app-${item.status}`}>
                   {APPLICATION_STATUS_LABELS[item.status as ApplicationStatus] ?? item.status}
                 </span>
+                {item.status === "accepted" ? (
+                  <ContactBlock
+                    title="Контакты работника"
+                    phone={item.worker_phone}
+                    telegramUsername={item.worker_telegram_username}
+                    telegramId={item.worker_telegram_id}
+                  />
+                ) : null}
               </div>
               {item.status === "pending" ? (
                 <div className="application-actions">

@@ -34,6 +34,10 @@ class ApplicationRead(BaseModel):
     shift_date: date
     start_time: time
     end_time: time
+    employer_contact_phone: str | None = None
+    employer_company_name: str = ""
+    employer_telegram_username: str | None = None
+    employer_telegram_id: int | None = None
 
 
 class ApplicationListResponse(BaseModel):
@@ -55,6 +59,9 @@ class EmployerApplicationRead(BaseModel):
     worker_last_name: str
     worker_age: int
     worker_experience_months: int | None = None
+    worker_phone: str | None = None
+    worker_telegram_username: str | None = None
+    worker_telegram_id: int | None = None
 
 
 class EmployerApplicationListResponse(BaseModel):

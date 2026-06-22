@@ -52,6 +52,7 @@ def _worker_to_profile(worker: Worker) -> WorkerProfileRead:
         metro_station_id=worker.metro_station_id,
         metro_station_name=worker.metro_station.name if worker.metro_station else None,
         min_hourly_rate=worker.min_hourly_rate,
+        phone=worker.phone,
         resume_completed=worker.resume_completed,
         verification_status=worker.verification_status,
         experiences=experiences,
@@ -81,6 +82,7 @@ async def upsert_worker_profile(
         if metro is not None:
             worker.city = metro.city
     worker.min_hourly_rate = data.min_hourly_rate
+    worker.phone = data.phone
     if resume_completed is not None:
         worker.resume_completed = resume_completed
 
@@ -101,6 +103,7 @@ async def save_worker_registration(
     metro_station_id: int,
     min_hourly_rate: Decimal,
     experiences: list[dict],
+    phone: str | None = None,
 ) -> WorkerProfileRead:
     from app.db.models import Gender
 
@@ -115,6 +118,7 @@ async def save_worker_registration(
             gender=gender_enum,
             metro_station_id=metro_station_id,
             min_hourly_rate=min_hourly_rate,
+            phone=phone,
         ),
         resume_completed=True,
     )

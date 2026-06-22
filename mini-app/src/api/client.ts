@@ -20,6 +20,7 @@ export type WorkerProfile = {
   metro_station_id: number | null;
   metro_station_name: string | null;
   min_hourly_rate: string | null;
+  phone: string | null;
   resume_completed: boolean;
   verification_status: "pending" | "verified" | "rejected";
   experiences: WorkerExperience[];
@@ -164,6 +165,10 @@ export type ApplicationRead = {
   shift_date: string;
   start_time: string;
   end_time: string;
+  employer_contact_phone?: string | null;
+  employer_company_name?: string;
+  employer_telegram_username?: string | null;
+  employer_telegram_id?: number | null;
 };
 
 export type ApplicationListResponse = {
@@ -185,6 +190,9 @@ export type EmployerApplicationRead = {
   worker_last_name: string;
   worker_age: number;
   worker_experience_months: number | null;
+  worker_phone?: string | null;
+  worker_telegram_username?: string | null;
+  worker_telegram_id?: number | null;
 };
 
 export type EmployerApplicationListResponse = {
@@ -265,7 +273,7 @@ export type MetroStation = {
 
 export type WorkerProfileUpdate = Pick<
   WorkerProfile,
-  "first_name" | "last_name" | "age" | "gender" | "metro_station_id" | "min_hourly_rate"
+  "first_name" | "last_name" | "age" | "gender" | "metro_station_id" | "min_hourly_rate" | "phone"
 >;
 
 export type WorkerPreferences = {

@@ -1,9 +1,10 @@
 from decimal import Decimal
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.db.models import Gender, VerificationStatus
+from app.schemas.phone import normalize_phone
 
 
 class WorkerExperienceRead(BaseModel):
@@ -26,6 +27,7 @@ class WorkerProfileRead(BaseModel):
     metro_station_id: int | None = None
     metro_station_name: str | None = None
     min_hourly_rate: Decimal | None = None
+    phone: str | None = None
     resume_completed: bool
     verification_status: VerificationStatus
     experiences: list[WorkerExperienceRead] = Field(default_factory=list)
@@ -40,6 +42,12 @@ class WorkerProfileUpdate(BaseModel):
     gender: Gender | None = None
     metro_station_id: int | None = None
     min_hourly_rate: Decimal | None = Field(default=None, ge=0)
+    phone: str | None = Field(default=None, max_length=20)
+
+    @field_validator("phone")
+    @classmethod
+    def validate_phone(cls, value: str | None) -> str | None:
+        return normalize_phone(value)
 
 
 class WorkerExperienceCreate(BaseModel):
