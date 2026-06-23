@@ -66,21 +66,22 @@ def _job_to_read(job: JobRequest) -> JobRequestRead:
     )
 
 
-async def _validate_references(session: AsyncSession, data: JobRequestCreate) -> None:
+async def _validate_references(session: AsyncSession, data: JobRequestCreate) -> MetroStation:
     category_exists = await session.scalar(
         select(JobCategory.id).where(JobCategory.id == data.category_id, JobCategory.is_active.is_(True))
     )
     if not category_exists:
         raise ValueError("Category not found")
 
-    metro_exists = await session.scalar(
+    metro = await session.scalar(
         select(MetroStation).where(
             MetroStation.id == data.metro_station_id,
             MetroStation.is_active.is_(True),
         )
     )
-    if not metro_exists:
+    if metro is None:
         raise ValueError("Metro station not found")
+    return metro
 
 
 async def create_job_request(
@@ -90,7 +91,7 @@ async def create_job_request(
     *,
     actor_id: UUID | None = None,
 ) -> JobRequestRead:
-    await _validate_references(session, data)
+    metro = await _validate_references(session, data)
 
     job = JobRequest(
         employer_id=employer_id,
@@ -98,7 +99,7 @@ async def create_job_request(
         title=data.title,
         description=data.description,
         metro_station_id=data.metro_station_id,
-        city=data.city or metro_exists.city,
+        city=data.city or metro.city,
         address=data.address,
         hourly_rate=data.hourly_rate,
         workers_needed=data.workers_needed,
