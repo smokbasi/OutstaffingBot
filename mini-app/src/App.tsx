@@ -58,7 +58,7 @@ type TelegramContext = {
   userLabel: string;
 };
 
-type AppMode = "worker" | "employer";
+type AppMode = "worker" | "employer" | "admin";
 type EmployerView = "jobs" | "create" | "applications";
 type WorkerView = "profile" | "vacancies" | "vacancy-detail" | "applications" | "notifications";
 
@@ -121,17 +121,15 @@ function readInitialWorkerRoute(): {
   appMode: AppMode | null;
   workerView: WorkerView;
   vacancyId: string | null;
-  adminDeepLink: boolean;
 } {
-  const adminDeepLink = parseAdminDeepLink();
-  if (adminDeepLink) {
-    return { appMode: null, workerView: "vacancies", vacancyId: null, adminDeepLink: true };
+  if (parseAdminDeepLink()) {
+    return { appMode: "admin", workerView: "vacancies", vacancyId: null };
   }
   const vacancyId = parseVacancyDeepLink() ?? parseVacancyStartParam();
   if (vacancyId) {
-    return { appMode: "worker", workerView: "vacancy-detail", vacancyId, adminDeepLink: false };
+    return { appMode: "worker", workerView: "vacancy-detail", vacancyId };
   }
-  return { appMode: null, workerView: "vacancies", vacancyId: null, adminDeepLink: false };
+  return { appMode: null, workerView: "vacancies", vacancyId: null };
 }
 
 function useTelegramContext(): TelegramContext {
@@ -162,8 +160,10 @@ function useTelegramContext(): TelegramContext {
 }
 
 function RolePicker({
+  isAdmin,
   onSelect,
 }: {
+  isAdmin: boolean;
   onSelect: (mode: AppMode) => void;
 }) {
   return (
@@ -181,6 +181,13 @@ function RolePicker({
           <span className="role-card-title">Я работодатель</span>
           <span className="role-card-desc">Заявки на персонал и создание новых смен</span>
         </button>
+        {isAdmin ? (
+          <button type="button" className="role-card role-card-admin" onClick={() => onSelect("admin")}>
+            <span className="role-card-icon">🛡️</span>
+            <span className="role-card-title">Админ-панель</span>
+            <span className="role-card-desc">Статистика, модерация, журнал и верификация</span>
+          </button>
+        ) : null}
       </div>
     </section>
   );
@@ -256,7 +263,6 @@ function App() {
   const [jobsReloadKey, setJobsReloadKey] = useState(0);
   const [applicationsReloadKey, setApplicationsReloadKey] = useState(0);
   const [vacanciesReloadKey, setVacanciesReloadKey] = useState(0);
-  const [showAdminPanel, setShowAdminPanel] = useState(initialRoute.adminDeepLink);
 
   useEffect(() => {
     if (!telegram.inTelegram || !telegram.initData) {
@@ -288,7 +294,6 @@ function App() {
 
   function handleSelectMode(mode: AppMode) {
     setAppMode(mode);
-    setShowAdminPanel(false);
     if (mode === "employer") {
       setEmployerView("jobs");
     }
@@ -298,17 +303,8 @@ function App() {
     }
   }
 
-  function handleOpenAdmin() {
-    setShowAdminPanel(true);
-  }
-
-  function handleCloseAdmin() {
-    setShowAdminPanel(false);
-  }
-
   function handleSwitchRole() {
     setAppMode(null);
-    setShowAdminPanel(false);
   }
 
   function handleEmployerRegistered() {
@@ -356,7 +352,11 @@ function App() {
 
     const { me } = meState;
 
-    if (showAdminPanel) {
+    if (appMode === null) {
+      return <RolePicker isAdmin={me.is_admin} onSelect={handleSelectMode} />;
+    }
+
+    if (appMode === "admin") {
       return (
         <Suspense fallback={<PageFallback />}>
           {me.is_admin ? (
@@ -366,10 +366,6 @@ function App() {
           )}
         </Suspense>
       );
-    }
-
-    if (appMode === null) {
-      return <RolePicker onSelect={handleSelectMode} />;
     }
 
     if (appMode === "worker") {
@@ -435,35 +431,17 @@ function App() {
   }
 
   const showSwitchRole =
-    telegram.inTelegram && telegram.initData && appMode !== null && !showAdminPanel;
-
-  const isAdmin = meState.status === "ready" && meState.me.is_admin;
+    telegram.inTelegram && telegram.initData && appMode !== null;
 
   const showEmployerNav =
     telegram.inTelegram &&
     telegram.initData &&
     meState.status === "ready" &&
     appMode === "employer" &&
-    meState.me.has_employer_profile &&
-    !showAdminPanel;
+    meState.me.has_employer_profile;
 
   const showWorkerNav =
-    telegram.inTelegram && telegram.initData && appMode === "worker" && !showAdminPanel;
-
-  const showAdminNav =
-    telegram.inTelegram &&
-    telegram.initData &&
-    meState.status === "ready" &&
-    isAdmin &&
-    appMode !== null &&
-    !showAdminPanel;
-
-  const showAdminPanelNav =
-    telegram.inTelegram &&
-    telegram.initData &&
-    meState.status === "ready" &&
-    isAdmin &&
-    showAdminPanel;
+    telegram.inTelegram && telegram.initData && appMode === "worker";
 
   return (
     <main className="app">
@@ -515,11 +493,6 @@ function App() {
           >
             Уведомления
           </button>
-          {showAdminNav ? (
-            <button type="button" className="nav-btn nav-btn-admin" onClick={handleOpenAdmin}>
-              Админ
-            </button>
-          ) : null}
         </nav>
       ) : null}
 
@@ -549,24 +522,6 @@ function App() {
           >
             Создать
           </button>
-          {showAdminNav ? (
-            <button type="button" className="nav-btn nav-btn-admin" onClick={handleOpenAdmin}>
-              Админ
-            </button>
-          ) : null}
-        </nav>
-      ) : null}
-
-      {showAdminPanelNav ? (
-        <nav className="app-nav">
-          <button type="button" className="nav-btn active">
-            Админ
-          </button>
-          {appMode !== null ? (
-            <button type="button" className="nav-btn" onClick={handleCloseAdmin}>
-              {appMode === "worker" ? "К работнику" : "К работодателю"}
-            </button>
-          ) : null}
         </nav>
       ) : null}
 
