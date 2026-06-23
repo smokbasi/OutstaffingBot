@@ -151,6 +151,39 @@ export const APPLICATION_STATUS_LABELS: Record<ApplicationStatus, string> = {
   cancelled_by_employer: "Отменён работодателем",
 };
 
+export function formatApplicationStatus(status: ApplicationStatus | string): string {
+  return APPLICATION_STATUS_LABELS[status as ApplicationStatus] ?? status;
+}
+
+export type VerificationStatus = "pending" | "verified" | "rejected";
+
+export const VERIFICATION_STATUS_LABELS: Record<VerificationStatus, string> = {
+  pending: "На верификации",
+  verified: "Верифицирован",
+  rejected: "Отклонён",
+};
+
+export function formatVerificationStatus(status: VerificationStatus | string): string {
+  return VERIFICATION_STATUS_LABELS[status as VerificationStatus] ?? status;
+}
+
+/** Статусы в админ-аналитике и журнале (заявки, отклики, верификация). */
+export function formatAdminStatusKey(key: string): string {
+  if (key in JOB_REQUEST_STATUS_LABELS) {
+    return JOB_REQUEST_STATUS_LABELS[key as JobRequestStatus];
+  }
+  if (key in APPLICATION_STATUS_LABELS) {
+    return APPLICATION_STATUS_LABELS[key as ApplicationStatus];
+  }
+  if (key in VERIFICATION_STATUS_LABELS) {
+    return VERIFICATION_STATUS_LABELS[key as VerificationStatus];
+  }
+  if (key === "closed") {
+    return "Закрыта";
+  }
+  return key;
+}
+
 export type ApplicationRead = {
   id: string;
   job_request_id: string;
@@ -564,6 +597,36 @@ export type PendingWorker = {
   created_at: string;
 };
 
+export type AdminWorker = {
+  id: string;
+  first_name: string;
+  last_name: string;
+  phone: string | null;
+  verification_status: VerificationStatus;
+  telegram_id: number;
+  username: string | null;
+  created_at: string;
+};
+
+export type AdminEmployer = {
+  id: string;
+  company_name: string;
+  verification_status: VerificationStatus;
+  contact_person: string | null;
+  contact_phone: string | null;
+  telegram_id: number;
+  username: string | null;
+  created_at: string;
+};
+
+export type AdminJob = {
+  id: string;
+  title: string;
+  status: JobRequestStatus;
+  employer_company_name: string;
+  created_at: string;
+};
+
 export type AdminAuditEntry = {
   id: string;
   actor_id: string | null;
@@ -573,6 +636,38 @@ export type AdminAuditEntry = {
   metadata: Record<string, unknown> | null;
   created_at: string;
 };
+
+export const ADMIN_AUDIT_ACTION_LABELS: Record<string, string> = {
+  "job.create": "Создана заявка",
+  "job.status_change": "Изменён статус заявки",
+  "application.pending": "Новый отклик",
+  "application.accepted": "Отклик принят",
+  "application.rejected": "Отклик отклонён",
+  "application.cancelled_by_worker": "Отклик отменён работником",
+  "application.cancelled_by_employer": "Отклик отменён работодателем",
+  "employer.verify": "Работодатель верифицирован",
+  "employer.reject": "Работодатель отклонён",
+  "worker.verify": "Работник верифицирован",
+  "worker.reject": "Работник отклонён",
+};
+
+export const ADMIN_ENTITY_TYPE_LABELS: Record<string, string> = {
+  job_request: "заявка",
+  application: "отклик",
+  employer_profile: "работодатель",
+  employer: "работодатель",
+  worker: "работник",
+  worker_profile: "работник",
+  user: "пользователь",
+};
+
+export function formatAdminAuditAction(action: string): string {
+  return ADMIN_AUDIT_ACTION_LABELS[action] ?? action;
+}
+
+export function formatAdminEntityType(entityType: string): string {
+  return ADMIN_ENTITY_TYPE_LABELS[entityType] ?? entityType;
+}
 
 export function getAdminStats(initData: string): Promise<AdminStats> {
   return apiFetch<AdminStats>("/admin/stats", initData);
@@ -600,6 +695,18 @@ export function rejectEmployer(initData: string, employerId: string): Promise<{ 
 
 export function listPendingWorkers(initData: string): Promise<PendingWorker[]> {
   return apiFetch<PendingWorker[]>("/admin/workers/pending", initData);
+}
+
+export function listAdminWorkers(initData: string, limit = 50): Promise<AdminWorker[]> {
+  return apiFetch<AdminWorker[]>(`/admin/workers?limit=${limit}`, initData);
+}
+
+export function listAdminEmployers(initData: string, limit = 50): Promise<AdminEmployer[]> {
+  return apiFetch<AdminEmployer[]>(`/admin/employers?limit=${limit}`, initData);
+}
+
+export function listAdminJobs(initData: string, limit = 50): Promise<AdminJob[]> {
+  return apiFetch<AdminJob[]>(`/admin/jobs?limit=${limit}`, initData);
 }
 
 export function verifyWorker(initData: string, workerId: string): Promise<{ status: string }> {

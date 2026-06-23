@@ -1,8 +1,16 @@
 import { useCallback, useEffect, useState } from "react";
 import {
+  formatAdminAuditAction,
+  formatAdminEntityType,
+  formatAdminStatusKey,
+  formatJobRequestStatus,
+  formatVerificationStatus,
   getAdminAnalytics,
   getAdminAuditLog,
   getAdminStats,
+  listAdminEmployers,
+  listAdminJobs,
+  listAdminWorkers,
   listPendingEmployers,
   listPendingWorkers,
   rejectEmployer,
@@ -11,7 +19,10 @@ import {
   verifyWorker,
   type AdminAnalytics,
   type AdminAuditEntry,
+  type AdminEmployer,
+  type AdminJob,
   type AdminStats,
+  type AdminWorker,
   type PendingEmployer,
   type PendingWorker,
 } from "../api/client";
@@ -19,33 +30,11 @@ import { triggerHaptic, triggerNotificationHaptic } from "../lib/telegram";
 
 type AdminTab = "stats" | "verifications" | "audit";
 type VerificationSubTab = "employers" | "workers";
+type StatsListView = "workers" | "employers" | "jobs";
 
 type AdminPanelPageProps = {
   initData: string;
   initialTab?: AdminTab;
-};
-
-const AUDIT_ACTION_LABELS: Record<string, string> = {
-  "job.create": "Создана заявка",
-  "job.status_change": "Изменён статус заявки",
-  "application.pending": "Новый отклик",
-  "application.accepted": "Отклик принят",
-  "application.rejected": "Отклик отклонён",
-  "application.cancelled_by_worker": "Отклик отменён работником",
-  "application.cancelled_by_employer": "Отклик отменён работодателем",
-  "employer.verify": "Работодатель верифицирован",
-  "employer.reject": "Работодатель отклонён",
-  "worker.verify": "Работник верифицирован",
-  "worker.reject": "Работник отклонён",
-};
-
-const ENTITY_TYPE_LABELS: Record<string, string> = {
-  job_request: "заявка",
-  application: "отклик",
-  employer_profile: "работодатель",
-  employer: "работодатель",
-  worker: "работник",
-  user: "пользователь",
 };
 
 function formatAuditEntry(entry: AdminAuditEntry): string {
@@ -58,10 +47,23 @@ function formatAuditEntry(entry: AdminAuditEntry): string {
         hour: "2-digit",
         minute: "2-digit",
       });
-  const action = AUDIT_ACTION_LABELS[entry.action] ?? entry.action;
-  const entity = ENTITY_TYPE_LABELS[entry.entity_type] ?? entry.entity_type;
+  const action = formatAdminAuditAction(entry.action);
+  const entity = formatAdminEntityType(entry.entity_type);
   const shortId = entry.entity_id.slice(0, 8);
-  return `${ts} — ${action} (${entity} ${shortId}…)`;
+  const meta = formatAuditMetadata(entry);
+  return `${ts} — ${action} (${entity} ${shortId}…)${meta}`;
+}
+
+function formatAuditMetadata(entry: AdminAuditEntry): string {
+  if (!entry.metadata) {
+    return "";
+  }
+  const from = entry.metadata.from;
+  const to = entry.metadata.to;
+  if (typeof from === "string" && typeof to === "string") {
+    return ` · ${formatAdminStatusKey(from)} → ${formatAdminStatusKey(to)}`;
+  }
+  return "";
 }
 
 function formatDateTime(iso: string): string {
@@ -151,7 +153,7 @@ function StatsTab({ initData }: { initData: string }) {
           <ul className="admin-kv-list">
             {Object.entries(analytics.jobs_by_status).map(([status, count]) => (
               <li key={status}>
-                <span>{status}</span>
+                <span>{formatAdminStatusKey(status)}</span>
                 <strong>{count}</strong>
               </li>
             ))}
@@ -165,7 +167,7 @@ function StatsTab({ initData }: { initData: string }) {
           <ul className="admin-kv-list">
             {Object.entries(analytics.applications_by_status).map(([status, count]) => (
               <li key={status}>
-                <span>{status}</span>
+                <span>{formatAdminStatusKey(status)}</span>
                 <strong>{count}</strong>
               </li>
             ))}
