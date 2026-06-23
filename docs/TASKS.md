@@ -248,9 +248,85 @@
 - [x] Employer verification
 - [x] Audit log (create/update; включая moderation actions)
 
-**Verification:** заведомо запрещённый текст блокируется с логом; после N попыток user попадает в admin-очередь; admin блокирует по ID; легитимные alcohol-формулировки проходят в любой категории; contact с @telegram не даёт false positive; `/admin_stats` показывает счётчики; `/verify_employer` верифицирует работодателя (без verify — заявка остаётся в draft); audit_log записывает block/unblock и verify.
+#### 9.9 Жалобы и нарушения по заявкам (Complaints) [P1]
 
-**Как выполнять:** solo — `python-patterns`, `security-review`; wordlists — отдельный модуль + `tdd-workflow`.
+> **Контекст:** сейчас нарушения контента (`moderation_violations`) и действия админа (`audit_log`) разнесены; жалоб по заявкам (опоздание, невыход, неоплата, отсутствие работы) **нет**. Вкладка «Журнал» в Mini App admin — один плоский audit-лист ([`AdminPanelPage.tsx`](../mini-app/src/pages/AdminPanelPage.tsx)). Модели: `Application` (worker + `job_request_id` + `shift_slot_id`), `JobRequest` → `Employer.company_name`; отклики employer — `GET /employer/applications`, `GET /employer/jobs/{id}/applications`.
+>
+> **План реализации (архитектура):**
+>
+> | Слой | Решение |
+> |------|---------|
+> | **Data model** | Таблица `application_complaints` (или `complaints`): `id`, `application_id` (FK, NOT NULL), `job_request_id` (FK, денорм. для фильтров), `shift_slot_id` (FK), `reporter_user_id`, `reporter_role` (`worker` / `employer`), `target_user_id` (обвиняемый: user работника или user работодателя), `violation_type` enum, `description` (TEXT), `status` (`open` / `under_review` / `resolved` / `dismissed`), `admin_notes`, `resolved_at`, `resolved_by_telegram_id`, `created_at`. Индексы: `(violation_type, created_at)`, `(job_request_id)`, substring на `company_name` через join или денорм. |
+> | **Violation types** | `late` (опоздание), `no_show` (невыход на смену), `no_payment` (отсутствие оплаты), `no_work` (отсутствие работы / работа не предоставлена). UI-лейблы на русском в enum-map. |
+> | **Связь с заявкой** | Жалоба **всегда** на конкретный `application_id` (конкретный работник + смена + заявка). Employer выбирает заявку → список откликов → конкретный worker/application. Worker выбирает свой отклик (application) на заявку работодателя. |
+> | **Правила доступа** | Worker: только свои `applications`; target = employer.user. Employer: только отклики на свои `job_requests`; target = worker.user. Заблокированные пользователи — 403. MVP: жалоба только если `application.status == accepted`; P2 — разрешить pending для `no_work`. |
+> | **Дедупликация** | MVP: одна открытая жалоба `(application_id, reporter_user_id, violation_type)`; повтор — 409 с подсказкой. |
+> | **Модерация текста** | **Исключение из pipeline:** текст `description` жалобы **не публичный** — видят только reporter, admin и involved parties. Стоп-слова и `content_moderation_service` применяются к **публичным** поверхностям (заявки, профили, публичные сообщения). Для complaints pipeline **полностью пропускается**: нет reject по stop-words, нет записей в `moderation_violations` для текста описания жалобы. Допустима только валидация формата (min length для worker, max length). |
+> | **Audit** | `complaint.created`, `complaint.status_change` (resolve/dismiss) в `audit_log` с `entity_type=application_complaint`, `entity_id`, `application_id`, `violation_type`. |
+> | **Отделение от stop-words** | Stop-word нарушения — `moderation_violations` (только публичный контент); жалобы по заявкам — `application_complaints` (приватный контент, **без** пересечения с moderation pipeline). Admin «Журнал» — разные подвкладки (см. 9.11). Вкладка «Модерация» — очередь flagged users (без изменений). |
+>
+> **Сбор данных (UX):**
+> - **Работодатель:** нав «Пожаловаться» → список своих заявок (`title`, дата, статус) → экран заявки → список откликов (имя работника, смена, статус отклика) → форма: тип нарушения (4 radio) + необязательное описание → submit.
+> - **Работник:** нав «Пожаловаться» → список своих откликов (название заявки, **company_name**, смена, статус; **без** данных других работников) → форма: тип + **обязательное** описание → submit.
+> - **Admin:** подвкладка «Нарушения по заявкам» — таблица/лист с фильтрами (тип, период, поиск по `company_name`), карточка: reporter role, тип, описание, ссылки на application/job, действия resolve/dismiss + notes.
+>
+> **API (черновик):**
+> - Worker: `GET /complaints/my-context` (eligible applications + company_name), `POST /complaints` `{ application_id, violation_type, description }`.
+> - Employer: `GET /employer/complaints/jobs` (заявки с count откликов), `GET /employer/complaints/jobs/{job_id}/applications`, `POST /employer/complaints` `{ application_id, violation_type, description? }`.
+> - Admin: `GET /admin/journal/stop-words?from=&to=&telegram_id=&limit=` (из `moderation_violations`), `GET /admin/audit` (как сейчас), `GET /admin/journal/application-violations?violation_type=&from=&to=&company_q=&limit=`, `GET /admin/complaints/{id}`, `PATCH /admin/complaints/{id}` `{ status, admin_notes }`.
+>
+> **Phasing:**
+> - **MVP (9.9–9.11):** таблица + ручные жалобы в Mini App + admin журнал с фильтрами + audit; без бота.
+> - **P2:** уведомление админу (push/Telegram) при новой жалобе; экспорт CSV; статистика по типам в «Статистика».
+> - **P3:** автоматические сигналы (check-in опоздания, подтверждение оплаты работодателем, attendance); рейтинги (Phase 10).
+
+- [ ] **9.9.1** Миграция + модели: `ApplicationComplaint`, enums `ComplaintViolationType`, `ComplaintReporterRole`, `ComplaintStatus` [P0]
+  - **Acceptance criteria:** Alembic revision; FK на `applications`, `job_requests`, `shift_slots`, `users`; уникальный partial index на открытые дубликаты; downgrade работает.
+
+- [ ] **9.9.2** `complaint_service`: создание, валидация прав, дедупликация, resolve/dismiss [P0]
+  - **Acceptance criteria:** worker не может жаловаться на чужой application (404/403); employer — только на свои jobs; `description` worker min 20 символов; employer description optional; **без** вызова `content_moderation_service` / stop-words (текст жалобы приватный, не логируется в `moderation_violations`); unit-тесты на IDOR и дедуп.
+
+- [ ] **9.9.3** API worker + employer (`/complaints`, `/employer/complaints/*`) [P0]
+  - **Acceptance criteria:** Pydantic schemas; `company_name` в eligible applications для worker; OpenAPI; integration-тесты happy path + forbidden; `POST` с description, содержащим stop-слова, — 201 без записи в `moderation_violations`.
+
+- [ ] **9.9.4** API admin: список/деталь/resolve жалоб по заявкам [P1]
+  - **Acceptance criteria:** фильтры `violation_type`, `from`/`to` (ISO date), `company_q` (substring, case-insensitive); пагинация `limit`/`offset`; только `get_current_admin`.
+
+- [ ] **9.9.5** Audit: `complaint.created`, `complaint.status_change` [P1]
+  - **Acceptance criteria:** записи в `audit_log` при create и resolve/dismiss; labels в `AdminPanelPage` AUDIT_ACTION_LABELS.
+
+#### 9.10 Mini App — «Пожаловаться» (Worker & Employer) [P1]
+
+- [ ] **9.10.1** Worker: страница «Пожаловаться» + пункт навигации в [`App.tsx`](../mini-app/src/App.tsx) [P1]
+  - **Acceptance criteria:** список откликов (заявка, компания, смена, статус); drill-down → форма (4 типа + описание); success/error; haptic; empty state «Нет откликов для жалобы»; описание **не** блокируется стоп-словами (нет moderation error UI — текст жалобы приватный).
+
+- [ ] **9.10.2** Employer: страница «Пожаловаться» + навигация [P1]
+  - **Acceptance criteria:** список заявок → отклики на заявку → форма жалобы на работника; имя работника из отклика; нельзя выбрать работника не из этой заявки; описание **не** блокируется стоп-словами.
+
+- [ ] **9.10.3** API client [`client.ts`](../mini-app/src/api/client.ts): типы и методы complaints [P1]
+  - **Acceptance criteria:** типы `ComplaintViolationType`, `ComplaintRead`; методы list/create для worker и employer.
+
+#### 9.11 Admin — реструктуризация вкладки «Журнал» [P1]
+
+> Текущая вкладка «Журнал» (`audit`) заменяется на **подвкладки**: **Стоп-слова** | **Журнал действий** | **Нарушения по заявкам**. Вкладка «Модерация» (очередь flagged users) **не** переносится.
+
+- [ ] **9.11.1** API `GET /admin/journal/stop-words` — лог `moderation_violations` [P1]
+  - **Acceptance criteria:** поля: дата, telegram_id/username, field, matched_term, snippet (truncate), source; фильтры `from`/`to`, `telegram_id`; limit ≤ 100; не смешивать с complaints.
+
+- [ ] **9.11.2** UI: подвкладки «Журнал» в [`AdminPanelPage.tsx`](../mini-app/src/pages/AdminPanelPage.tsx) [P1]
+  - **Acceptance criteria:**
+    - **Стоп-слова** — список из 9.11.1 (не очередь review).
+    - **Журнал действий** — текущий `AuditTab` без регрессии.
+    - **Нарушения по заявкам** — список complaints + фильтры: тип нарушения, дата (from/to), поиск по названию компании; карточка с resolve/dismiss; **не** смешивать с `moderation_violations` (жалобы — приватный контент, вне stop-word pipeline).
+
+- [ ] **9.11.3** (P2) Пагинация и «загрузить ещё» для всех трёх подвкладок [P2]
+  - **Acceptance criteria:** offset/limit на API; кнопка «Ещё» без дублирования записей.
+
+**Verification (9.9–9.11):** работник подаёт жалобу на принятый отклик → записи в `application_complaints` и audit; работодатель жалуется на конкретного работника по заявке; admin видит жалобу в «Нарушения по заявкам» с фильтром по компании; stop-word срабатывание на **публичном** контенте видно в «Стоп-слова», не в complaints; текст жалобы со stop-словами создаётся успешно, без записи в `moderation_violations`; IDOR-тесты проходят.
+
+**Verification (Phase 9 целиком):** заведомо запрещённый текст блокируется с логом; после N попыток user попадает в admin-очередь; admin блокирует по ID; легитимные alcohol-формулировки проходят в любой категории; contact с @telegram не даёт false positive; `/admin_stats` показывает счётчики; `/verify_employer` верифицирует работодателя (без verify — заявка остаётся в draft); audit_log записывает block/unblock и verify; жалобы по заявкам и трёхсекционный журнал работают (9.9–9.11).
+
+**Как выполнять:** solo — `python-patterns`, `security-review`; wordlists — отдельный модуль + `tdd-workflow`; 9.9–9.11 — оркестрация (API + Mini App), `tdd-workflow`, `security-review` на IDOR.
 
 ---
 
@@ -272,6 +348,7 @@
 |----------|---------|
 | **[TASKS.md](./TASKS.md)** (этот файл) | **Единый чеклист задач** Phase 0–10 |
 | [TASKS.md § Phase 9](./TASKS.md#phase-9--admin--moderation-23-недели-p1p2) | Content Moderation, violation log, admin ban |
+| [TASKS.md § 9.9–9.11](./TASKS.md#99-жалобы-и-нарушения-по-заявкам-complaints-p1) | Жалобы по заявкам, «Пожаловаться», журнал admin (3 подвкладки) |
 | [PLAN.md § 10.1](./PLAN.md#101-content-moderation--compliance) | Архитектура модерации и wordlists |
 | [PLAN.md § F](./PLAN.md#f-roadmap--фазы-реализации) | Roadmap с verification и контекстом фаз |
 | [PLAN.md § C](./PLAN.md#c-детальные-разделы-по-фичам) | Детальные разделы по фичам (код, схемы) |

@@ -659,8 +659,8 @@ WHERE a.worker_id = :worker_id
 
 **Phase 2:**
 
-- Web admin panel (FastAPI + simple React)
-- Жалобы на заявки
+- Web admin panel (FastAPI + simple React) — Mini App admin: [`TASKS.md § Phase 9.8](./TASKS.md#98-admin--базовое-из-roadmap-p2)
+- Жалобы на заявки (опоздание, невыход, неоплата, отсутствие работы) + реструктуризация «Журнал» admin — [`TASKS.md § 9.9–9.11](./TASKS.md#99-жалобы-и-нарушения-по-заявкам-complaints-p1). **Без** стоп-слов для `description` жалобы: текст приватный (reporter / admin / involved parties), moderation pipeline не вызывается.
 
 #### 10.1 Content Moderation & Compliance
 
@@ -676,6 +676,8 @@ WHERE a.worker_id = :worker_id
 | Transliteration map | `GOVNO`, `PIDOR`, `Mephedron`, … → кириллица для матчинга |
 
 **Pipeline:** `raw text` → segment (для `contact_info`) → normalize (obfuscation + translit, **без** порчи легитимных скобок) → wordlist match → log violation → при N нарушениях → admin queue.
+
+**Область применения:** stop-words только для **публичного** контента (заявки, профили, публичные сообщения). Жалобы («Пожаловаться», `application_complaints.description`) — **приватные**; pipeline **не вызывается**, `moderation_violations` для текста жалобы **не пишется**. Подробнее: [TASKS.md § 9.9](./TASKS.md#99-жалобы-и-нарушения-по-заявкам-complaints-p1).
 
 **Brackets / special chars (pattern rules):**
 
@@ -1139,8 +1141,9 @@ Ruflo удалён. Агентный harness — **ECC** ([github.com/affaan-m/E
 - [ ] Violation threshold + `moderation_violations` log
 - [ ] Admin: violation review + block/unblock by Telegram ID (bot commands)
 - [ ] Admin commands, employer verification, audit log
+- [ ] Жалобы по заявкам + «Пожаловаться» (worker/employer) + журнал admin (стоп-слова / действия / нарушения); complaints **вне** stop-word pipeline — [TASKS.md § 9.9–9.11](./TASKS.md#99-жалобы-и-нарушения-по-заявкам-complaints-p1)
 
-**Verification:** мат/obfuscation/translit блокируются с логом; легитимные alcohol-формулировки проходят в любой категории; admin блокирует после N нарушений.
+**Verification:** мат/obfuscation/translit блокируются с логом на публичном контенте; легитимные alcohol-формулировки проходят в любой категории; admin блокирует после N нарушений; жалобы по заявкам видны в admin-журнале с фильтрами; текст жалобы со stop-словами создаётся без `moderation_violations`.
 
 ---
 
