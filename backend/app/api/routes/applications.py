@@ -76,6 +76,8 @@ async def apply_to_shift(
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except application_service.WorkerNotVerifiedError as exc:
         raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except application_service.WorkerBannedError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
 
     await session.commit()
     return result

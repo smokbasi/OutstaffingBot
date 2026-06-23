@@ -50,7 +50,9 @@ async def create_job(
     try:
         job = await job_service.create_job_request(session, employer.id, data, actor_id=user.id)
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        detail = str(exc)
+        status_code = 403 if detail == "Аккаунт заблокирован" else 400
+        raise HTTPException(status_code=status_code, detail=detail) from exc
     await session.commit()
     return job
 
@@ -91,7 +93,12 @@ async def update_job(
         )
     except ValueError as exc:
         detail = str(exc)
-        status_code = 404 if detail == "Job request not found" else 400
+        if detail == "Job request not found":
+            status_code = 404
+        elif detail == "Аккаунт заблокирован":
+            status_code = 403
+        else:
+            status_code = 400
         raise HTTPException(status_code=status_code, detail=detail) from exc
     await session.commit()
     return job

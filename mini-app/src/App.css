@@ -405,6 +405,11 @@
   color: #0c5460;
 }
 
+.status-banned {
+  background: #f8d7da;
+  color: #721c24;
+}
+
 .job-shifts {
   margin: 0.35rem 0 0;
   padding-left: 1.1rem;

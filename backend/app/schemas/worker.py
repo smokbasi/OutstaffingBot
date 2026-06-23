@@ -30,6 +30,7 @@ class WorkerProfileRead(BaseModel):
     phone: str | None = None
     resume_completed: bool
     verification_status: VerificationStatus
+    is_banned: bool = False
     experiences: list[WorkerExperienceRead] = Field(default_factory=list)
 
     model_config = {"from_attributes": True}

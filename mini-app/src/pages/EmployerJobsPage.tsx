@@ -132,7 +132,12 @@ export function EmployerJobsPage({
       <div className="profile-header">
         <h2>Мои заявки</h2>
         {onCreateClick ? (
-          <button type="button" className="btn" onClick={onCreateClick}>
+          <button
+            type="button"
+            className="btn"
+            disabled={profile?.is_banned === true}
+            onClick={onCreateClick}
+          >
             + Создать
           </button>
         ) : null}
@@ -140,6 +145,9 @@ export function EmployerJobsPage({
 
       {actionError ? <p className="error">{actionError}</p> : null}
 
+      {profile && profile.is_banned ? (
+        <p className="error verification-banner">🚫 Аккаунт заблокирован</p>
+      ) : null}
       {profile && profile.verification_status === "pending" ? (
         <p className="hint verification-banner">
           ⏳ Компания ожидает верификации администратором. Публикация заявок будет доступна после
@@ -190,7 +198,11 @@ export function EmployerJobsPage({
                   <button
                     type="button"
                     className="btn"
-                    disabled={busyJobId === job.id || profile?.verification_status !== "verified"}
+                    disabled={
+                      busyJobId === job.id
+                      || profile?.verification_status !== "verified"
+                      || profile?.is_banned === true
+                    }
                     onClick={() => void handleStatusChange(job.id, "active")}
                   >
                     Опубликовать

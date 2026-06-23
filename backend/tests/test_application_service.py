@@ -92,6 +92,7 @@ async def test_apply_to_shift_reactivates_cancelled_application(monkeypatch: pyt
     class Worker:
         id = worker_id
         verification_status = VerificationStatus.verified
+        is_banned = False
 
     class Category:
         name_ru = "Официант"
@@ -177,6 +178,7 @@ async def test_apply_to_shift_blocked_for_unverified_worker(monkeypatch: pytest.
     class Worker:
         id = uuid4()
         verification_status = VerificationStatus.pending
+        is_banned = False
 
     slot_id = uuid4()
 
@@ -192,3 +194,29 @@ async def test_apply_to_shift_blocked_for_unverified_worker(monkeypatch: pytest.
         await application_service.apply_to_shift(DummySession(), Worker(), slot_id)
 
     assert "не верифицирован" in str(exc_info.value).lower()
+
+
+@pytest.mark.asyncio
+async def test_apply_to_shift_blocked_for_banned_worker(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.db.models import VerificationStatus
+    from app.services import application_service
+
+    class Worker:
+        id = uuid4()
+        verification_status = VerificationStatus.verified
+        is_banned = True
+
+    slot_id = uuid4()
+
+    async def mock_get_shift_slot(session, shift_slot_id):
+        return object()
+
+    class DummySession:
+        pass
+
+    monkeypatch.setattr(application_service, "_get_shift_slot", mock_get_shift_slot)
+
+    with pytest.raises(application_service.WorkerBannedError) as exc_info:
+        await application_service.apply_to_shift(DummySession(), Worker(), slot_id)
+
+    assert "заблокирован" in str(exc_info.value).lower()

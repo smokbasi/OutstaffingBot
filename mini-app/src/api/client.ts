@@ -23,6 +23,7 @@ export type WorkerProfile = {
   phone: string | null;
   resume_completed: boolean;
   verification_status: "pending" | "verified" | "rejected";
+  is_banned?: boolean;
   experiences: WorkerExperience[];
 };
 
@@ -43,6 +44,7 @@ export type EmployerProfile = {
   contact_person: string | null;
   verification_status: "pending" | "verified" | "rejected";
   verified: boolean;
+  is_banned?: boolean;
 };
 
 export type EmployerProfileUpdate = {
@@ -580,6 +582,7 @@ export type PendingEmployer = {
   company_name: string;
   contact_phone: string | null;
   contact_person: string | null;
+  is_banned: boolean;
   telegram_id: number;
   username: string | null;
   created_at: string;
@@ -592,6 +595,7 @@ export type PendingWorker = {
   age: number;
   metro_station_name: string | null;
   categories: string[];
+  is_banned: boolean;
   telegram_id: number;
   username: string | null;
   created_at: string;
@@ -603,6 +607,7 @@ export type AdminWorker = {
   last_name: string;
   phone: string | null;
   verification_status: VerificationStatus;
+  is_banned: boolean;
   telegram_id: number;
   username: string | null;
   created_at: string;
@@ -612,6 +617,7 @@ export type AdminEmployer = {
   id: string;
   company_name: string;
   verification_status: VerificationStatus;
+  is_banned: boolean;
   contact_person: string | null;
   contact_phone: string | null;
   telegram_id: number;
@@ -649,6 +655,10 @@ export const ADMIN_AUDIT_ACTION_LABELS: Record<string, string> = {
   "employer.reject": "Работодатель отклонён",
   "worker.verify": "Работник верифицирован",
   "worker.reject": "Работник отклонён",
+  "worker.ban": "Работник заблокирован",
+  "worker.unban": "Работник разблокирован",
+  "employer.ban": "Работодатель заблокирован",
+  "employer.unban": "Работодатель разблокирован",
 };
 
 export const ADMIN_ENTITY_TYPE_LABELS: Record<string, string> = {
@@ -717,6 +727,30 @@ export function verifyWorker(initData: string, workerId: string): Promise<{ stat
 
 export function rejectWorker(initData: string, workerId: string): Promise<{ status: string }> {
   return apiFetch<{ status: string }>(`/admin/workers/${workerId}/reject`, initData, {
+    method: "POST",
+  });
+}
+
+export function banWorker(initData: string, workerId: string): Promise<{ status: string }> {
+  return apiFetch<{ status: string }>(`/admin/workers/${workerId}/ban`, initData, {
+    method: "POST",
+  });
+}
+
+export function unbanWorker(initData: string, workerId: string): Promise<{ status: string }> {
+  return apiFetch<{ status: string }>(`/admin/workers/${workerId}/unban`, initData, {
+    method: "POST",
+  });
+}
+
+export function banEmployer(initData: string, employerId: string): Promise<{ status: string }> {
+  return apiFetch<{ status: string }>(`/admin/employers/${employerId}/ban`, initData, {
+    method: "POST",
+  });
+}
+
+export function unbanEmployer(initData: string, employerId: string): Promise<{ status: string }> {
+  return apiFetch<{ status: string }>(`/admin/employers/${employerId}/unban`, initData, {
     method: "POST",
   });
 }

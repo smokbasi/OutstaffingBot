@@ -11,6 +11,7 @@ class EmployerProfileRead(BaseModel):
     contact_phone: str | None = None
     contact_person: str | None = None
     verification_status: VerificationStatus
+    is_banned: bool = False
 
     model_config = {"from_attributes": True}
 

@@ -406,6 +406,9 @@ export function ProfilePage({ initData }: ProfilePageProps) {
         </button>
       </div>
 
+      {profile.is_banned ? (
+        <p className="error verification-banner">🚫 Аккаунт заблокирован</p>
+      ) : null}
       {profile.resume_completed && profile.verification_status === "pending" ? (
         <p className="hint verification-banner">
           ⏳ Профиль на проверке. Отклики на вакансии будут доступны после подтверждения

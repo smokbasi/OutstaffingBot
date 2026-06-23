@@ -18,6 +18,7 @@ def _employer_to_profile(employer: Employer) -> EmployerProfileRead:
         contact_phone=employer.contact_phone,
         contact_person=employer.contact_person,
         verification_status=employer.verification_status,
+        is_banned=employer.is_banned,
     )
 
 

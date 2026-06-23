@@ -93,6 +93,7 @@ async def list_workers(session: AsyncSession, limit: int = 50) -> list[AdminWork
             last_name=worker.last_name,
             phone=worker.phone,
             verification_status=worker.verification_status,
+            is_banned=worker.is_banned,
             telegram_id=user.telegram_id,
             username=user.username,
             created_at=worker.created_at,
@@ -114,6 +115,7 @@ async def list_employers(session: AsyncSession, limit: int = 50) -> list[AdminEm
             id=employer.id,
             company_name=employer.company_name,
             verification_status=employer.verification_status,
+            is_banned=employer.is_banned,
             contact_person=employer.contact_person,
             contact_phone=employer.contact_phone,
             telegram_id=user.telegram_id,
@@ -158,6 +160,7 @@ async def list_pending_employers(session: AsyncSession) -> list[PendingEmployerR
             company_name=employer.company_name,
             contact_phone=employer.contact_phone,
             contact_person=employer.contact_person,
+            is_banned=employer.is_banned,
             telegram_id=user.telegram_id,
             username=user.username,
             created_at=employer.created_at,
@@ -219,6 +222,7 @@ async def list_pending_workers(session: AsyncSession) -> list[PendingWorkerRead]
                 for exp in worker.experiences
                 if exp.category is not None
             ],
+            is_banned=worker.is_banned,
             telegram_id=user.telegram_id,
             username=user.username,
             created_at=worker.created_at,
@@ -251,3 +255,53 @@ async def verify_worker(
         metadata={"verification_status": new_status.value},
     )
     return worker
+
+
+async def ban_worker(
+    session: AsyncSession,
+    worker_id: UUID,
+    *,
+    actor_id: UUID | None,
+    ban: bool,
+) -> Worker | None:
+    worker = await session.scalar(select(Worker).where(Worker.id == worker_id))
+    if worker is None:
+        return None
+
+    worker.is_banned = ban
+    await session.flush()
+
+    await audit_service.log_audit(
+        session,
+        actor_id=actor_id,
+        action="worker.ban" if ban else "worker.unban",
+        entity_type="worker",
+        entity_id=worker.id,
+        metadata={"is_banned": ban},
+    )
+    return worker
+
+
+async def ban_employer(
+    session: AsyncSession,
+    employer_id: UUID,
+    *,
+    actor_id: UUID | None,
+    ban: bool,
+) -> Employer | None:
+    employer = await session.scalar(select(Employer).where(Employer.id == employer_id))
+    if employer is None:
+        return None
+
+    employer.is_banned = ban
+    await session.flush()
+
+    await audit_service.log_audit(
+        session,
+        actor_id=actor_id,
+        action="employer.ban" if ban else "employer.unban",
+        entity_type="employer",
+        entity_id=employer.id,
+        metadata={"is_banned": ban},
+    )
+    return employer

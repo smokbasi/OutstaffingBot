@@ -561,6 +561,15 @@ async def apply_to_shift(callback: CallbackQuery, session: AsyncSession, state: 
     except application_service.ApplicationNotFoundError:
         await callback.answer("Смена не найдена", show_alert=True)
         return
+    except application_service.WorkerBannedError:
+        await callback.answer("Аккаунт заблокирован", show_alert=True)
+        return
+    except application_service.WorkerNotVerifiedError:
+        await callback.answer(
+            "Профиль не верифицирован — дождитесь подтверждения администратором",
+            show_alert=True,
+        )
+        return
 
     await callback.message.edit_text(
         f"✅ <b>Отклик отправлен!</b>\n\n"
@@ -606,6 +615,15 @@ async def apply_with_cancel_previous(callback: CallbackQuery, session: AsyncSess
         return
     except (application_service.SlotUnavailableError, application_service.AlreadyAppliedError) as exc:
         await callback.answer(str(exc), show_alert=True)
+        return
+    except application_service.WorkerBannedError:
+        await callback.answer("Аккаунт заблокирован", show_alert=True)
+        return
+    except application_service.WorkerNotVerifiedError:
+        await callback.answer(
+            "Профиль не верифицирован — дождитесь подтверждения администратором",
+            show_alert=True,
+        )
         return
 
     await state.set_state(VacancySearch.detail)

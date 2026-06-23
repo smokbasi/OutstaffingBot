@@ -139,6 +139,66 @@ async def reject_worker(
     return {"status": "rejected", "worker_id": str(worker.id)}
 
 
+@router.post("/workers/{worker_id}/ban")
+async def ban_worker(
+    worker_id: UUID,
+    admin: User = Depends(get_current_admin),
+    session: AsyncSession = Depends(get_db_session),
+) -> dict[str, str]:
+    worker = await admin_service.ban_worker(
+        session, worker_id, actor_id=admin.id, ban=True
+    )
+    if worker is None:
+        raise HTTPException(status_code=404, detail="Worker not found")
+    await session.commit()
+    return {"status": "banned", "worker_id": str(worker.id)}
+
+
+@router.post("/workers/{worker_id}/unban")
+async def unban_worker(
+    worker_id: UUID,
+    admin: User = Depends(get_current_admin),
+    session: AsyncSession = Depends(get_db_session),
+) -> dict[str, str]:
+    worker = await admin_service.ban_worker(
+        session, worker_id, actor_id=admin.id, ban=False
+    )
+    if worker is None:
+        raise HTTPException(status_code=404, detail="Worker not found")
+    await session.commit()
+    return {"status": "unbanned", "worker_id": str(worker.id)}
+
+
+@router.post("/employers/{employer_id}/ban")
+async def ban_employer(
+    employer_id: UUID,
+    admin: User = Depends(get_current_admin),
+    session: AsyncSession = Depends(get_db_session),
+) -> dict[str, str]:
+    employer = await admin_service.ban_employer(
+        session, employer_id, actor_id=admin.id, ban=True
+    )
+    if employer is None:
+        raise HTTPException(status_code=404, detail="Employer not found")
+    await session.commit()
+    return {"status": "banned", "employer_id": str(employer.id)}
+
+
+@router.post("/employers/{employer_id}/unban")
+async def unban_employer(
+    employer_id: UUID,
+    admin: User = Depends(get_current_admin),
+    session: AsyncSession = Depends(get_db_session),
+) -> dict[str, str]:
+    employer = await admin_service.ban_employer(
+        session, employer_id, actor_id=admin.id, ban=False
+    )
+    if employer is None:
+        raise HTTPException(status_code=404, detail="Employer not found")
+    await session.commit()
+    return {"status": "unbanned", "employer_id": str(employer.id)}
+
+
 @router.get("/audit")
 async def list_audit_logs(
     limit: int = 20,

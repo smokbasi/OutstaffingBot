@@ -54,6 +54,10 @@ class WorkerNotVerifiedError(ApplicationError):
     pass
 
 
+class WorkerBannedError(ApplicationError):
+    pass
+
+
 class ApplicationNotCancellableError(ApplicationError):
     pass
 
@@ -178,6 +182,9 @@ async def apply_to_shift(
     slot = await _get_shift_slot(session, shift_slot_id)
     if slot is None:
         raise ApplicationNotFoundError("Shift slot not found")
+
+    if getattr(worker, "is_banned", False):
+        raise WorkerBannedError("Аккаунт заблокирован")
 
     if worker.verification_status != VerificationStatus.verified:
         raise WorkerNotVerifiedError(

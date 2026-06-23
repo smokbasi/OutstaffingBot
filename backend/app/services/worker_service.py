@@ -55,6 +55,7 @@ def _worker_to_profile(worker: Worker) -> WorkerProfileRead:
         phone=worker.phone,
         resume_completed=worker.resume_completed,
         verification_status=worker.verification_status,
+        is_banned=worker.is_banned,
         experiences=experiences,
     )
 

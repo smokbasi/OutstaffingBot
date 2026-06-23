@@ -27,6 +27,7 @@ class PendingEmployerRead(BaseModel):
     company_name: str
     contact_phone: str | None = None
     contact_person: str | None = None
+    is_banned: bool = False
     telegram_id: int
     username: str | None = None
     created_at: datetime
@@ -41,6 +42,7 @@ class PendingWorkerRead(BaseModel):
     age: int
     metro_station_name: str | None = None
     categories: list[str] = Field(default_factory=list)
+    is_banned: bool = False
     telegram_id: int
     username: str | None = None
     created_at: datetime
@@ -54,6 +56,7 @@ class AdminWorkerRead(BaseModel):
     last_name: str
     phone: str | None = None
     verification_status: VerificationStatus
+    is_banned: bool = False
     telegram_id: int
     username: str | None = None
     created_at: datetime
@@ -65,6 +68,7 @@ class AdminEmployerRead(BaseModel):
     id: UUID
     company_name: str
     verification_status: VerificationStatus
+    is_banned: bool = False
     contact_person: str | None = None
     contact_phone: str | None = None
     telegram_id: int

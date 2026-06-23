@@ -91,6 +91,12 @@ async def create_job_request(
     *,
     actor_id: UUID | None = None,
 ) -> JobRequestRead:
+    employer = await session.scalar(select(Employer).where(Employer.id == employer_id))
+    if employer is None:
+        raise ValueError("Employer not found")
+    if employer.is_banned:
+        raise ValueError("Аккаунт заблокирован")
+
     metro = await _validate_references(session, data)
 
     job = JobRequest(
@@ -193,7 +199,11 @@ async def update_job_request(
     if data.status is not None:
         if data.status == JobRequestStatus.active:
             employer = await session.scalar(select(Employer).where(Employer.id == employer_id))
-            if employer is None or employer.verification_status != VerificationStatus.verified:
+            if employer is None:
+                raise ValueError("Employer not found")
+            if employer.is_banned:
+                raise ValueError("Аккаунт заблокирован")
+            if employer.verification_status != VerificationStatus.verified:
                 raise ValueError("Employer not verified — contact admin for verification")
         _validate_status_transition(job.status, data.status)
         job.status = data.status

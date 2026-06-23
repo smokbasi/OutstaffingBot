@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import {
+  banEmployer,
+  banWorker,
   formatAdminAuditAction,
   formatAdminEntityType,
   formatAdminStatusKey,
@@ -15,6 +17,8 @@ import {
   listPendingWorkers,
   rejectEmployer,
   rejectWorker,
+  unbanEmployer,
+  unbanWorker,
   verifyEmployer,
   verifyWorker,
   type AdminAnalytics,
@@ -80,6 +84,10 @@ function formatDateTime(iso: string): string {
   });
 }
 
+function BannedBadge() {
+  return <span className="status-badge status-banned">Заблокирован</span>;
+}
+
 function AdminBackButton({ onClick }: { onClick: () => void }) {
   return (
     <button type="button" className="admin-back-btn" onClick={onClick}>
@@ -92,32 +100,43 @@ function WorkersListView({ initData, onBack }: { initData: string; onBack: () =>
   const [items, setItems] = useState<AdminWorker[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await listAdminWorkers(initData);
+      setItems(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Не удалось загрузить список");
+    } finally {
+      setLoading(false);
+    }
+  }, [initData]);
 
   useEffect(() => {
-    let cancelled = false;
-    async function load() {
-      setLoading(true);
-      setError(null);
-      try {
-        const data = await listAdminWorkers(initData);
-        if (!cancelled) {
-          setItems(data);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Не удалось загрузить список");
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      }
-    }
     void load();
-    return () => {
-      cancelled = true;
-    };
-  }, [initData]);
+  }, [load]);
+
+  async function handleBanToggle(worker: AdminWorker) {
+    setBusyId(worker.id);
+    setError(null);
+    try {
+      if (worker.is_banned) {
+        await unbanWorker(initData, worker.id);
+      } else {
+        await banWorker(initData, worker.id);
+      }
+      triggerNotificationHaptic("success");
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Не удалось изменить статус блокировки");
+      triggerNotificationHaptic("error");
+    } finally {
+      setBusyId(null);
+    }
+  }
 
   return (
     <div>
@@ -138,7 +157,10 @@ function WorkersListView({ initData, onBack }: { initData: string; onBack: () =>
           {items.map((worker) => (
             <li key={worker.id} className="admin-list-item">
               <div className="admin-list-main">
-                <strong>{worker.first_name} {worker.last_name}</strong>
+                <strong>
+                  {worker.first_name} {worker.last_name}
+                </strong>
+                {worker.is_banned ? <BannedBadge /> : null}
                 {worker.phone ? <span className="hint">{worker.phone}</span> : null}
                 <span className="admin-list-status">
                   {formatVerificationStatus(worker.verification_status)}
@@ -148,6 +170,19 @@ function WorkersListView({ initData, onBack }: { initData: string; onBack: () =>
                   {" · "}
                   {formatDateTime(worker.created_at)}
                 </span>
+              </div>
+              <div className="admin-list-actions">
+                <button
+                  type="button"
+                  className={`btn btn-sm${worker.is_banned ? "" : " btn-danger"}`}
+                  disabled={busyId === worker.id}
+                  onClick={() => {
+                    triggerHaptic("light");
+                    void handleBanToggle(worker);
+                  }}
+                >
+                  {worker.is_banned ? "Разблокировать" : "Заблокировать"}
+                </button>
               </div>
             </li>
           ))}
@@ -161,32 +196,43 @@ function EmployersListView({ initData, onBack }: { initData: string; onBack: () 
   const [items, setItems] = useState<AdminEmployer[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await listAdminEmployers(initData);
+      setItems(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Не удалось загрузить список");
+    } finally {
+      setLoading(false);
+    }
+  }, [initData]);
 
   useEffect(() => {
-    let cancelled = false;
-    async function load() {
-      setLoading(true);
-      setError(null);
-      try {
-        const data = await listAdminEmployers(initData);
-        if (!cancelled) {
-          setItems(data);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Не удалось загрузить список");
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      }
-    }
     void load();
-    return () => {
-      cancelled = true;
-    };
-  }, [initData]);
+  }, [load]);
+
+  async function handleBanToggle(employer: AdminEmployer) {
+    setBusyId(employer.id);
+    setError(null);
+    try {
+      if (employer.is_banned) {
+        await unbanEmployer(initData, employer.id);
+      } else {
+        await banEmployer(initData, employer.id);
+      }
+      triggerNotificationHaptic("success");
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Не удалось изменить статус блокировки");
+      triggerNotificationHaptic("error");
+    } finally {
+      setBusyId(null);
+    }
+  }
 
   return (
     <div>
@@ -208,6 +254,7 @@ function EmployersListView({ initData, onBack }: { initData: string; onBack: () 
             <li key={employer.id} className="admin-list-item">
               <div className="admin-list-main">
                 <strong>{employer.company_name}</strong>
+                {employer.is_banned ? <BannedBadge /> : null}
                 {employer.contact_person ? (
                   <span className="hint">{employer.contact_person}</span>
                 ) : null}
@@ -222,6 +269,19 @@ function EmployersListView({ initData, onBack }: { initData: string; onBack: () 
                   {" · "}
                   {formatDateTime(employer.created_at)}
                 </span>
+              </div>
+              <div className="admin-list-actions">
+                <button
+                  type="button"
+                  className={`btn btn-sm${employer.is_banned ? "" : " btn-danger"}`}
+                  disabled={busyId === employer.id}
+                  onClick={() => {
+                    triggerHaptic("light");
+                    void handleBanToggle(employer);
+                  }}
+                >
+                  {employer.is_banned ? "Разблокировать" : "Заблокировать"}
+                </button>
               </div>
             </li>
           ))}
@@ -454,11 +514,13 @@ function EmployerVerificationsList({
   busyId,
   onVerify,
   onReject,
+  onBanToggle,
 }: {
   employers: PendingEmployer[];
   busyId: string | null;
   onVerify: (id: string) => void;
   onReject: (id: string) => void;
+  onBanToggle: (employer: PendingEmployer) => void;
 }) {
   if (employers.length === 0) {
     return <p className="hint">Нет компаний, ожидающих верификации.</p>;
@@ -470,6 +532,7 @@ function EmployerVerificationsList({
         <li key={employer.id} className="admin-list-item">
           <div className="admin-list-main">
             <strong>{employer.company_name}</strong>
+            {employer.is_banned ? <BannedBadge /> : null}
             {employer.contact_person ? (
               <span className="hint">{employer.contact_person}</span>
             ) : null}
@@ -505,6 +568,17 @@ function EmployerVerificationsList({
             >
               Отклонить
             </button>
+            <button
+              type="button"
+              className={`btn btn-sm${employer.is_banned ? "" : " btn-danger"}`}
+              disabled={busyId === employer.id}
+              onClick={() => {
+                triggerHaptic("light");
+                onBanToggle(employer);
+              }}
+            >
+              {employer.is_banned ? "Разблокировать" : "Заблокировать"}
+            </button>
           </div>
         </li>
       ))}
@@ -517,11 +591,13 @@ function WorkerVerificationsList({
   busyId,
   onVerify,
   onReject,
+  onBanToggle,
 }: {
   workers: PendingWorker[];
   busyId: string | null;
   onVerify: (id: string) => void;
   onReject: (id: string) => void;
+  onBanToggle: (worker: PendingWorker) => void;
 }) {
   if (workers.length === 0) {
     return <p className="hint">Нет работников, ожидающих верификации.</p>;
@@ -535,6 +611,7 @@ function WorkerVerificationsList({
             <strong>
               {worker.first_name} {worker.last_name}
             </strong>
+            {worker.is_banned ? <BannedBadge /> : null}
             <span className="hint">
               {worker.age} лет
               {worker.metro_station_name ? ` · ${worker.metro_station_name}` : ""}
@@ -570,6 +647,17 @@ function WorkerVerificationsList({
               }}
             >
               Отклонить
+            </button>
+            <button
+              type="button"
+              className={`btn btn-sm${worker.is_banned ? "" : " btn-danger"}`}
+              disabled={busyId === worker.id}
+              onClick={() => {
+                triggerHaptic("light");
+                onBanToggle(worker);
+              }}
+            >
+              {worker.is_banned ? "Разблокировать" : "Заблокировать"}
             </button>
           </div>
         </li>
@@ -667,6 +755,44 @@ function VerificationsTab({ initData }: { initData: string }) {
     }
   }
 
+  async function handleBanEmployer(employer: PendingEmployer) {
+    setBusyId(employer.id);
+    setError(null);
+    try {
+      if (employer.is_banned) {
+        await unbanEmployer(initData, employer.id);
+      } else {
+        await banEmployer(initData, employer.id);
+      }
+      triggerNotificationHaptic("success");
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Не удалось изменить статус блокировки");
+      triggerNotificationHaptic("error");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function handleBanWorker(worker: PendingWorker) {
+    setBusyId(worker.id);
+    setError(null);
+    try {
+      if (worker.is_banned) {
+        await unbanWorker(initData, worker.id);
+      } else {
+        await banWorker(initData, worker.id);
+      }
+      triggerNotificationHaptic("success");
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Не удалось изменить статус блокировки");
+      triggerNotificationHaptic("error");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   if (loading) {
     return <p className="status">Загрузка верификаций…</p>;
   }
@@ -704,6 +830,7 @@ function VerificationsTab({ initData }: { initData: string }) {
           busyId={busyId}
           onVerify={(id) => void handleVerifyEmployer(id)}
           onReject={(id) => void handleRejectEmployer(id)}
+          onBanToggle={(employer) => void handleBanEmployer(employer)}
         />
       ) : (
         <WorkerVerificationsList
@@ -711,6 +838,7 @@ function VerificationsTab({ initData }: { initData: string }) {
           busyId={busyId}
           onVerify={(id) => void handleVerifyWorker(id)}
           onReject={(id) => void handleRejectWorker(id)}
+          onBanToggle={(worker) => void handleBanWorker(worker)}
         />
       )}
     </div>

@@ -192,6 +192,75 @@ async def test_admin_reject_worker_endpoint(monkeypatch, admin_client: AsyncClie
 
 
 @pytest.mark.asyncio
+async def test_admin_ban_worker_endpoint(monkeypatch, admin_client: AsyncClient):
+    worker_id = uuid4()
+
+    class FakeWorker:
+        id = worker_id
+
+    async def fake_ban(session, wid, *, actor_id, ban):
+        assert wid == worker_id
+        assert ban is True
+        return FakeWorker()
+
+    monkeypatch.setattr(admin_service, "ban_worker", fake_ban)
+
+    response = await admin_client.post(f"/api/v1/admin/workers/{worker_id}/ban")
+    assert response.status_code == 200
+    assert response.json()["status"] == "banned"
+
+
+@pytest.mark.asyncio
+async def test_admin_unban_worker_endpoint(monkeypatch, admin_client: AsyncClient):
+    worker_id = uuid4()
+
+    class FakeWorker:
+        id = worker_id
+
+    async def fake_ban(session, wid, *, actor_id, ban):
+        assert ban is False
+        return FakeWorker()
+
+    monkeypatch.setattr(admin_service, "ban_worker", fake_ban)
+
+    response = await admin_client.post(f"/api/v1/admin/workers/{worker_id}/unban")
+    assert response.status_code == 200
+    assert response.json()["status"] == "unbanned"
+
+
+@pytest.mark.asyncio
+async def test_admin_ban_employer_endpoint(monkeypatch, admin_client: AsyncClient):
+    employer_id = uuid4()
+
+    class FakeEmployer:
+        id = employer_id
+
+    async def fake_ban(session, eid, *, actor_id, ban):
+        assert eid == employer_id
+        assert ban is True
+        return FakeEmployer()
+
+    monkeypatch.setattr(admin_service, "ban_employer", fake_ban)
+
+    response = await admin_client.post(f"/api/v1/admin/employers/{employer_id}/ban")
+    assert response.status_code == 200
+    assert response.json()["status"] == "banned"
+
+
+@pytest.mark.asyncio
+async def test_admin_ban_worker_not_found(monkeypatch, admin_client: AsyncClient):
+    worker_id = uuid4()
+
+    async def fake_ban(session, wid, *, actor_id, ban):
+        return None
+
+    monkeypatch.setattr(admin_service, "ban_worker", fake_ban)
+
+    response = await admin_client.post(f"/api/v1/admin/workers/{worker_id}/ban")
+    assert response.status_code == 404
+
+
+@pytest.mark.asyncio
 async def test_admin_list_workers(monkeypatch, admin_client: AsyncClient):
     from datetime import datetime, timezone
 
@@ -209,6 +278,7 @@ async def test_admin_list_workers(monkeypatch, admin_client: AsyncClient):
                 last_name="Петров",
                 phone="+79991234567",
                 verification_status=VerificationStatus.verified,
+                is_banned=False,
                 telegram_id=54321,
                 username="petr",
                 created_at=datetime(2026, 6, 22, tzinfo=timezone.utc),
@@ -240,6 +310,7 @@ async def test_admin_list_employers(monkeypatch, admin_client: AsyncClient):
                 id=employer_id,
                 company_name="Кафе Уют",
                 verification_status=VerificationStatus.pending,
+                is_banned=False,
                 contact_person="Анна",
                 contact_phone="+79990001122",
                 telegram_id=11111,
@@ -287,7 +358,7 @@ async def test_admin_list_jobs(monkeypatch, admin_client: AsyncClient):
     assert data[0]["status"] == "active"
 
 
-def test_worker_verification_migration_chain():
+def test_user_ban_migration_chain():
     from alembic.config import Config
     from alembic.script import ScriptDirectory
 
@@ -295,7 +366,7 @@ def test_worker_verification_migration_chain():
     cfg.set_main_option("script_location", "alembic")
     script = ScriptDirectory.from_config(cfg)
     heads = script.get_heads()
-    assert "004_worker_verification" in heads
+    assert "006_user_ban" in heads
 
-    rev = script.get_revision("004_worker_verification")
-    assert rev.down_revision == "003_phase_9_10"
+    rev = script.get_revision("006_user_ban")
+    assert rev.down_revision == "005_worker_phone"
