@@ -29,7 +29,7 @@ const NotificationsSettingsPage = lazy(() =>
 );
 
 function PageFallback() {
-  return <p className="status">Р—Р°РіСЂСѓР·РєР°вЂ¦</p>;
+  return <p className="status">Загрузка…</p>;
 }
 
 
@@ -65,7 +65,7 @@ type MeState =
 function readTelegramContext(): TelegramContext {
   const webApp = typeof window !== "undefined" ? window.Telegram?.WebApp : undefined;
   if (!webApp) {
-    return { inTelegram: false, initData: "", userLabel: "РіРѕСЃС‚СЊ" };
+    return { inTelegram: false, initData: "", userLabel: "гость" };
   }
   webApp.ready();
   webApp.expand();
@@ -73,7 +73,7 @@ function readTelegramContext(): TelegramContext {
   const user = webApp.initDataUnsafe?.user;
   const userLabel = user?.username
     ? `@${user.username}`
-    : user?.first_name ?? "РіРѕСЃС‚СЊ";
+    : user?.first_name ?? "гость";
   return {
     inTelegram: true,
     initData: webApp.initData ?? "",
@@ -149,18 +149,18 @@ function RolePicker({
 }) {
   return (
     <section className="card role-picker">
-      <h2>РљС‚Рѕ РІС‹?</h2>
-      <p className="hint">Р’С‹Р±РµСЂРёС‚Рµ СЂРµР¶РёРј вЂ” РїСЂРѕС„РёР»СЊ СЂР°Р±РѕС‚РЅРёРєР° Рё Р·Р°СЏРІРєРё СЂР°Р±РѕС‚РѕРґР°С‚РµР»СЏ РїРѕРєР°Р·С‹РІР°СЋС‚СЃСЏ РѕС‚РґРµР»СЊРЅРѕ.</p>
+      <h2>Кто вы?</h2>
+      <p className="hint">Выберите режим — профиль работника и заявки работодателя показываются отдельно.</p>
       <div className="role-cards">
         <button type="button" className="role-card" onClick={() => onSelect("worker")}>
-          <span className="role-card-icon">рџ‘·</span>
-          <span className="role-card-title">РЇ РёС‰Сѓ СЂР°Р±РѕС‚Сѓ</span>
-          <span className="role-card-desc">РџСЂРѕС„РёР»СЊ, РѕРїС‹С‚ Рё РЅР°СЃС‚СЂРѕР№РєРё РґР»СЏ РїРѕРёСЃРєР° СЃРјРµРЅ</span>
+          <span className="role-card-icon">👷</span>
+          <span className="role-card-title">Я ищу работу</span>
+          <span className="role-card-desc">Профиль, опыт и настройки для поиска смен</span>
         </button>
         <button type="button" className="role-card" onClick={() => onSelect("employer")}>
-          <span className="role-card-icon">рџЏў</span>
-          <span className="role-card-title">РЇ СЂР°Р±РѕС‚РѕРґР°С‚РµР»СЊ</span>
-          <span className="role-card-desc">Р—Р°СЏРІРєРё РЅР° РїРµСЂСЃРѕРЅР°Р» Рё СЃРѕР·РґР°РЅРёРµ РЅРѕРІС‹С… СЃРјРµРЅ</span>
+          <span className="role-card-icon">🏢</span>
+          <span className="role-card-title">Я работодатель</span>
+          <span className="role-card-desc">Заявки на персонал и создание новых смен</span>
         </button>
       </div>
     </section>
@@ -182,7 +182,7 @@ function EmployerSetupPrompt({
     event.preventDefault();
     const trimmed = companyName.trim();
     if (!trimmed) {
-      setError("РЈРєР°Р¶РёС‚Рµ РЅР°Р·РІР°РЅРёРµ РєРѕРјРїР°РЅРёРё");
+      setError("Укажите название компании");
       return;
     }
     setBusy(true);
@@ -191,7 +191,7 @@ function EmployerSetupPrompt({
       await upsertEmployerProfile(initData, { company_name: trimmed });
       onRegistered();
     } catch (err) {
-      const message = err instanceof Error ? err.message : "РќРµ СѓРґР°Р»РѕСЃСЊ СЃРѕС…СЂР°РЅРёС‚СЊ РїСЂРѕС„РёР»СЊ";
+      const message = err instanceof Error ? err.message : "Не удалось сохранить профиль";
       setError(message);
     } finally {
       setBusy(false);
@@ -200,25 +200,25 @@ function EmployerSetupPrompt({
 
   return (
     <section className="card">
-      <h2>РџСЂРѕС„РёР»СЊ СЂР°Р±РѕС‚РѕРґР°С‚РµР»СЏ</h2>
+      <h2>Профиль работодателя</h2>
       <p className="hint">
-        Р—Р°СЂРµРіРёСЃС‚СЂРёСЂСѓР№С‚РµСЃСЊ РєР°Рє СЂР°Р±РѕС‚РѕРґР°С‚РµР»СЊ РІ Р±РѕС‚Рµ (рџЏў) РёР»Рё СѓРєР°Р¶РёС‚Рµ РЅР°Р·РІР°РЅРёРµ РєРѕРјРїР°РЅРёРё РЅРёР¶Рµ.
+        Зарегистрируйтесь как работодатель в боте (🏢) или укажите название компании ниже.
       </p>
       <form className="profile-form" onSubmit={handleSubmit}>
         <label className="form-field">
-          <span>РќР°Р·РІР°РЅРёРµ РєРѕРјРїР°РЅРёРё</span>
+          <span>Название компании</span>
           <input
             type="text"
             value={companyName}
             onChange={(event) => setCompanyName(event.target.value)}
-            placeholder="РћРћРћ В«РџСЂРёРјРµСЂВ»"
+            placeholder="ООО «Пример»"
             disabled={busy}
           />
         </label>
         {error ? <p className="error">{error}</p> : null}
         <div className="form-actions">
           <button type="submit" className="btn" disabled={busy}>
-            {busy ? "РЎРѕС…СЂР°РЅРµРЅРёРµвЂ¦" : "РЎРѕС…СЂР°РЅРёС‚СЊ"}
+            {busy ? "Сохранение…" : "Сохранить"}
           </button>
         </div>
       </form>
@@ -257,7 +257,7 @@ function App() {
         if (cancelled) {
           return;
         }
-        const message = err instanceof Error ? err.message : "РќРµ СѓРґР°Р»РѕСЃСЊ Р·Р°РіСЂСѓР·РёС‚СЊ РїСЂРѕС„РёР»СЊ";
+        const message = err instanceof Error ? err.message : "Не удалось загрузить профиль";
         setMeState({ status: "error", message });
       });
 
@@ -305,8 +305,8 @@ function App() {
         <section className="card">
           <p>
             {telegram.inTelegram
-              ? "РќРµС‚ initData вЂ” РѕС‚РєСЂРѕР№С‚Рµ РїСЂРёР»РѕР¶РµРЅРёРµ С‡РµСЂРµР· СЃРёРЅСЋСЋ РєРЅРѕРїРєСѓ Р±РѕС‚Р°."
-              : "РћС‚РєСЂРѕР№С‚Рµ С‡РµСЂРµР· Р±РѕС‚Р° (WebApp) РґР»СЏ РїСЂРѕСЃРјРѕС‚СЂР° РїСЂРѕС„РёР»СЏ."}
+              ? "Нет initData — откройте приложение через синюю кнопку бота."
+              : "Откройте через бота (WebApp) для просмотра профиля."}
           </p>
         </section>
       );
@@ -346,7 +346,7 @@ function App() {
     }
 
     if (meState.status === "idle" || meState.status === "loading") {
-      return <p className="status">Р—Р°РіСЂСѓР·РєР° РїСЂРѕС„РёР»СЏвЂ¦</p>;
+      return <p className="status">Загрузка профиля…</p>;
     }
 
     if (meState.status === "error") {
@@ -415,7 +415,7 @@ function App() {
         </div>
         {showSwitchRole ? (
           <button type="button" className="link-btn switch-role-btn" onClick={handleSwitchRole}>
-            РЎРјРµРЅРёС‚СЊ СЂРѕР»СЊ
+            Сменить роль
           </button>
         ) : null}
       </div>
@@ -431,28 +431,28 @@ function App() {
               setVacanciesReloadKey((key) => key + 1);
             }}
           >
-            РџРѕРёСЃРє
+            Поиск
           </button>
           <button
             type="button"
             className={`nav-btn${workerView === "applications" ? " active" : ""}`}
             onClick={() => setWorkerView("applications")}
           >
-            РћС‚РєР»РёРєРё
+            Отклики
           </button>
           <button
             type="button"
             className={`nav-btn${workerView === "profile" ? " active" : ""}`}
             onClick={() => setWorkerView("profile")}
           >
-            РџСЂРѕС„РёР»СЊ
+            Профиль
           </button>
           <button
             type="button"
             className={`nav-btn${workerView === "notifications" ? " active" : ""}`}
             onClick={() => setWorkerView("notifications")}
           >
-            РЈРІРµРґРѕРјР»РµРЅРёСЏ
+            Уведомления
           </button>
         </nav>
       ) : null}
@@ -464,7 +464,7 @@ function App() {
             className={`nav-btn${employerView === "jobs" ? " active" : ""}`}
             onClick={() => setEmployerView("jobs")}
           >
-            Р—Р°СЏРІРєРё
+            Заявки
           </button>
           <button
             type="button"
@@ -474,14 +474,14 @@ function App() {
               setApplicationsReloadKey((key) => key + 1);
             }}
           >
-            РћС‚РєР»РёРєРё
+            Отклики
           </button>
           <button
             type="button"
             className={`nav-btn${employerView === "create" ? " active" : ""}`}
             onClick={() => setEmployerView("create")}
           >
-            РЎРѕР·РґР°С‚СЊ
+            Создать
           </button>
         </nav>
       ) : null}
