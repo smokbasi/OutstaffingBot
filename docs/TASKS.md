@@ -280,7 +280,7 @@
 > - **P2:** уведомление админу (push/Telegram) при новой жалобе; экспорт CSV; статистика по типам в «Статистика».
 > - **P3:** автоматические сигналы (check-in опоздания, подтверждение оплаты работодателем, attendance); рейтинги (Phase 10).
 
-- [ ] **9.9.1** Миграция + модели: `ApplicationComplaint`, enums `ComplaintViolationType`, `ComplaintReporterRole`, `ComplaintStatus` [P0]
+- [x] **9.9.1** Миграция + модели: `ApplicationComplaint`, enums `ComplaintViolationType`, `ComplaintReporterRole`, `ComplaintStatus` [P0]
   - **Acceptance criteria:** Alembic revision; FK на `applications`, `job_requests`, `shift_slots`, `users`; уникальный partial index на открытые дубликаты; downgrade работает.
 
 - [ ] **9.9.2** `complaint_service`: создание, валидация прав, дедупликация, resolve/dismiss [P0]

@@ -11,6 +11,7 @@ from sqlalchemy import (
     DateTime,
     Enum,
     ForeignKey,
+    Index,
     Integer,
     Numeric,
     SmallInteger,
@@ -19,6 +20,7 @@ from sqlalchemy import (
     Time,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
@@ -76,6 +78,25 @@ class ModerationViolationSource(str, enum.Enum):
     api = "api"
 
 
+class ComplaintViolationType(str, enum.Enum):
+    late = "late"
+    no_show = "no_show"
+    no_payment = "no_payment"
+    no_work = "no_work"
+
+
+class ComplaintReporterRole(str, enum.Enum):
+    worker = "worker"
+    employer = "employer"
+
+
+class ComplaintStatus(str, enum.Enum):
+    open = "open"
+    under_review = "under_review"
+    resolved = "resolved"
+    dismissed = "dismissed"
+
+
 class User(Base):
     __tablename__ = "users"
 
@@ -96,6 +117,14 @@ class User(Base):
     preferences: Mapped["WorkerPreferences | None"] = relationship(back_populates="user", uselist=False)
     notifications: Mapped[list["Notification"]] = relationship(back_populates="user")
     moderation_violations: Mapped[list["ModerationViolationLog"]] = relationship(back_populates="user")
+    complaints_filed: Mapped[list["ApplicationComplaint"]] = relationship(
+        back_populates="reporter_user",
+        foreign_keys="ApplicationComplaint.reporter_user_id",
+    )
+    complaints_against: Mapped[list["ApplicationComplaint"]] = relationship(
+        back_populates="target_user",
+        foreign_keys="ApplicationComplaint.target_user_id",
+    )
 
 
 class ModerationViolationLog(Base):
@@ -242,6 +271,7 @@ class JobRequest(Base):
     shift_slots: Mapped[list["ShiftSlot"]] = relationship(back_populates="job_request")
     applications: Mapped[list["Application"]] = relationship(back_populates="job_request")
     group_posts: Mapped[list["GroupPost"]] = relationship(back_populates="job_request")
+    complaints: Mapped[list["ApplicationComplaint"]] = relationship(back_populates="job_request")
 
 
 class ShiftSlot(Base):
@@ -258,6 +288,7 @@ class ShiftSlot(Base):
 
     job_request: Mapped["JobRequest"] = relationship(back_populates="shift_slots")
     applications: Mapped[list["Application"]] = relationship(back_populates="shift_slot")
+    complaints: Mapped[list["ApplicationComplaint"]] = relationship(back_populates="shift_slot")
 
 
 class Application(Base):
@@ -277,6 +308,7 @@ class Application(Base):
     worker: Mapped["Worker"] = relationship(back_populates="applications")
     job_request: Mapped["JobRequest"] = relationship(back_populates="applications")
     shift_slot: Mapped["ShiftSlot"] = relationship(back_populates="applications")
+    complaints: Mapped[list["ApplicationComplaint"]] = relationship(back_populates="application")
 
 
 class WorkerPreferences(Base):
@@ -309,6 +341,73 @@ class Notification(Base):
     read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     user: Mapped["User"] = relationship(back_populates="notifications")
+
+
+class ApplicationComplaint(Base):
+    __tablename__ = "application_complaints"
+    __table_args__ = (
+        Index(
+            "ix_application_complaints_violation_type_created_at",
+            "violation_type",
+            "created_at",
+        ),
+        Index("ix_application_complaints_job_request_id", "job_request_id"),
+        Index(
+            "uq_application_complaints_open_dup",
+            "application_id",
+            "reporter_user_id",
+            "violation_type",
+            unique=True,
+            postgresql_where=text("status = 'open'"),
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    application_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("applications.id"), nullable=False
+    )
+    job_request_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("job_requests.id"), nullable=False
+    )
+    shift_slot_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("shift_slots.id"), nullable=False
+    )
+    reporter_user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), nullable=False
+    )
+    reporter_role: Mapped[ComplaintReporterRole] = mapped_column(
+        Enum(ComplaintReporterRole, name="complaint_reporter_role"),
+        nullable=False,
+    )
+    target_user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), nullable=False
+    )
+    violation_type: Mapped[ComplaintViolationType] = mapped_column(
+        Enum(ComplaintViolationType, name="complaint_violation_type"),
+        nullable=False,
+    )
+    description: Mapped[str | None] = mapped_column(Text)
+    status: Mapped[ComplaintStatus] = mapped_column(
+        Enum(ComplaintStatus, name="complaint_status"),
+        default=ComplaintStatus.open,
+        server_default=ComplaintStatus.open.value,
+    )
+    admin_notes: Mapped[str | None] = mapped_column(Text)
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    resolved_by_telegram_id: Mapped[int | None] = mapped_column(BigInteger)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    application: Mapped["Application"] = relationship(back_populates="complaints")
+    job_request: Mapped["JobRequest"] = relationship(back_populates="complaints")
+    shift_slot: Mapped["ShiftSlot"] = relationship(back_populates="complaints")
+    reporter_user: Mapped["User"] = relationship(
+        back_populates="complaints_filed",
+        foreign_keys=[reporter_user_id],
+    )
+    target_user: Mapped["User"] = relationship(
+        back_populates="complaints_against",
+        foreign_keys=[target_user_id],
+    )
 
 
 class AuditLog(Base):
