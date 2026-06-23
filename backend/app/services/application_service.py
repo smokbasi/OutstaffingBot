@@ -9,6 +9,7 @@ from app.core.arq_pool import enqueue_job
 from app.db.models import (
     Application,
     ApplicationStatus,
+    Employer,
     JobRequest,
     JobRequestStatus,
     ShiftSlot,
@@ -55,6 +56,10 @@ class ApplicationNotAcceptableError(ApplicationError):
 
 
 class ApplicationNotRejectableError(ApplicationError):
+    pass
+
+
+class WorkerNotVerifiedError(ApplicationError):
     pass
 
 
@@ -124,6 +129,10 @@ def _application_to_read(app: Application, *, include_worker: bool = False) -> A
     slot = app.shift_slot
     job = app.job_request
     worker = app.worker if include_worker else None
+    accepted = app.status == ApplicationStatus.accepted
+    employer = getattr(job, "employer", None) if job else None
+    employer_user = getattr(employer, "user", None) if employer else None
+    worker_user = getattr(worker, "user", None) if worker else None
     return ApplicationRead(
         id=app.id,
         job_request_id=app.job_request_id,
@@ -140,6 +149,13 @@ def _application_to_read(app: Application, *, include_worker: bool = False) -> A
         end_time=slot.end_time,
         worker_first_name=worker.first_name if worker else None,
         worker_last_name=worker.last_name if worker else None,
+        employer_contact_phone=employer.contact_phone if accepted and employer else None,
+        employer_company_name=employer.company_name if accepted and employer else None,
+        employer_telegram_username=employer_user.username if accepted and employer_user else None,
+        employer_telegram_id=employer_user.telegram_id if accepted and employer_user else None,
+        worker_phone=worker.phone if accepted and worker else None,
+        worker_telegram_username=worker_user.username if accepted and worker_user else None,
+        worker_telegram_id=worker_user.telegram_id if accepted and worker_user else None,
     )
 
 
@@ -151,6 +167,11 @@ async def apply_to_shift(
     cancel_conflicting_id: UUID | None = None,
 ) -> ApplicationRead:
     await user_block_service.ensure_worker_not_blocked(session, worker)
+
+    if not worker.verified:
+        raise WorkerNotVerifiedError(
+            "Профиль не верифицирован — дождитесь подтверждения администратором"
+        )
 
     slot = await _get_shift_slot(session, shift_slot_id)
     if slot is None:
@@ -339,7 +360,8 @@ async def list_employer_applications(
             selectinload(Application.shift_slot),
             selectinload(Application.job_request).selectinload(JobRequest.category),
             selectinload(Application.job_request).selectinload(JobRequest.metro_station),
-            selectinload(Application.worker),
+            selectinload(Application.job_request).selectinload(JobRequest.employer).selectinload(Employer.user),
+            selectinload(Application.worker).selectinload(Worker.user),
         )
         .where(JobRequest.employer_id == employer_id)
         .order_by(Application.applied_at.desc())
@@ -374,6 +396,7 @@ async def list_my_applications(
             selectinload(Application.shift_slot),
             selectinload(Application.job_request).selectinload(JobRequest.category),
             selectinload(Application.job_request).selectinload(JobRequest.metro_station),
+            selectinload(Application.job_request).selectinload(JobRequest.employer).selectinload(Employer.user),
         )
         .where(
             Application.worker_id == worker.id,

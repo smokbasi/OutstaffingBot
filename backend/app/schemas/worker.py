@@ -26,6 +26,8 @@ class WorkerProfileRead(BaseModel):
     metro_station_id: int | None = None
     metro_station_name: str | None = None
     min_hourly_rate: Decimal | None = None
+    phone: str | None = Field(default=None, max_length=20)
+    verified: bool = False
     resume_completed: bool
     experiences: list[WorkerExperienceRead] = Field(default_factory=list)
 
@@ -39,6 +41,7 @@ class WorkerProfileUpdate(BaseModel):
     gender: Gender | None = None
     metro_station_id: int | None = None
     min_hourly_rate: Decimal | None = Field(default=None, ge=0)
+    phone: str | None = Field(default=None, max_length=20)
 
 
 class WorkerExperienceCreate(BaseModel):

@@ -5,6 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.core.arq_pool import enqueue_job
 from app.db.models import JobCategory, MetroStation, User, Worker, WorkerExperience
 from app.schemas.worker import WorkerExperienceCreate, WorkerProfileRead, WorkerProfileUpdate
 from app.reference.job_categories import sort_job_categories
@@ -115,6 +116,8 @@ def _worker_to_profile(worker: Worker) -> WorkerProfileRead:
         metro_station_id=worker.metro_station_id,
         metro_station_name=worker.metro_station.name if worker.metro_station else None,
         min_hourly_rate=worker.min_hourly_rate,
+        phone=worker.phone,
+        verified=worker.verified,
         resume_completed=worker.resume_completed,
         experiences=experiences,
     )
@@ -139,6 +142,7 @@ async def upsert_worker_profile(
     worker.gender = data.gender
     worker.metro_station_id = data.metro_station_id
     worker.min_hourly_rate = data.min_hourly_rate
+    worker.phone = data.phone
     if resume_completed is not None:
         worker.resume_completed = resume_completed
 
@@ -197,6 +201,7 @@ async def save_worker_registration(
     await session.flush()
     worker = await get_worker_by_user_id(session, user.id)
     assert worker is not None
+    await enqueue_job("notify_employers_for_worker", str(worker.id))
     return _worker_to_profile(worker)
 
 
@@ -282,3 +287,31 @@ async def list_metro_stations_by_line_name(session: AsyncSession, line_name: str
 async def list_job_categories(session: AsyncSession) -> list[JobCategory]:
     result = await session.scalars(select(JobCategory).where(JobCategory.is_active.is_(True)))
     return sort_job_categories(list(result.all()))
+
+
+async def verify_worker_by_telegram_id(
+    session: AsyncSession,
+    telegram_id: int,
+    *,
+    actor_telegram_id: int,
+) -> Worker | None:
+    from app.services import audit_log_service, user_service
+
+    user = await user_service.get_user_by_telegram_id(session, telegram_id)
+    if user is None:
+        return None
+    worker = await get_worker_by_user_id(session, user.id)
+    if worker is None:
+        return None
+    if worker.verified:
+        return worker
+    worker.verified = True
+    await audit_log_service.record_audit(
+        session,
+        action="worker.verify",
+        actor_telegram_id=actor_telegram_id,
+        target_user=user,
+        details={"worker_id": str(worker.id), "entity_type": "worker_profile", "entity_id": str(worker.id)},
+    )
+    await session.flush()
+    return worker

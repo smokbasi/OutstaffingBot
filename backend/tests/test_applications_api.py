@@ -86,6 +86,7 @@ async def test_apply_success(
 ) -> None:
     class DummyWorker:
         id = uuid4()
+        verified = True
 
     shift_slot_id = uuid4()
 
@@ -122,6 +123,7 @@ async def test_apply_shift_conflict(
 
     class DummyWorker:
         id = uuid4()
+        verified = True
 
     conflicting_app = type("App", (), {"id": uuid4()})()
     conflicting_slot = type(
@@ -164,6 +166,7 @@ async def test_cancel_application_success(
 ) -> None:
     class DummyWorker:
         id = uuid4()
+        verified = True
 
     app_id = sample_application.id
 
@@ -193,6 +196,7 @@ async def test_list_my_applications(
 ) -> None:
     class DummyWorker:
         id = uuid4()
+        verified = True
 
     async def mock_get_worker(session, user_id):
         return DummyWorker()

@@ -17,7 +17,9 @@
 
 **Следующий шаг:** UI/UX всех экранов, deep links / haptic / theme, metro search (Phase 7).
 
-**Dev2 Phase 7/8 (2026-06-23):** cherry-pick в main (коммиты 544d800–97aa832) — webhook/Sentry/backup, fix 500 отклика, theme/haptic; **не** merge веток целиком (конфликт с Phase 6 Nikita). PR #9 закрыть или обновить. ветки eature/phase-7-mini-app-polish и eature/phase-8-production-deploy (автор streetmonster-labZ) — inbox, polish, webhook/backup и docs «Phase 7/8 завершены»; **не смержены** (единственный merged PR Dev2 — Phase 3). Актуальный main включает Phase 6 и employer inbox отдельными коммитами Nikita.
+**Dev2 sync (2026-06-23):** selective port из `feature/phase-9-10` (PR #10) — reviews API, geo/haversine, employer push, контакты после accept, worker verification. PR #9, #2, #3, #10 закрыты как superseded. Dev2: rebase от main, продолжить Phase 7 metro search и 9.10–9.11 Mini App.
+
+**Dev2 Phase 7/8:** cherry-pick в main (544d800–97aa832) — webhook/Sentry/backup, fix 500 отклика, theme/haptic; inbox и Phase 6 — отдельные коммиты Nikita.
 
 **Verification Phase 0:** локально (Docker Desktop) **или** на dev/staging VPS — см. [SERVER_AND_TEAM.md](./SERVER_AND_TEAM.md).
 
@@ -332,10 +334,12 @@
 
 ### Phase 10 — Enhancements [P3]
 
-- [ ] PostGIS geo matching
-- [ ] Employer push (новые подходящие работники)
-- [ ] Рейтинги / отзывы
-- [ ] Multi-city support
+- [x] Geo matching (haversine по metro lat/lon, city filter, max_distance_km)
+- [x] Employer push (новые подходящие работники при регистрации — ARQ `notify_employers_for_worker`)
+- [x] Рейтинги / отзывы (API `/reviews`, review_service; Mini App UI — partial)
+- [x] Контакты worker/employer после accept (phone, Telegram)
+- [x] Worker verification (поле `workers.verified`, admin verify API)
+- [ ] Multi-city support (UI + seed городов)
 - [ ] Analytics dashboard
 
 **Как выполнять:** по фиче — `/plan` per enhancement, отдельная ветка на каждое улучшение.

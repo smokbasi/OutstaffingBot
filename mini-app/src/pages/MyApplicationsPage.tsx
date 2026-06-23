@@ -6,6 +6,7 @@ import {
   type ApplicationRead,
   type ApplicationStatus,
 } from "../api/client";
+import { ContactBlock } from "../lib/contacts";
 
 type MyApplicationsPageProps = {
   initData: string;
@@ -101,6 +102,15 @@ export function MyApplicationsPage({ initData }: MyApplicationsPageProps) {
               <p className="hint">
                 {APPLICATION_STATUS_LABELS[item.status as ApplicationStatus] ?? item.status}
               </p>
+              {item.status === "accepted" ? (
+                <ContactBlock
+                  title="Контакты работодателя"
+                  phone={item.employer_contact_phone}
+                  telegramUsername={item.employer_telegram_username}
+                  telegramId={item.employer_telegram_id}
+                  companyName={item.employer_company_name}
+                />
+              ) : null}
             </div>
             <button
               type="button"
