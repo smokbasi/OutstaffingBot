@@ -34,7 +34,6 @@ def upgrade() -> None:
             )
         )
         op.drop_column("employers", "verification_status")
-        op.execute(sa.text("DROP TYPE IF EXISTS verification_status"))
 
     if "is_banned" in columns:
         op.drop_column("employers", "is_banned")
