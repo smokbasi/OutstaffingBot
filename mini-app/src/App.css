@@ -493,6 +493,10 @@
   color: var(--tg-theme-hint-color, #707579);
 }
 
+.role-card-admin {
+  border-color: var(--tg-theme-link-color, #2481cc);
+}
+
 .filters-form {
   margin-bottom: 1rem;
 }
