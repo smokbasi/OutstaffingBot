@@ -741,3 +741,7 @@
 .nav-btn-admin {
   color: var(--tg-theme-link-color, #2481cc);
 }
+
+.role-card-admin {
+  border-color: var(--tg-theme-link-color, #2481cc);
+}
