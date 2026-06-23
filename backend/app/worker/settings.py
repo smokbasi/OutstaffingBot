@@ -25,6 +25,7 @@ async def worker_shutdown(ctx: dict) -> None:
 class WorkerSettings:
     functions = [
         tasks.match_workers_for_job,
+        tasks.notify_employers_for_worker,
         tasks.post_job_to_groups,
         tasks.close_group_posts,
         tasks.sync_group_posts_for_headcount,

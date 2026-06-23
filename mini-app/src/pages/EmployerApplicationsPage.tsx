@@ -7,6 +7,7 @@ import {
   type ApplicationStatus,
 } from "../api/client";
 import { formatHourlyRate } from "../utils/formatRate";
+import { ContactBlock } from "../lib/contacts";
 
 type EmployerApplicationsPageProps = {
   initData: string;
@@ -173,6 +174,14 @@ export function EmployerApplicationsPage({ initData, reloadKey = 0 }: EmployerAp
                 <p>
                   {formatDate(item.shift_date)} {formatTime(item.start_time)}–{formatTime(item.end_time)}
                 </p>
+                {item.status === "accepted" ? (
+                  <ContactBlock
+                    title="Контакты работника"
+                    phone={item.worker_phone}
+                    telegramUsername={item.worker_telegram_username}
+                    telegramId={item.worker_telegram_id}
+                  />
+                ) : null}
               </div>
               {item.status === "pending" ? (
                 <div className="application-actions">

@@ -11,6 +11,8 @@ class VacancyFilters(BaseModel):
     category_id: int | None = None
     metro_station_id: int | None = None
     min_hourly_rate: Decimal | None = Field(default=None, ge=0)
+    city: str | None = None
+    max_distance_km: int | None = Field(default=None, ge=0, le=100)
     page: int = Field(default=1, ge=1)
     limit: int = Field(default=20, ge=1, le=100)
 

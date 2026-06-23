@@ -70,6 +70,12 @@ class NotificationType(str, enum.Enum):
     new_vacancy = "new_vacancy"
     application_status = "application_status"
     shift_reminder = "shift_reminder"
+    new_matching_worker = "new_matching_worker"
+
+
+class ReviewerRole(str, enum.Enum):
+    worker = "worker"
+    employer = "employer"
 
 
 class ModerationViolationSource(str, enum.Enum):
@@ -157,8 +163,11 @@ class Worker(Base):
     age: Mapped[int] = mapped_column(SmallInteger, nullable=False)
     gender: Mapped[Gender | None] = mapped_column(Enum(Gender, name="gender"))
     metro_station_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("metro_stations.id"))
+    city: Mapped[str] = mapped_column(String(50), default="spb")
     metro_radius_km: Mapped[int] = mapped_column(SmallInteger, default=0)
     min_hourly_rate: Mapped[Decimal | None] = mapped_column(Numeric(10, 2))
+    phone: Mapped[str | None] = mapped_column(String(20))
+    verified: Mapped[bool] = mapped_column(Boolean, default=False)
     resume_completed: Mapped[bool] = mapped_column(Boolean, default=False)
     notifications_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
@@ -227,6 +236,7 @@ class MetroStation(Base):
     line_name: Mapped[str] = mapped_column(String(100), nullable=False)
     lat: Mapped[Decimal | None] = mapped_column(Numeric(10, 7))
     lon: Mapped[Decimal | None] = mapped_column(Numeric(10, 7))
+    city: Mapped[str] = mapped_column(String(50), default="spb")
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
     workers: Mapped[list["Worker"]] = relationship(back_populates="metro_station")
@@ -242,6 +252,7 @@ class JobRequest(Base):
     title: Mapped[str] = mapped_column(String(200), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)
     metro_station_id: Mapped[int] = mapped_column(Integer, ForeignKey("metro_stations.id"))
+    city: Mapped[str] = mapped_column(String(50), default="spb")
     address: Mapped[str | None] = mapped_column(String(300))
     hourly_rate: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
     workers_needed: Mapped[int] = mapped_column(SmallInteger, nullable=False)
@@ -309,6 +320,26 @@ class Application(Base):
     job_request: Mapped["JobRequest"] = relationship(back_populates="applications")
     shift_slot: Mapped["ShiftSlot"] = relationship(back_populates="applications")
     complaints: Mapped[list["ApplicationComplaint"]] = relationship(back_populates="application")
+
+
+class Review(Base):
+    __tablename__ = "reviews"
+    __table_args__ = (
+        UniqueConstraint("application_id", "reviewer_user_id", name="uq_review_application_reviewer"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    application_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("applications.id"))
+    reviewer_user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
+    reviewed_user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
+    reviewer_role: Mapped[ReviewerRole] = mapped_column(Enum(ReviewerRole, name="reviewer_role"))
+    rating: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    comment: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    application: Mapped["Application"] = relationship()
+    reviewer: Mapped["User"] = relationship(foreign_keys=[reviewer_user_id])
+    reviewed: Mapped["User"] = relationship(foreign_keys=[reviewed_user_id])
 
 
 class WorkerPreferences(Base):

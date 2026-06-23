@@ -189,6 +189,13 @@ export type ApplicationRead = {
   end_time: string;
   worker_first_name?: string | null;
   worker_last_name?: string | null;
+  employer_contact_phone?: string | null;
+  employer_company_name?: string | null;
+  employer_telegram_username?: string | null;
+  employer_telegram_id?: number | null;
+  worker_phone?: string | null;
+  worker_telegram_username?: string | null;
+  worker_telegram_id?: number | null;
 };
 
 export type ApplicationListResponse = {

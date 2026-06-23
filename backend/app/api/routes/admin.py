@@ -4,6 +4,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.api.deps_admin import get_current_admin
 from app.db.models import (
@@ -14,6 +15,7 @@ from app.db.models import (
     Employer,
     JobRequest,
     User,
+    Worker,
 )
 from app.db.session import get_db_session
 from app.schemas.admin import (
@@ -31,7 +33,7 @@ from app.schemas.admin import (
     PendingEmployerRead,
     complaint_violation_label,
 )
-from app.services import admin_stats_service, audit_log_service, complaint_service, employer_service
+from app.services import admin_stats_service, audit_log_service, complaint_service, employer_service, worker_service
 from app.services import moderation_violation_service, user_block_service
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -244,6 +246,28 @@ async def verify_employer(
         raise HTTPException(status_code=404, detail=result.message)
     await session.commit()
     return {"status": "verified", "employer_id": str(emp.id)}
+
+
+@router.post("/workers/{worker_id}/verify")
+async def verify_worker(
+    worker_id: UUID,
+    admin: User = Depends(get_current_admin),
+    session: AsyncSession = Depends(get_db_session),
+) -> dict[str, str]:
+    worker = await session.scalar(
+        select(Worker).options(selectinload(Worker.user)).where(Worker.id == worker_id)
+    )
+    if worker is None or worker.user is None:
+        raise HTTPException(status_code=404, detail="Worker not found")
+    verified = await worker_service.verify_worker_by_telegram_id(
+        session,
+        worker.user.telegram_id,
+        actor_telegram_id=admin.telegram_id,
+    )
+    if verified is None:
+        raise HTTPException(status_code=404, detail="Worker not found")
+    await session.commit()
+    return {"status": "verified", "worker_id": str(worker.id)}
 
 
 @router.post("/employers/{employer_id}/reject")

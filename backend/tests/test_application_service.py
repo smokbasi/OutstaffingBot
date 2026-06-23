@@ -91,6 +91,7 @@ async def test_apply_to_shift_reactivates_cancelled_application(monkeypatch: pyt
 
     class Worker:
         id = worker_id
+        verified = True
 
     class Category:
         name_ru = "Официант"
