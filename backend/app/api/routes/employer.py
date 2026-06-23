@@ -10,8 +10,14 @@ from app.db.models import ApplicationStatus, Employer, ModerationViolationSource
 from app.db.session import get_db_session
 from app.schemas.employer import EmployerProfileRead, EmployerProfileUpdate
 from app.schemas.application import ApplicationListResponse, ApplicationRead, ApplicationStatusUpdate
+from app.schemas.complaint import (
+    ComplaintRead,
+    EmployerComplaintApplicationsResponse,
+    EmployerComplaintCreate,
+    EmployerComplaintJobsResponse,
+)
 from app.schemas.job_request import JobRequestCreate, JobRequestRead, JobRequestUpdate
-from app.services import application_service, content_moderation_service, employer_service, job_service
+from app.services import application_service, complaint_service, content_moderation_service, employer_service, job_service
 from app.services import moderation_violation_service, user_block_service
 
 router = APIRouter(prefix="/employer", tags=["employer"])
@@ -179,3 +185,67 @@ async def update_application_status(
 
     await session.commit()
     return result
+
+
+def _map_complaint_error(exc: complaint_service.ComplaintError) -> HTTPException:
+    if isinstance(exc, complaint_service.ComplaintNotFoundError):
+        return HTTPException(status_code=404, detail=str(exc))
+    if isinstance(exc, complaint_service.ComplaintForbiddenError):
+        return HTTPException(status_code=403, detail=str(exc))
+    if isinstance(exc, complaint_service.ComplaintDuplicateError):
+        return HTTPException(status_code=409, detail=str(exc))
+    if isinstance(exc, complaint_service.ComplaintValidationError):
+        return HTTPException(status_code=422, detail=str(exc))
+    if isinstance(exc, complaint_service.ComplaintNotEligibleError):
+        return HTTPException(status_code=400, detail=str(exc))
+    return HTTPException(status_code=400, detail=str(exc))
+
+
+@router.get("/complaints/jobs", response_model=EmployerComplaintJobsResponse)
+async def list_complaint_jobs(
+    employer: Employer = Depends(get_current_employer),
+    session: AsyncSession = Depends(get_db_session),
+) -> EmployerComplaintJobsResponse:
+    return await complaint_service.list_employer_complaint_jobs(session, employer)
+
+
+@router.get(
+    "/complaints/jobs/{job_id}/applications",
+    response_model=EmployerComplaintApplicationsResponse,
+)
+async def list_complaint_job_applications(
+    job_id: UUID,
+    employer: Employer = Depends(get_current_employer),
+    session: AsyncSession = Depends(get_db_session),
+) -> EmployerComplaintApplicationsResponse:
+    try:
+        return await complaint_service.list_employer_complaint_applications(
+            session,
+            employer,
+            job_id,
+        )
+    except complaint_service.ComplaintNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.post("/complaints", response_model=ComplaintRead, status_code=201)
+async def create_employer_complaint(
+    data: EmployerComplaintCreate,
+    employer: Employer = Depends(get_current_employer),
+    session: AsyncSession = Depends(get_db_session),
+) -> ComplaintRead:
+    try:
+        complaint = await complaint_service.create_employer_complaint(
+            session,
+            employer,
+            application_id=data.application_id,
+            violation_type=data.violation_type,
+            description=data.description,
+        )
+    except user_block_service.UserBlockedError as exc:
+        raise HTTPException(status_code=403, detail=exc.message) from exc
+    except complaint_service.ComplaintError as exc:
+        raise _map_complaint_error(exc) from exc
+
+    await session.commit()
+    return complaint

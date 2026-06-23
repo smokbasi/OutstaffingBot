@@ -280,19 +280,19 @@
 > - **P2:** уведомление админу (push/Telegram) при новой жалобе; экспорт CSV; статистика по типам в «Статистика».
 > - **P3:** автоматические сигналы (check-in опоздания, подтверждение оплаты работодателем, attendance); рейтинги (Phase 10).
 
-- [ ] **9.9.1** Миграция + модели: `ApplicationComplaint`, enums `ComplaintViolationType`, `ComplaintReporterRole`, `ComplaintStatus` [P0]
+- [x] **9.9.1** Миграция + модели: `ApplicationComplaint`, enums `ComplaintViolationType`, `ComplaintReporterRole`, `ComplaintStatus` [P0]
   - **Acceptance criteria:** Alembic revision; FK на `applications`, `job_requests`, `shift_slots`, `users`; уникальный partial index на открытые дубликаты; downgrade работает.
 
-- [ ] **9.9.2** `complaint_service`: создание, валидация прав, дедупликация, resolve/dismiss [P0]
+- [x] **9.9.2** `complaint_service`: создание, валидация прав, дедупликация, resolve/dismiss [P0]
   - **Acceptance criteria:** worker не может жаловаться на чужой application (404/403); employer — только на свои jobs; `description` worker min 20 символов; employer description optional; **без** вызова `content_moderation_service` / stop-words (текст жалобы приватный, не логируется в `moderation_violations`); unit-тесты на IDOR и дедуп.
 
-- [ ] **9.9.3** API worker + employer (`/complaints`, `/employer/complaints/*`) [P0]
+- [x] **9.9.3** API worker + employer (`/complaints`, `/employer/complaints/*`) [P0]
   - **Acceptance criteria:** Pydantic schemas; `company_name` в eligible applications для worker; OpenAPI; integration-тесты happy path + forbidden; `POST` с description, содержащим stop-слова, — 201 без записи в `moderation_violations`.
 
-- [ ] **9.9.4** API admin: список/деталь/resolve жалоб по заявкам [P1]
+- [x] **9.9.4** API admin: список/деталь/resolve жалоб по заявкам [P1]
   - **Acceptance criteria:** фильтры `violation_type`, `from`/`to` (ISO date), `company_q` (substring, case-insensitive); пагинация `limit`/`offset`; только `get_current_admin`.
 
-- [ ] **9.9.5** Audit: `complaint.created`, `complaint.status_change` [P1]
+- [x] **9.9.5** Audit: `complaint.created`, `complaint.status_change` [P1]
   - **Acceptance criteria:** записи в `audit_log` при create и resolve/dismiss; labels в `AdminPanelPage` AUDIT_ACTION_LABELS.
 
 #### 9.10 Mini App — «Пожаловаться» (Worker & Employer) [P1]

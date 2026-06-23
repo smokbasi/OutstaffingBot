@@ -1,7 +1,11 @@
 from app.db.models import (
     Application,
+    ApplicationComplaint,
     ApplicationStatus,
     Base,
+    ComplaintReporterRole,
+    ComplaintStatus,
+    ComplaintViolationType,
     Employer,
     Gender,
     GroupPost,
@@ -25,8 +29,12 @@ from app.db.models import (
 
 __all__ = [
     "Application",
+    "ApplicationComplaint",
     "ApplicationStatus",
     "Base",
+    "ComplaintReporterRole",
+    "ComplaintStatus",
+    "ComplaintViolationType",
     "Employer",
     "Gender",
     "GroupPost",

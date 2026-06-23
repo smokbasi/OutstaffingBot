@@ -40,12 +40,15 @@ const AUDIT_ACTION_LABELS: Record<string, string> = {
   "moderation.user_block": "Пользователь заблокирован",
   "moderation.user_unblock": "Пользователь разблокирован",
   "moderation.review_dismiss": "Review модерации отклонён",
+  "complaint.created": "Жалоба по заявке создана",
+  "complaint.status_change": "Статус жалобы изменён",
 };
 
 const ENTITY_TYPE_LABELS: Record<string, string> = {
   job_request: "заявка",
   application: "отклик",
   employer_profile: "работодатель",
+  application_complaint: "жалоба",
   user: "пользователь",
 };
 

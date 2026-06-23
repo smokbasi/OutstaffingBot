@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime, time
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
@@ -10,7 +10,19 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 from app.api.deps import get_current_user
-from app.db.models import ModerationViolationLog, ModerationViolationSource, User, UserRole
+from app.db.models import (
+    ApplicationComplaint,
+    ComplaintReporterRole,
+    ComplaintStatus,
+    ComplaintViolationType,
+    Employer,
+    JobRequest,
+    ModerationViolationLog,
+    ModerationViolationSource,
+    ShiftSlot,
+    User,
+    UserRole,
+)
 from app.db.session import get_db_session
 from app.main import app
 from app.services import admin_stats_service, moderation_violation_service, user_block_service
@@ -243,6 +255,203 @@ async def test_admin_moderation_user_detail_success(
     assert body["telegram_id"] == 555004
     assert body["violation_count"] == 1
     assert body["violations"][0]["matched_term"] == "govno"
+
+
+def _sample_admin_complaint() -> ApplicationComplaint:
+    employer_user = User(
+        id=uuid4(),
+        telegram_id=54321,
+        username="employer1",
+        role=UserRole.employer,
+    )
+    worker_user = User(
+        id=uuid4(),
+        telegram_id=12345,
+        username="worker1",
+        role=UserRole.worker,
+    )
+    employer = Employer(
+        id=uuid4(),
+        user_id=employer_user.id,
+        company_name="ООО Тест Бар",
+        contact_phone="+79990001122",
+        verified=True,
+    )
+    job = JobRequest(
+        id=uuid4(),
+        employer_id=employer.id,
+        title="Официант на смену",
+    )
+    job.employer = employer
+    slot = ShiftSlot(
+        id=uuid4(),
+        job_request_id=job.id,
+        shift_date=date(2026, 6, 25),
+        start_time=time(10, 0),
+        end_time=time(22, 0),
+        slots_total=1,
+        slots_filled=1,
+    )
+    complaint = ApplicationComplaint(
+        id=uuid4(),
+        application_id=uuid4(),
+        job_request_id=job.id,
+        shift_slot_id=slot.id,
+        reporter_user_id=worker_user.id,
+        reporter_role=ComplaintReporterRole.worker,
+        target_user_id=employer_user.id,
+        violation_type=ComplaintViolationType.late,
+        description="Работодатель опоздал на встречу перед сменой.",
+        status=ComplaintStatus.open,
+        created_at=datetime(2026, 6, 20, 12, 0, tzinfo=UTC),
+    )
+    complaint.job_request = job
+    complaint.shift_slot = slot
+    complaint.reporter_user = worker_user
+    complaint.target_user = employer_user
+    return complaint
+
+
+@pytest.mark.asyncio
+async def test_admin_list_application_violations(admin_client, monkeypatch: pytest.MonkeyPatch) -> None:
+    client, _session = admin_client
+    complaint = _sample_admin_complaint()
+    list_mock = AsyncMock(return_value=([complaint], 1))
+    monkeypatch.setattr(
+        "app.api.routes.admin.complaint_service.list_admin_complaints",
+        list_mock,
+    )
+
+    response = await client.get(
+        "/api/v1/admin/journal/application-violations",
+        headers=_auth_headers(),
+        params={
+            "violation_type": "late",
+            "from": "2026-06-01",
+            "to": "2026-06-30",
+            "company_q": "тест",
+            "limit": 10,
+            "offset": 0,
+        },
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["total"] == 1
+    assert body["limit"] == 10
+    assert body["offset"] == 0
+    assert len(body["items"]) == 1
+    assert body["items"][0]["company_name"] == "ООО Тест Бар"
+    assert body["items"][0]["violation_type"] == "late"
+    assert body["items"][0]["violation_type_label"] == "Опоздание"
+    list_mock.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_admin_get_complaint_detail(admin_client, monkeypatch: pytest.MonkeyPatch) -> None:
+    client, _session = admin_client
+    complaint = _sample_admin_complaint()
+    monkeypatch.setattr(
+        "app.api.routes.admin.complaint_service.get_admin_complaint_detail",
+        AsyncMock(return_value=complaint),
+    )
+
+    response = await client.get(
+        f"/api/v1/admin/complaints/{complaint.id}",
+        headers=_auth_headers(),
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["id"] == str(complaint.id)
+    assert body["company_name"] == "ООО Тест Бар"
+    assert body["reporter"]["telegram_id"] == 12345
+    assert body["target"]["telegram_id"] == 54321
+    assert body["shift_date"] == "2026-06-25"
+
+
+@pytest.mark.asyncio
+async def test_admin_get_complaint_not_found(admin_client, monkeypatch: pytest.MonkeyPatch) -> None:
+    client, _session = admin_client
+    monkeypatch.setattr(
+        "app.api.routes.admin.complaint_service.get_admin_complaint_detail",
+        AsyncMock(return_value=None),
+    )
+
+    response = await client.get(
+        f"/api/v1/admin/complaints/{uuid4()}",
+        headers=_auth_headers(),
+    )
+    assert response.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_admin_patch_complaint_resolve(admin_client, monkeypatch: pytest.MonkeyPatch) -> None:
+    client, session = admin_client
+    complaint = _sample_admin_complaint()
+    complaint.status = ComplaintStatus.resolved
+    complaint.admin_notes = "Подтверждено"
+    complaint.resolved_at = datetime(2026, 6, 21, 10, 0, tzinfo=UTC)
+    complaint.resolved_by_telegram_id = ADMIN_TELEGRAM_ID
+
+    resolve_mock = AsyncMock(return_value=complaint)
+    detail_mock = AsyncMock(return_value=complaint)
+    monkeypatch.setattr(
+        "app.api.routes.admin.complaint_service.resolve_complaint",
+        resolve_mock,
+    )
+    monkeypatch.setattr(
+        "app.api.routes.admin.complaint_service.get_admin_complaint_detail",
+        detail_mock,
+    )
+
+    response = await client.patch(
+        f"/api/v1/admin/complaints/{complaint.id}",
+        headers=_auth_headers(),
+        json={"status": "resolved", "admin_notes": "Подтверждено"},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "resolved"
+    assert body["admin_notes"] == "Подтверждено"
+    resolve_mock.assert_awaited_once()
+    session.commit.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_admin_patch_complaint_dismiss(admin_client, monkeypatch: pytest.MonkeyPatch) -> None:
+    client, session = admin_client
+    complaint = _sample_admin_complaint()
+    complaint.status = ComplaintStatus.dismissed
+
+    dismiss_mock = AsyncMock(return_value=complaint)
+    monkeypatch.setattr(
+        "app.api.routes.admin.complaint_service.dismiss_complaint",
+        dismiss_mock,
+    )
+    monkeypatch.setattr(
+        "app.api.routes.admin.complaint_service.get_admin_complaint_detail",
+        AsyncMock(return_value=complaint),
+    )
+
+    response = await client.patch(
+        f"/api/v1/admin/complaints/{complaint.id}",
+        headers=_auth_headers(),
+        json={"status": "dismissed"},
+    )
+    assert response.status_code == 200
+    assert response.json()["status"] == "dismissed"
+    dismiss_mock.assert_awaited_once()
+    session.commit.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_admin_patch_complaint_invalid_status(admin_client) -> None:
+    client, _session = admin_client
+    response = await client.patch(
+        f"/api/v1/admin/complaints/{uuid4()}",
+        headers=_auth_headers(),
+        json={"status": "open"},
+    )
+    assert response.status_code == 422
 
 
 @pytest.mark.asyncio
