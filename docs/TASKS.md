@@ -283,7 +283,7 @@
 - [x] **9.9.1** Миграция + модели: `ApplicationComplaint`, enums `ComplaintViolationType`, `ComplaintReporterRole`, `ComplaintStatus` [P0]
   - **Acceptance criteria:** Alembic revision; FK на `applications`, `job_requests`, `shift_slots`, `users`; уникальный partial index на открытые дубликаты; downgrade работает.
 
-- [ ] **9.9.2** `complaint_service`: создание, валидация прав, дедупликация, resolve/dismiss [P0]
+- [x] **9.9.2** `complaint_service`: создание, валидация прав, дедупликация, resolve/dismiss [P0]
   - **Acceptance criteria:** worker не может жаловаться на чужой application (404/403); employer — только на свои jobs; `description` worker min 20 символов; employer description optional; **без** вызова `content_moderation_service` / stop-words (текст жалобы приватный, не логируется в `moderation_violations`); unit-тесты на IDOR и дедуп.
 
 - [ ] **9.9.3** API worker + employer (`/complaints`, `/employer/complaints/*`) [P0]
