@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime, time
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -390,6 +390,82 @@ async def create_employer_complaint(
     session.add(complaint)
     await session.flush()
     return _complaint_to_read(complaint)
+
+
+def _date_range_start(value: date) -> datetime:
+    return datetime.combine(value, time.min, tzinfo=UTC)
+
+
+def _date_range_end(value: date) -> datetime:
+    return datetime.combine(value, time.max, tzinfo=UTC)
+
+
+def _admin_complaint_list_options():
+    return (
+        selectinload(ApplicationComplaint.job_request).selectinload(JobRequest.employer),
+    )
+
+
+def _admin_complaint_detail_options():
+    return (
+        selectinload(ApplicationComplaint.reporter_user),
+        selectinload(ApplicationComplaint.target_user),
+        selectinload(ApplicationComplaint.job_request).selectinload(JobRequest.employer),
+        selectinload(ApplicationComplaint.application).selectinload(Application.shift_slot),
+        selectinload(ApplicationComplaint.shift_slot),
+    )
+
+
+async def list_admin_complaints(
+    session: AsyncSession,
+    *,
+    violation_type: ComplaintViolationType | None = None,
+    from_date: date | None = None,
+    to_date: date | None = None,
+    company_q: str | None = None,
+    limit: int = 20,
+    offset: int = 0,
+) -> tuple[list[ApplicationComplaint], int]:
+    filters: list = []
+    if violation_type is not None:
+        filters.append(ApplicationComplaint.violation_type == violation_type)
+    if from_date is not None:
+        filters.append(ApplicationComplaint.created_at >= _date_range_start(from_date))
+    if to_date is not None:
+        filters.append(ApplicationComplaint.created_at <= _date_range_end(to_date))
+
+    base = (
+        select(ApplicationComplaint)
+        .join(JobRequest, ApplicationComplaint.job_request_id == JobRequest.id)
+        .join(Employer, JobRequest.employer_id == Employer.id)
+    )
+    if company_q is not None:
+        normalized_q = company_q.strip()
+        if normalized_q:
+            filters.append(Employer.company_name.ilike(f"%{normalized_q}%"))
+
+    if filters:
+        base = base.where(*filters)
+
+    total = await session.scalar(select(func.count()).select_from(base.subquery())) or 0
+    result = await session.scalars(
+        base.options(*_admin_complaint_list_options())
+        .order_by(ApplicationComplaint.created_at.desc())
+        .limit(limit)
+        .offset(offset)
+    )
+    return list(result.all()), total
+
+
+async def get_admin_complaint_detail(
+    session: AsyncSession,
+    complaint_id: UUID,
+) -> ApplicationComplaint | None:
+    return await session.scalar(
+        select(ApplicationComplaint)
+        .options(*_admin_complaint_detail_options())
+        .where(ApplicationComplaint.id == complaint_id)
+    )
 
 
 async def resolve_complaint(

@@ -289,7 +289,7 @@
 - [x] **9.9.3** API worker + employer (`/complaints`, `/employer/complaints/*`) [P0]
   - **Acceptance criteria:** Pydantic schemas; `company_name` в eligible applications для worker; OpenAPI; integration-тесты happy path + forbidden; `POST` с description, содержащим stop-слова, — 201 без записи в `moderation_violations`.
 
-- [ ] **9.9.4** API admin: список/деталь/resolve жалоб по заявкам [P1]
+- [x] **9.9.4** API admin: список/деталь/resolve жалоб по заявкам [P1]
   - **Acceptance criteria:** фильтры `violation_type`, `from`/`to` (ISO date), `company_q` (substring, case-insensitive); пагинация `limit`/`offset`; только `get_current_admin`.
 
 - [ ] **9.9.5** Audit: `complaint.created`, `complaint.status_change` [P1]

@@ -1,7 +1,14 @@
-from datetime import datetime
+from datetime import UTC, date, datetime, time
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
+
+from app.db.models import (
+    ComplaintReporterRole,
+    ComplaintStatus,
+    ComplaintViolationType,
+)
+from app.schemas.complaint import COMPLAINT_VIOLATION_TYPE_LABELS
 
 
 class AdminStats(BaseModel):
@@ -64,3 +71,65 @@ class AdminAuditEntryRead(BaseModel):
     entity_id: str
     metadata: dict | None
     created_at: str
+
+
+class AdminComplaintListItem(BaseModel):
+    id: UUID
+    violation_type: ComplaintViolationType
+    violation_type_label: str
+    status: ComplaintStatus
+    reporter_role: ComplaintReporterRole
+    company_name: str
+    job_title: str
+    created_at: datetime
+
+
+class AdminComplaintListResponse(BaseModel):
+    items: list[AdminComplaintListItem]
+    total: int
+    limit: int
+    offset: int
+
+
+class AdminComplaintUserBrief(BaseModel):
+    telegram_id: int
+    username: str | None
+
+
+class AdminComplaintDetail(BaseModel):
+    id: UUID
+    application_id: UUID
+    job_request_id: UUID
+    shift_slot_id: UUID
+    violation_type: ComplaintViolationType
+    violation_type_label: str
+    description: str | None
+    status: ComplaintStatus
+    reporter_role: ComplaintReporterRole
+    reporter: AdminComplaintUserBrief
+    target: AdminComplaintUserBrief
+    company_name: str
+    job_title: str
+    shift_date: date
+    start_time: time
+    end_time: time
+    admin_notes: str | None
+    resolved_at: datetime | None
+    resolved_by_telegram_id: int | None
+    created_at: datetime
+
+
+class AdminComplaintPatch(BaseModel):
+    status: ComplaintStatus
+    admin_notes: str | None = None
+
+    @field_validator("status")
+    @classmethod
+    def status_must_be_terminal(cls, value: ComplaintStatus) -> ComplaintStatus:
+        if value not in (ComplaintStatus.resolved, ComplaintStatus.dismissed):
+            raise ValueError("status must be resolved or dismissed")
+        return value
+
+
+def complaint_violation_label(violation_type: ComplaintViolationType) -> str:
+    return COMPLAINT_VIOLATION_TYPE_LABELS.get(violation_type, violation_type.value)
