@@ -8,7 +8,6 @@ import pytest
 
 from app.db.models import (
     ApplicationStatus,
-    ComplaintReporterRole,
     ComplaintStatus,
     ComplaintViolationType,
 )
@@ -96,6 +95,9 @@ class FakeSession:
         self.added.append(obj)
 
     async def flush(self) -> None:
+        for obj in self.added:
+            if getattr(obj, "id", None) is None:
+                obj.id = uuid4()
         return None
 
 
@@ -115,10 +117,9 @@ async def test_create_worker_complaint_success() -> None:
     )
 
     assert len(session.added) == 1
-    assert complaint.reporter_role == ComplaintReporterRole.worker
-    assert complaint.target_user_id == employer.user.id
     assert complaint.violation_type == ComplaintViolationType.late
     assert complaint.status == ComplaintStatus.open
+    assert complaint.application_id == application.id
 
 
 @pytest.mark.asyncio
@@ -136,8 +137,8 @@ async def test_create_employer_complaint_without_description() -> None:
     )
 
     assert complaint.description is None
-    assert complaint.reporter_role == ComplaintReporterRole.employer
-    assert complaint.target_user_id == worker.user.id
+    assert complaint.violation_type == ComplaintViolationType.no_show
+    assert complaint.application_id == application.id
 
 
 @pytest.mark.asyncio

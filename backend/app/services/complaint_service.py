@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -20,6 +20,15 @@ from app.db.models import (
     JobRequest,
     User,
     Worker,
+)
+from app.schemas.complaint import (
+    ComplaintRead,
+    EmployerComplaintApplicationRead,
+    EmployerComplaintApplicationsResponse,
+    EmployerComplaintJobRead,
+    EmployerComplaintJobsResponse,
+    WorkerComplaintContextResponse,
+    WorkerEligibleApplicationRead,
 )
 from app.services import user_block_service
 
@@ -146,6 +155,140 @@ def _build_complaint(
     )
 
 
+def _complaint_to_read(complaint: ApplicationComplaint) -> ComplaintRead:
+    created_at = complaint.created_at
+    if created_at is None:
+        created_at = datetime.now(UTC)
+    return ComplaintRead(
+        id=complaint.id,
+        application_id=complaint.application_id,
+        job_request_id=complaint.job_request_id,
+        shift_slot_id=complaint.shift_slot_id,
+        violation_type=complaint.violation_type,
+        description=complaint.description,
+        status=complaint.status,
+        created_at=created_at,
+    )
+
+
+def _eligible_application_to_worker_read(application: Application) -> WorkerEligibleApplicationRead:
+    job = application.job_request
+    employer = job.employer if job is not None else None
+    slot = application.shift_slot
+    return WorkerEligibleApplicationRead(
+        id=application.id,
+        job_request_id=application.job_request_id,
+        shift_slot_id=application.shift_slot_id,
+        status=application.status,
+        job_title=job.title if job is not None else "",
+        company_name=employer.company_name if employer is not None else "",
+        shift_date=slot.shift_date,
+        start_time=slot.start_time,
+        end_time=slot.end_time,
+    )
+
+
+def _application_to_employer_complaint_read(application: Application) -> EmployerComplaintApplicationRead:
+    job = application.job_request
+    slot = application.shift_slot
+    worker = application.worker
+    return EmployerComplaintApplicationRead(
+        id=application.id,
+        job_request_id=application.job_request_id,
+        shift_slot_id=application.shift_slot_id,
+        status=application.status,
+        job_title=job.title if job is not None else "",
+        shift_date=slot.shift_date,
+        start_time=slot.start_time,
+        end_time=slot.end_time,
+        worker_first_name=worker.first_name if worker is not None else None,
+        worker_last_name=worker.last_name if worker is not None else None,
+    )
+
+
+async def get_worker_complaint_context(
+    session: AsyncSession,
+    worker: Worker,
+) -> WorkerComplaintContextResponse:
+    result = await session.scalars(
+        select(Application)
+        .options(
+            selectinload(Application.shift_slot),
+            selectinload(Application.job_request).selectinload(JobRequest.employer),
+        )
+        .where(
+            Application.worker_id == worker.id,
+            Application.status == ApplicationStatus.accepted,
+        )
+        .order_by(Application.applied_at.desc())
+    )
+    applications = [_eligible_application_to_worker_read(app) for app in result.all()]
+    return WorkerComplaintContextResponse(applications=applications)
+
+
+async def list_employer_complaint_jobs(
+    session: AsyncSession,
+    employer: Employer,
+) -> EmployerComplaintJobsResponse:
+    stmt = (
+        select(
+            JobRequest,
+            func.count(Application.id).label("applications_count"),
+        )
+        .outerjoin(
+            Application,
+            (Application.job_request_id == JobRequest.id)
+            & (Application.status == ApplicationStatus.accepted),
+        )
+        .where(JobRequest.employer_id == employer.id)
+        .group_by(JobRequest.id)
+        .having(func.count(Application.id) > 0)
+        .order_by(JobRequest.created_at.desc())
+    )
+    rows = await session.execute(stmt)
+    items = [
+        EmployerComplaintJobRead(
+            id=job.id,
+            title=job.title,
+            status=job.status,
+            applications_count=applications_count,
+        )
+        for job, applications_count in rows.all()
+    ]
+    return EmployerComplaintJobsResponse(items=items)
+
+
+async def list_employer_complaint_applications(
+    session: AsyncSession,
+    employer: Employer,
+    job_id: UUID,
+) -> EmployerComplaintApplicationsResponse:
+    job = await session.scalar(
+        select(JobRequest).where(
+            JobRequest.id == job_id,
+            JobRequest.employer_id == employer.id,
+        )
+    )
+    if job is None:
+        raise ComplaintNotFoundError("Заявка не найдена.")
+
+    result = await session.scalars(
+        select(Application)
+        .options(
+            selectinload(Application.shift_slot),
+            selectinload(Application.job_request),
+            selectinload(Application.worker),
+        )
+        .where(
+            Application.job_request_id == job_id,
+            Application.status == ApplicationStatus.accepted,
+        )
+        .order_by(Application.applied_at.desc())
+    )
+    items = [_application_to_employer_complaint_read(app) for app in result.all()]
+    return EmployerComplaintApplicationsResponse(items=items, total=len(items))
+
+
 async def create_worker_complaint(
     session: AsyncSession,
     worker: Worker,
@@ -153,7 +296,7 @@ async def create_worker_complaint(
     application_id: UUID,
     violation_type: ComplaintViolationType,
     description: str,
-) -> ApplicationComplaint:
+) -> ComplaintRead:
     user = getattr(worker, "user", None)
     if user is None and worker.user_id is not None:
         user = await session.get(User, worker.user_id)
@@ -193,7 +336,7 @@ async def create_worker_complaint(
     )
     session.add(complaint)
     await session.flush()
-    return complaint
+    return _complaint_to_read(complaint)
 
 
 async def create_employer_complaint(
@@ -203,7 +346,7 @@ async def create_employer_complaint(
     application_id: UUID,
     violation_type: ComplaintViolationType,
     description: str | None = None,
-) -> ApplicationComplaint:
+) -> ComplaintRead:
     user = getattr(employer, "user", None)
     if user is None and employer.user_id is not None:
         user = await session.get(User, employer.user_id)
@@ -246,7 +389,7 @@ async def create_employer_complaint(
     )
     session.add(complaint)
     await session.flush()
-    return complaint
+    return _complaint_to_read(complaint)
 
 
 async def resolve_complaint(
