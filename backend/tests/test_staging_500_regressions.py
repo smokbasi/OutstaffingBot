@@ -7,6 +7,7 @@ from uuid import uuid4
 import pytest
 
 from app.db.models import (
+    Employer,
     JobCategory,
     JobRequest,
     JobRequestStatus,
@@ -14,9 +15,11 @@ from app.db.models import (
     ShiftSlot,
     User,
     UserRole,
+    VerificationStatus,
     Worker,
 )
 from app.schemas.job_request import JobRequestCreate, ShiftSlotCreate
+from app.services import employer_service
 from app.services.job_service import create_job_request
 from app.services.preferences_service import get_preferences
 
@@ -116,3 +119,30 @@ async def test_create_job_request_uses_metro_city(monkeypatch: pytest.MonkeyPatc
     assert result.city == "spb"
     assert result.status == JobRequestStatus.draft
     assert len(result.shift_slots) == 1
+
+
+@pytest.mark.asyncio
+async def test_get_employer_profile_uses_verification_status(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """GET /employer/profile failed with UndefinedColumnError: employers.verified does not exist."""
+    user = User(id=uuid4(), telegram_id=54321, role=UserRole.employer)
+    employer = Employer(
+        id=uuid4(),
+        user_id=user.id,
+        company_name="ООО Тест",
+        verification_status=VerificationStatus.verified,
+    )
+
+    async def fake_get_employer_by_user_id(_session, _user_id):
+        return employer
+
+    monkeypatch.setattr(
+        "app.services.employer_service.get_employer_by_user_id",
+        fake_get_employer_by_user_id,
+    )
+
+    profile = await employer_service.get_employer_profile(object(), user)
+    assert profile is not None
+    assert profile.verification_status == VerificationStatus.verified
+    assert profile.verified is True

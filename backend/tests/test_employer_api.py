@@ -131,6 +131,86 @@ def _job_payload() -> dict:
 
 
 @pytest.mark.asyncio
+async def test_get_employer_profile_success(
+    client: AsyncClient,
+    test_employer: Employer,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def mock_get_employer_by_user_id(_session, _user_id):
+        return test_employer
+
+    monkeypatch.setattr(
+        "app.services.employer_service.get_employer_by_user_id",
+        mock_get_employer_by_user_id,
+    )
+    response = await client.get("/api/v1/employer/profile", headers=_auth_headers())
+    assert response.status_code == 200
+    data = response.json()
+    assert data["company_name"] == "ООО Тест"
+    assert data["verification_status"] == "pending"
+    assert data["verified"] is False
+
+
+@pytest.mark.asyncio
+async def test_get_employer_profile_not_found(
+    client: AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def mock_get_employer_by_user_id(_session, _user_id):
+        return None
+
+    monkeypatch.setattr(
+        "app.services.employer_service.get_employer_by_user_id",
+        mock_get_employer_by_user_id,
+    )
+    response = await client.get("/api/v1/employer/profile", headers=_auth_headers())
+    assert response.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_list_employer_jobs_without_profile_returns_404(
+    test_user: User,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.core import config
+
+    monkeypatch.setenv("BOT_TOKEN", TEST_BOT_TOKEN)
+    config.get_settings.cache_clear()
+
+    async def mock_get_employer_by_user_id(_session, _user_id):
+        return None
+
+    monkeypatch.setattr(
+        "app.services.employer_service.get_employer_by_user_id",
+        mock_get_employer_by_user_id,
+    )
+
+    async def override_user():
+        return test_user
+
+    async def override_session():
+        class DummySession:
+            async def commit(self) -> None:
+                return None
+
+        yield DummySession()
+
+    app.dependency_overrides[get_current_user] = override_user
+    app.dependency_overrides[get_db_session] = override_session
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as http_client:
+        response = await http_client.get(
+            "/api/v1/employer/jobs",
+            headers=_auth_headers(),
+        )
+
+    app.dependency_overrides.clear()
+    config.get_settings.cache_clear()
+    assert response.status_code == 404
+
+
+@pytest.mark.asyncio
 async def test_create_job_draft(
     client: AsyncClient,
     sample_job: JobRequestRead,
