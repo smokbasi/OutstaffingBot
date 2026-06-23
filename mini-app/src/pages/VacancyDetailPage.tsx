@@ -57,7 +57,7 @@ export function VacancyDetailPage({ initData, vacancyId, onBack }: VacancyDetail
         }
       } catch (err) {
         if (!cancelled) {
-          const message = err instanceof Error ? err.message : "╨Э╨╡ ╤Г╨┤╨░╨╗╨╛╤Б╤М ╨╖╨░╨│╤А╤Г╨╖╨╕╤В╤М ╨▓╨░╨║╨░╨╜╤Б╨╕╤О";
+          const message = err instanceof Error ? err.message : "Не удалось загрузить вакансию";
           setState({ status: "error", message });
         }
       }
@@ -76,7 +76,7 @@ export function VacancyDetailPage({ initData, vacancyId, onBack }: VacancyDetail
       const result = await applyToShift(initData, slotId, cancelConflictingId);
       triggerHaptic("medium");
       setSuccessMessage(
-        `╨Ю╤В╨║╨╗╨╕╨║ ╨╛╤В╨┐╤А╨░╨▓╨╗╨╡╨╜: ${result.job_title}, ${formatDate(result.shift_date)} ${formatTime(result.start_time)}тАУ${formatTime(result.end_time)}`,
+        `Отклик отправлен: ${result.job_title}, ${formatDate(result.shift_date)} ${formatTime(result.start_time)}–${formatTime(result.end_time)}`,
       );
       if (state.status === "ready" || state.status === "conflict") {
         setState({ status: "ready", vacancy: state.vacancy });
@@ -91,7 +91,7 @@ export function VacancyDetailPage({ initData, vacancyId, onBack }: VacancyDetail
         });
         return;
       }
-      const message = err instanceof Error ? err.message : "╨Э╨╡ ╤Г╨┤╨░╨╗╨╛╤Б╤М ╨╛╤В╨┐╤А╨░╨▓╨╕╤В╤М ╨╛╤В╨║╨╗╨╕╨║";
+      const message = err instanceof Error ? err.message : "Не удалось отправить отклик";
       setSuccessMessage(null);
       alert(message);
     } finally {
@@ -100,7 +100,7 @@ export function VacancyDetailPage({ initData, vacancyId, onBack }: VacancyDetail
   }
 
   if (state.status === "loading") {
-    return <p className="status">╨Ч╨░╨│╤А╤Г╨╖╨║╨░тАж</p>;
+    return <p className="status">Загрузка…</p>;
   }
 
   if (state.status === "error") {
@@ -108,7 +108,7 @@ export function VacancyDetailPage({ initData, vacancyId, onBack }: VacancyDetail
       <section className="card">
         <p className="error">{state.message}</p>
         <button type="button" className="btn secondary" onClick={onBack}>
-          ╨Э╨░╨╖╨░╨┤
+          Назад
         </button>
       </section>
     );
@@ -120,11 +120,11 @@ export function VacancyDetailPage({ initData, vacancyId, onBack }: VacancyDetail
     const { conflict, slotId } = state;
     return (
       <section className="card vacancy-detail">
-        <h2>╨Ъ╨╛╨╜╤Д╨╗╨╕╨║╤В ╤Б╨╝╨╡╨╜</h2>
+        <h2>Конфликт смен</h2>
         <p>{conflict.detail}</p>
         <p className="hint">
-          ╨в╨╡╨║╤Г╤Й╨░╤П: {formatDate(conflict.conflicting.shift_date)}{" "}
-          {formatTime(conflict.conflicting.start_time)}тАУ{formatTime(conflict.conflicting.end_time)} (
+          Текущая: {formatDate(conflict.conflicting.shift_date)}{" "}
+          {formatTime(conflict.conflicting.start_time)}–{formatTime(conflict.conflicting.end_time)} (
           {conflict.conflicting.job_title})
         </p>
         <div className="form-actions">
@@ -136,14 +136,14 @@ export function VacancyDetailPage({ initData, vacancyId, onBack }: VacancyDetail
               void handleApply(slotId, conflict.conflicting.application_id)
             }
           >
-            ╨Ю╤В╨╝╨╡╨╜╨╕╤В╤М ╨┐╤А╨╡╨┤╤Л╨┤╤Г╤Й╤Г╤О ╨╕ ╨╛╤В╨║╨╗╨╕╨║╨╜╤Г╤В╤М╤Б╤П
+            Отменить предыдущую и откликнуться
           </button>
           <button
             type="button"
             className="btn secondary"
             onClick={() => setState({ status: "ready", vacancy })}
           >
-            ╨Э╨░╨╖╨░╨┤
+            Назад
           </button>
         </div>
       </section>
@@ -153,32 +153,32 @@ export function VacancyDetailPage({ initData, vacancyId, onBack }: VacancyDetail
   return (
     <section className="card vacancy-detail">
       <button type="button" className="link-btn back-link" onClick={onBack}>
-        тЖР ╨Ъ ╤Б╨┐╨╕╤Б╨║╤Г
+        ← К списку
       </button>
       <h2>{vacancy.title}</h2>
       <p className="hint">
-        {vacancy.category_name ?? "тАФ"} ┬╖ {vacancy.metro_station_name ?? "тАФ"}
+        {vacancy.category_name ?? "—"} · {vacancy.metro_station_name ?? "—"}
       </p>
       <p>{formatHourlyRate(vacancy.hourly_rate)}</p>
-      {vacancy.address ? <p className="hint">╨Р╨┤╤А╨╡╤Б: {vacancy.address}</p> : null}
+      {vacancy.address ? <p className="hint">Адрес: {vacancy.address}</p> : null}
       <p>{vacancy.description}</p>
-      {vacancy.dress_code ? <p className="hint">╨Ф╤А╨╡╤Б╤Б-╨║╨╛╨┤: {vacancy.dress_code}</p> : null}
+      {vacancy.dress_code ? <p className="hint">Дресс-код: {vacancy.dress_code}</p> : null}
       {vacancy.min_experience_months ? (
-        <p className="hint">╨Ь╨╕╨╜. ╨╛╨┐╤Л╤В: {vacancy.min_experience_months} ╨╝╨╡╤Б.</p>
+        <p className="hint">Мин. опыт: {vacancy.min_experience_months} мес.</p>
       ) : null}
 
       {successMessage ? <p className="success">{successMessage}</p> : null}
 
-      <h3>╨Ф╨╛╤Б╤В╤Г╨┐╨╜╤Л╨╡ ╤Б╨╝╨╡╨╜╤Л</h3>
+      <h3>Доступные смены</h3>
       {vacancy.shift_slots.length === 0 ? (
-        <p className="hint">╨б╨▓╨╛╨▒╨╛╨┤╨╜╤Л╤Е ╤Б╨╝╨╡╨╜ ╨╜╨╡╤В.</p>
+        <p className="hint">Свободных смен нет.</p>
       ) : (
         <ul className="job-shifts apply-shifts">
           {vacancy.shift_slots.map((slot) => (
             <li key={slot.id} className="shift-row">
               <span>
-                {formatDate(slot.shift_date)} {formatTime(slot.start_time)}тАУ{formatTime(slot.end_time)} ┬╖
-                ╤Б╨▓╨╛╨▒╨╛╨┤╨╜╨╛ {slot.slots_total - slot.slots_filled}/{slot.slots_total}
+                {formatDate(slot.shift_date)} {formatTime(slot.start_time)}–{formatTime(slot.end_time)} ·
+                свободно {slot.slots_total - slot.slots_filled}/{slot.slots_total}
               </span>
               <button
                 type="button"
@@ -186,7 +186,7 @@ export function VacancyDetailPage({ initData, vacancyId, onBack }: VacancyDetail
                 disabled={applyingSlotId === slot.id}
                 onClick={() => void handleApply(slot.id)}
               >
-                {applyingSlotId === slot.id ? "тАж" : "╨Ю╤В╨║╨╗╨╕╨║╨╜╤Г╤В╤М╤Б╤П"}
+                {applyingSlotId === slot.id ? "…" : "Откликнуться"}
               </button>
             </li>
           ))}
