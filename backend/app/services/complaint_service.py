@@ -30,7 +30,7 @@ from app.schemas.complaint import (
     WorkerComplaintContextResponse,
     WorkerEligibleApplicationRead,
 )
-from app.services import user_block_service
+from app.services import audit_log_service, user_block_service
 
 WORKER_DESCRIPTION_MIN_LENGTH = 20
 DESCRIPTION_MAX_LENGTH = 2000
@@ -131,6 +131,49 @@ async def _find_open_duplicate(
 
 async def _get_complaint(session: AsyncSession, complaint_id: UUID) -> ApplicationComplaint | None:
     return await session.get(ApplicationComplaint, complaint_id)
+
+
+def _complaint_audit_details(complaint: ApplicationComplaint, **extra: object) -> dict:
+    details = {
+        "entity_type": "application_complaint",
+        "entity_id": str(complaint.id),
+        "application_id": str(complaint.application_id),
+        "violation_type": complaint.violation_type.value,
+    }
+    details.update(extra)
+    return details
+
+
+async def _record_complaint_created_audit(
+    session: AsyncSession,
+    *,
+    complaint: ApplicationComplaint,
+    actor_user: User,
+    target_user: User,
+) -> None:
+    await audit_log_service.record_audit(
+        session,
+        action="complaint.created",
+        actor_telegram_id=actor_user.telegram_id,
+        target_user=target_user,
+        details=_complaint_audit_details(complaint),
+    )
+
+
+async def _record_complaint_status_change_audit(
+    session: AsyncSession,
+    *,
+    complaint: ApplicationComplaint,
+    admin_telegram_id: int,
+) -> None:
+    target_user = await session.get(User, complaint.target_user_id)
+    await audit_log_service.record_audit(
+        session,
+        action="complaint.status_change",
+        actor_telegram_id=admin_telegram_id,
+        target_user=target_user,
+        details=_complaint_audit_details(complaint, status=complaint.status.value),
+    )
 
 
 def _build_complaint(
@@ -336,6 +379,12 @@ async def create_worker_complaint(
     )
     session.add(complaint)
     await session.flush()
+    await _record_complaint_created_audit(
+        session,
+        complaint=complaint,
+        actor_user=user,
+        target_user=target_user,
+    )
     return _complaint_to_read(complaint)
 
 
@@ -389,6 +438,12 @@ async def create_employer_complaint(
     )
     session.add(complaint)
     await session.flush()
+    await _record_complaint_created_audit(
+        session,
+        complaint=complaint,
+        actor_user=user,
+        target_user=target_user,
+    )
     return _complaint_to_read(complaint)
 
 
@@ -486,6 +541,11 @@ async def resolve_complaint(
     complaint.resolved_at = datetime.now(UTC)
     complaint.resolved_by_telegram_id = admin_telegram_id
     await session.flush()
+    await _record_complaint_status_change_audit(
+        session,
+        complaint=complaint,
+        admin_telegram_id=admin_telegram_id,
+    )
     return complaint
 
 
@@ -507,4 +567,9 @@ async def dismiss_complaint(
     complaint.resolved_at = datetime.now(UTC)
     complaint.resolved_by_telegram_id = admin_telegram_id
     await session.flush()
+    await _record_complaint_status_change_audit(
+        session,
+        complaint=complaint,
+        admin_telegram_id=admin_telegram_id,
+    )
     return complaint

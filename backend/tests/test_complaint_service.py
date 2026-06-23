@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from uuid import uuid4
 
+from unittest.mock import AsyncMock
+
 import pytest
 
 from app.db.models import (
@@ -72,10 +74,12 @@ class FakeSession:
         application: object | None = None,
         duplicate: object | None = None,
         complaint: object | None = None,
+        users: dict | None = None,
     ) -> None:
         self.application = application
         self.duplicate = duplicate
         self.complaint = complaint
+        self.users = users or {}
         self.added: list[object] = []
 
     async def scalar(self, stmt):
@@ -89,6 +93,8 @@ class FakeSession:
     async def get(self, model, obj_id):
         if self.complaint is not None and getattr(self.complaint, "id", None) == obj_id:
             return self.complaint
+        if obj_id in self.users:
+            return self.users[obj_id]
         return None
 
     def add(self, obj) -> None:
@@ -116,7 +122,7 @@ async def test_create_worker_complaint_success() -> None:
         description="Работодатель опоздал более чем на час.",
     )
 
-    assert len(session.added) == 1
+    assert len(session.added) == 2
     assert complaint.violation_type == ComplaintViolationType.late
     assert complaint.status == ComplaintStatus.open
     assert complaint.application_id == application.id
@@ -286,14 +292,24 @@ async def test_worker_complaint_accepts_stop_words_without_moderation() -> None:
 
 
 @pytest.mark.asyncio
-async def test_resolve_complaint_sets_status_and_admin_notes() -> None:
+async def test_resolve_complaint_sets_status_and_admin_notes(monkeypatch: pytest.MonkeyPatch) -> None:
+    worker = _make_worker()
+    employer = _make_employer()
+    application = _make_application(worker=worker, employer=employer)
     complaint = type("ApplicationComplaint", (), {})()
     complaint.id = uuid4()
+    complaint.application_id = application.id
+    complaint.target_user_id = employer.user.id
+    complaint.violation_type = ComplaintViolationType.late
     complaint.status = ComplaintStatus.open
     complaint.admin_notes = None
     complaint.resolved_at = None
     complaint.resolved_by_telegram_id = None
-    session = FakeSession(complaint=complaint)
+    session = FakeSession(complaint=complaint, users={employer.user.id: employer.user})
+    monkeypatch.setattr(
+        "app.services.complaint_service.audit_log_service.record_audit",
+        AsyncMock(),
+    )
 
     result = await complaint_service.resolve_complaint(
         session,
@@ -309,14 +325,24 @@ async def test_resolve_complaint_sets_status_and_admin_notes() -> None:
 
 
 @pytest.mark.asyncio
-async def test_dismiss_complaint_sets_status() -> None:
+async def test_dismiss_complaint_sets_status(monkeypatch: pytest.MonkeyPatch) -> None:
+    worker = _make_worker()
+    employer = _make_employer()
+    application = _make_application(worker=worker, employer=employer)
     complaint = type("ApplicationComplaint", (), {})()
     complaint.id = uuid4()
+    complaint.application_id = application.id
+    complaint.target_user_id = worker.user.id
+    complaint.violation_type = ComplaintViolationType.no_work
     complaint.status = ComplaintStatus.under_review
     complaint.admin_notes = None
     complaint.resolved_at = None
     complaint.resolved_by_telegram_id = None
-    session = FakeSession(complaint=complaint)
+    session = FakeSession(complaint=complaint, users={worker.user.id: worker.user})
+    monkeypatch.setattr(
+        "app.services.complaint_service.audit_log_service.record_audit",
+        AsyncMock(),
+    )
 
     result = await complaint_service.dismiss_complaint(
         session,
@@ -342,3 +368,130 @@ async def test_resolve_already_closed_complaint_raises() -> None:
             complaint.id,
             admin_telegram_id=999,
         )
+
+
+@pytest.mark.asyncio
+async def test_create_worker_complaint_records_audit(monkeypatch: pytest.MonkeyPatch) -> None:
+    worker = _make_worker()
+    employer = _make_employer()
+    application = _make_application(worker=worker, employer=employer)
+    session = FakeSession(application=application)
+    audit_mock = AsyncMock()
+    monkeypatch.setattr("app.services.complaint_service.audit_log_service.record_audit", audit_mock)
+
+    complaint = await complaint_service.create_worker_complaint(
+        session,
+        worker,
+        application_id=application.id,
+        violation_type=ComplaintViolationType.late,
+        description="Работодатель опоздал более чем на час.",
+    )
+
+    audit_mock.assert_awaited_once()
+    kwargs = audit_mock.await_args.kwargs
+    assert kwargs["action"] == "complaint.created"
+    assert kwargs["actor_telegram_id"] == worker.user.telegram_id
+    assert kwargs["target_user"] is employer.user
+    assert kwargs["details"] == {
+        "entity_type": "application_complaint",
+        "entity_id": str(complaint.id),
+        "application_id": str(application.id),
+        "violation_type": ComplaintViolationType.late.value,
+    }
+
+
+@pytest.mark.asyncio
+async def test_create_employer_complaint_records_audit(monkeypatch: pytest.MonkeyPatch) -> None:
+    worker = _make_worker()
+    employer = _make_employer()
+    application = _make_application(worker=worker, employer=employer)
+    session = FakeSession(application=application)
+    audit_mock = AsyncMock()
+    monkeypatch.setattr("app.services.complaint_service.audit_log_service.record_audit", audit_mock)
+
+    complaint = await complaint_service.create_employer_complaint(
+        session,
+        employer,
+        application_id=application.id,
+        violation_type=ComplaintViolationType.no_show,
+    )
+
+    audit_mock.assert_awaited_once()
+    kwargs = audit_mock.await_args.kwargs
+    assert kwargs["action"] == "complaint.created"
+    assert kwargs["actor_telegram_id"] == employer.user.telegram_id
+    assert kwargs["target_user"] is worker.user
+    assert kwargs["details"]["violation_type"] == ComplaintViolationType.no_show.value
+    assert kwargs["details"]["entity_type"] == "application_complaint"
+    assert kwargs["details"]["entity_id"] == str(complaint.id)
+    assert kwargs["details"]["application_id"] == str(application.id)
+
+
+@pytest.mark.asyncio
+async def test_resolve_complaint_records_status_change_audit(monkeypatch: pytest.MonkeyPatch) -> None:
+    worker = _make_worker()
+    employer = _make_employer()
+    application = _make_application(worker=worker, employer=employer)
+    complaint = type("ApplicationComplaint", (), {})()
+    complaint.id = uuid4()
+    complaint.application_id = application.id
+    complaint.target_user_id = employer.user.id
+    complaint.violation_type = ComplaintViolationType.no_payment
+    complaint.status = ComplaintStatus.open
+    complaint.admin_notes = None
+    complaint.resolved_at = None
+    complaint.resolved_by_telegram_id = None
+    session = FakeSession(complaint=complaint, users={employer.user.id: employer.user})
+    audit_mock = AsyncMock()
+    monkeypatch.setattr("app.services.complaint_service.audit_log_service.record_audit", audit_mock)
+
+    await complaint_service.resolve_complaint(
+        session,
+        complaint.id,
+        admin_telegram_id=999,
+        admin_notes="Подтверждено",
+    )
+
+    audit_mock.assert_awaited_once()
+    kwargs = audit_mock.await_args.kwargs
+    assert kwargs["action"] == "complaint.status_change"
+    assert kwargs["actor_telegram_id"] == 999
+    assert kwargs["target_user"] is employer.user
+    assert kwargs["details"] == {
+        "entity_type": "application_complaint",
+        "entity_id": str(complaint.id),
+        "application_id": str(application.id),
+        "violation_type": ComplaintViolationType.no_payment.value,
+        "status": ComplaintStatus.resolved.value,
+    }
+
+
+@pytest.mark.asyncio
+async def test_dismiss_complaint_records_status_change_audit(monkeypatch: pytest.MonkeyPatch) -> None:
+    worker = _make_worker()
+    employer = _make_employer()
+    application = _make_application(worker=worker, employer=employer)
+    complaint = type("ApplicationComplaint", (), {})()
+    complaint.id = uuid4()
+    complaint.application_id = application.id
+    complaint.target_user_id = worker.user.id
+    complaint.violation_type = ComplaintViolationType.no_work
+    complaint.status = ComplaintStatus.under_review
+    complaint.admin_notes = None
+    complaint.resolved_at = None
+    complaint.resolved_by_telegram_id = None
+    session = FakeSession(complaint=complaint, users={worker.user.id: worker.user})
+    audit_mock = AsyncMock()
+    monkeypatch.setattr("app.services.complaint_service.audit_log_service.record_audit", audit_mock)
+
+    await complaint_service.dismiss_complaint(
+        session,
+        complaint.id,
+        admin_telegram_id=888,
+    )
+
+    audit_mock.assert_awaited_once()
+    kwargs = audit_mock.await_args.kwargs
+    assert kwargs["action"] == "complaint.status_change"
+    assert kwargs["details"]["status"] == ComplaintStatus.dismissed.value
+    assert kwargs["details"]["entity_type"] == "application_complaint"

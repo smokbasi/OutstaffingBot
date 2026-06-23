@@ -292,7 +292,7 @@
 - [x] **9.9.4** API admin: список/деталь/resolve жалоб по заявкам [P1]
   - **Acceptance criteria:** фильтры `violation_type`, `from`/`to` (ISO date), `company_q` (substring, case-insensitive); пагинация `limit`/`offset`; только `get_current_admin`.
 
-- [ ] **9.9.5** Audit: `complaint.created`, `complaint.status_change` [P1]
+- [x] **9.9.5** Audit: `complaint.created`, `complaint.status_change` [P1]
   - **Acceptance criteria:** записи в `audit_log` при create и resolve/dismiss; labels в `AdminPanelPage` AUDIT_ACTION_LABELS.
 
 #### 9.10 Mini App — «Пожаловаться» (Worker & Employer) [P1]
