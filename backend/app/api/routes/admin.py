@@ -7,8 +7,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps_admin import get_current_admin
 from app.db.models import Application, Employer, JobRequest, User
 from app.db.session import get_db_session
-from app.schemas.admin import AdminAnalytics, AdminAuditEntryRead, AdminStats, PendingEmployerRead
+from app.schemas.admin import (
+    AdminAnalytics,
+    AdminAuditEntryRead,
+    AdminStats,
+    ModerationQueueEntryRead,
+    ModerationUserDetailRead,
+    ModerationViolationRead,
+    PendingEmployerRead,
+)
 from app.services import admin_stats_service, audit_log_service, employer_service
+from app.services import moderation_violation_service, user_block_service
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -33,6 +42,35 @@ def _platform_stats_to_admin(stats: admin_stats_service.PlatformStats) -> AdminS
         employers_count=stats.employers_total,
         jobs_count=stats.jobs_total,
         pending_verifications=stats.employers_unverified,
+        users_blocked=stats.users_blocked,
+        moderation_flagged_users=stats.moderation_flagged_users,
+        violations_total=stats.violations_total,
+    )
+
+
+def _queue_entry(summary: moderation_violation_service.FlaggedUserSummary) -> ModerationQueueEntryRead:
+    user = summary.user
+    flagged_at = user.moderation_flagged_at
+    if flagged_at is None:
+        raise ValueError("Queue entry requires moderation_flagged_at")
+    return ModerationQueueEntryRead(
+        telegram_id=user.telegram_id,
+        username=user.username,
+        violation_count=summary.violation_count,
+        is_blocked=bool(user.is_blocked),
+        flagged_at=flagged_at,
+    )
+
+
+def _violation_read(item) -> ModerationViolationRead:
+    return ModerationViolationRead(
+        id=item.id,
+        field=item.field,
+        category=item.category,
+        matched_term=item.matched_term,
+        raw_snippet=item.raw_snippet,
+        source=item.source.value if hasattr(item.source, "value") else str(item.source),
+        created_at=item.created_at,
     )
 
 
@@ -174,3 +212,87 @@ async def list_audit_logs(
             )
         )
     return out
+
+
+@router.get("/moderation/queue", response_model=list[ModerationQueueEntryRead])
+async def list_moderation_queue(
+    _: User = Depends(get_current_admin),
+    session: AsyncSession = Depends(get_db_session),
+) -> list[ModerationQueueEntryRead]:
+    queue = await moderation_violation_service.list_moderation_queue(session)
+    return [_queue_entry(item) for item in queue]
+
+
+@router.get("/moderation/users/{telegram_id}", response_model=ModerationUserDetailRead)
+async def get_moderation_user_detail(
+    telegram_id: int,
+    _: User = Depends(get_current_admin),
+    session: AsyncSession = Depends(get_db_session),
+) -> ModerationUserDetailRead:
+    user, violations = await moderation_violation_service.get_violations_by_telegram_id(
+        session,
+        telegram_id,
+    )
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    violation_count = await moderation_violation_service.count_user_violations(session, user.id)
+    return ModerationUserDetailRead(
+        telegram_id=user.telegram_id,
+        username=user.username,
+        is_blocked=bool(user.is_blocked),
+        flagged_at=user.moderation_flagged_at,
+        violation_count=violation_count,
+        violations=[_violation_read(item) for item in violations],
+    )
+
+
+@router.post("/moderation/users/{telegram_id}/block")
+async def block_moderation_user(
+    telegram_id: int,
+    admin: User = Depends(get_current_admin),
+    session: AsyncSession = Depends(get_db_session),
+) -> dict[str, str | bool]:
+    result = await user_block_service.block_user(
+        session,
+        telegram_id,
+        actor_telegram_id=admin.telegram_id,
+    )
+    if result.user is None:
+        raise HTTPException(status_code=404, detail=result.message)
+    await session.commit()
+    return {"status": "blocked", "changed": result.changed, "message": result.message}
+
+
+@router.post("/moderation/users/{telegram_id}/unblock")
+async def unblock_moderation_user(
+    telegram_id: int,
+    admin: User = Depends(get_current_admin),
+    session: AsyncSession = Depends(get_db_session),
+) -> dict[str, str | bool]:
+    result = await user_block_service.unblock_user(
+        session,
+        telegram_id,
+        actor_telegram_id=admin.telegram_id,
+    )
+    if result.user is None:
+        raise HTTPException(status_code=404, detail=result.message)
+    await session.commit()
+    return {"status": "unblocked", "changed": result.changed, "message": result.message}
+
+
+@router.post("/moderation/users/{telegram_id}/dismiss")
+async def dismiss_moderation_user(
+    telegram_id: int,
+    admin: User = Depends(get_current_admin),
+    session: AsyncSession = Depends(get_db_session),
+) -> dict[str, str | bool]:
+    result = await moderation_violation_service.dismiss_moderation_review(
+        session,
+        telegram_id,
+        actor_telegram_id=admin.telegram_id,
+    )
+    if result.user is None:
+        raise HTTPException(status_code=404, detail=result.message)
+    await session.commit()
+    return {"status": "dismissed", "changed": result.changed, "message": result.message}

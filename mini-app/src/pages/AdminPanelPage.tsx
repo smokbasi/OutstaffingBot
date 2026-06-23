@@ -1,19 +1,26 @@
 import { useCallback, useEffect, useState } from "react";
 import {
+  blockModerationUser,
+  dismissModerationUser,
   getAdminAnalytics,
   getAdminAuditLog,
   getAdminStats,
+  getModerationUserDetail,
+  listModerationQueue,
   listPendingEmployers,
   rejectEmployer,
+  unblockModerationUser,
   verifyEmployer,
   type AdminAnalytics,
   type AdminAuditEntry,
   type AdminStats,
+  type ModerationQueueEntry,
+  type ModerationUserDetail,
   type PendingEmployer,
 } from "../api/client";
 import { triggerHaptic, triggerNotificationHaptic } from "../lib/telegram";
 
-type AdminTab = "stats" | "verifications" | "audit";
+type AdminTab = "stats" | "verifications" | "moderation" | "audit";
 
 type AdminPanelPageProps = {
   initData: string;
@@ -30,6 +37,9 @@ const AUDIT_ACTION_LABELS: Record<string, string> = {
   "application.cancelled_by_employer": "Отклик отменён работодателем",
   "employer.verify": "Работодатель верифицирован",
   "employer.reject": "Работодатель отклонён",
+  "moderation.user_block": "Пользователь заблокирован",
+  "moderation.user_unblock": "Пользователь разблокирован",
+  "moderation.review_dismiss": "Review модерации отклонён",
 };
 
 const ENTITY_TYPE_LABELS: Record<string, string> = {
@@ -134,6 +144,24 @@ function StatsTab({ initData }: { initData: string }) {
           <span className="stat-value">{stats.pending_verifications}</span>
           <span className="stat-label">На верификации</span>
         </div>
+        {typeof stats.moderation_flagged_users === "number" ? (
+          <div className="stat-card stat-card-warn">
+            <span className="stat-value">{stats.moderation_flagged_users}</span>
+            <span className="stat-label">На модерации</span>
+          </div>
+        ) : null}
+        {typeof stats.users_blocked === "number" ? (
+          <div className="stat-card">
+            <span className="stat-value">{stats.users_blocked}</span>
+            <span className="stat-label">Заблокированы</span>
+          </div>
+        ) : null}
+        {typeof stats.violations_total === "number" ? (
+          <div className="stat-card">
+            <span className="stat-value">{stats.violations_total}</span>
+            <span className="stat-label">Нарушения</span>
+          </div>
+        ) : null}
       </div>
 
       {Object.keys(analytics.jobs_by_status).length > 0 ? (
@@ -279,6 +307,242 @@ function VerificationsTab({ initData }: { initData: string }) {
   );
 }
 
+function ModerationTab({ initData }: { initData: string }) {
+  const [queue, setQueue] = useState<ModerationQueueEntry[]>([]);
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [detail, setDetail] = useState<ModerationUserDetail | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [busyId, setBusyId] = useState<number | null>(null);
+
+  const loadQueue = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const items = await listModerationQueue(initData);
+      setQueue(items);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Не удалось загрузить очередь модерации");
+    } finally {
+      setLoading(false);
+    }
+  }, [initData]);
+
+  const loadDetail = useCallback(
+    async (telegramId: number) => {
+      setDetailLoading(true);
+      setError(null);
+      try {
+        const data = await getModerationUserDetail(initData, telegramId);
+        setDetail(data);
+        setSelectedId(telegramId);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Не удалось загрузить детали");
+      } finally {
+        setDetailLoading(false);
+      }
+    },
+    [initData],
+  );
+
+  useEffect(() => {
+    void loadQueue();
+  }, [loadQueue]);
+
+  async function runAction(
+    telegramId: number,
+    action: "block" | "unblock" | "dismiss",
+  ) {
+    setBusyId(telegramId);
+    setError(null);
+    try {
+      if (action === "block") {
+        await blockModerationUser(initData, telegramId);
+      } else if (action === "unblock") {
+        await unblockModerationUser(initData, telegramId);
+      } else {
+        await dismissModerationUser(initData, telegramId);
+      }
+      triggerNotificationHaptic("success");
+      setSelectedId(null);
+      setDetail(null);
+      await loadQueue();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Не удалось выполнить действие");
+      triggerNotificationHaptic("error");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  if (loading) {
+    return <p className="status">Загрузка модерации…</p>;
+  }
+
+  return (
+    <div className="admin-moderation">
+      {error ? <p className="error">{error}</p> : null}
+
+      {selectedId !== null && detail ? (
+        <section className="admin-subsection">
+          <button
+            type="button"
+            className="btn btn-sm"
+            onClick={() => {
+              triggerHaptic("light");
+              setSelectedId(null);
+              setDetail(null);
+            }}
+          >
+            ← К очереди
+          </button>
+          <h3>
+            {detail.username ? `@${detail.username}` : detail.telegram_id}
+            {detail.is_blocked ? " · заблокирован" : " · активен"}
+          </h3>
+          <p className="hint">
+            Нарушений: {detail.violation_count}
+            {detail.flagged_at ? ` · review ${formatDateTime(detail.flagged_at)}` : null}
+          </p>
+          {detailLoading ? (
+            <p className="status">Загрузка…</p>
+          ) : detail.violations.length === 0 ? (
+            <p className="hint">Нарушений нет.</p>
+          ) : (
+            <ul className="admin-audit-list">
+              {detail.violations.map((item) => (
+                <li key={item.id}>
+                  {formatDateTime(item.created_at)} · {item.source} · поле {item.field}
+                  <br />
+                  term: {item.matched_term}
+                  {item.category ? ` (${item.category})` : null}
+                  <br />
+                  {item.raw_snippet.slice(0, 200)}
+                </li>
+              ))}
+            </ul>
+          )}
+          <div className="admin-list-actions">
+            {!detail.is_blocked ? (
+              <>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-danger"
+                  disabled={busyId === detail.telegram_id}
+                  onClick={() => {
+                    triggerHaptic("light");
+                    void runAction(detail.telegram_id, "block");
+                  }}
+                >
+                  Заблокировать
+                </button>
+                {detail.flagged_at ? (
+                  <button
+                    type="button"
+                    className="btn btn-sm"
+                    disabled={busyId === detail.telegram_id}
+                    onClick={() => {
+                      triggerHaptic("light");
+                      void runAction(detail.telegram_id, "dismiss");
+                    }}
+                  >
+                    Отклонить review
+                  </button>
+                ) : null}
+              </>
+            ) : (
+              <button
+                type="button"
+                className="btn btn-sm"
+                disabled={busyId === detail.telegram_id}
+                onClick={() => {
+                  triggerHaptic("light");
+                  void runAction(detail.telegram_id, "unblock");
+                }}
+              >
+                Разблокировать
+              </button>
+            )}
+          </div>
+        </section>
+      ) : queue.length === 0 ? (
+        <p className="hint">Очередь модерации пуста.</p>
+      ) : (
+        <ul className="admin-list">
+          {queue.map((entry) => (
+            <li key={entry.telegram_id} className="admin-list-item">
+              <div className="admin-list-main">
+                <strong>
+                  {entry.username ? `@${entry.username}` : entry.telegram_id}
+                </strong>
+                <span className="hint">
+                  {entry.violation_count} наруш.
+                  {" · "}
+                  {entry.is_blocked ? "заблокирован" : "активен"}
+                  {" · "}
+                  review {formatDateTime(entry.flagged_at)}
+                </span>
+              </div>
+              <div className="admin-list-actions">
+                <button
+                  type="button"
+                  className="btn btn-sm"
+                  disabled={busyId === entry.telegram_id}
+                  onClick={() => {
+                    triggerHaptic("light");
+                    void loadDetail(entry.telegram_id);
+                  }}
+                >
+                  Детали
+                </button>
+                {!entry.is_blocked ? (
+                  <>
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-danger"
+                      disabled={busyId === entry.telegram_id}
+                      onClick={() => {
+                        triggerHaptic("light");
+                        void runAction(entry.telegram_id, "block");
+                      }}
+                    >
+                      Заблокировать
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-sm"
+                      disabled={busyId === entry.telegram_id}
+                      onClick={() => {
+                        triggerHaptic("light");
+                        void runAction(entry.telegram_id, "dismiss");
+                      }}
+                    >
+                      Отклонить
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    className="btn btn-sm"
+                    disabled={busyId === entry.telegram_id}
+                    onClick={() => {
+                      triggerHaptic("light");
+                      void runAction(entry.telegram_id, "unblock");
+                    }}
+                  >
+                    Разблокировать
+                  </button>
+                )}
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 function AuditTab({ initData }: { initData: string }) {
   const [entries, setEntries] = useState<AdminAuditEntry[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -361,6 +625,16 @@ export function AdminPanelPage({ initData, initialTab = "stats" }: AdminPanelPag
         </button>
         <button
           type="button"
+          className={`nav-btn${tab === "moderation" ? " active" : ""}`}
+          onClick={() => {
+            triggerHaptic("light");
+            setTab("moderation");
+          }}
+        >
+          Модерация
+        </button>
+        <button
+          type="button"
           className={`nav-btn${tab === "audit" ? " active" : ""}`}
           onClick={() => {
             triggerHaptic("light");
@@ -373,6 +647,7 @@ export function AdminPanelPage({ initData, initialTab = "stats" }: AdminPanelPag
 
       {tab === "stats" ? <StatsTab initData={initData} /> : null}
       {tab === "verifications" ? <VerificationsTab initData={initData} /> : null}
+      {tab === "moderation" ? <ModerationTab initData={initData} /> : null}
       {tab === "audit" ? <AuditTab initData={initData} /> : null}
     </section>
   );

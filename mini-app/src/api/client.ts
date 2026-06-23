@@ -704,6 +704,9 @@ export type AdminStats = {
   employers_count: number;
   jobs_count: number;
   pending_verifications: number;
+  users_blocked?: number;
+  moderation_flagged_users?: number;
+  violations_total?: number;
 };
 
 export type AdminAnalytics = AdminStats & {
@@ -729,6 +732,39 @@ export type AdminAuditEntry = {
   entity_id: string;
   metadata: Record<string, unknown> | null;
   created_at: string;
+};
+
+export type ModerationQueueEntry = {
+  telegram_id: number;
+  username: string | null;
+  violation_count: number;
+  is_blocked: boolean;
+  flagged_at: string;
+};
+
+export type ModerationViolation = {
+  id: string;
+  field: string;
+  category: string | null;
+  matched_term: string;
+  raw_snippet: string;
+  source: string;
+  created_at: string;
+};
+
+export type ModerationUserDetail = {
+  telegram_id: number;
+  username: string | null;
+  is_blocked: boolean;
+  flagged_at: string | null;
+  violation_count: number;
+  violations: ModerationViolation[];
+};
+
+export type ModerationActionResult = {
+  status: string;
+  changed: boolean;
+  message: string;
 };
 
 export function getAdminStats(initData: string): Promise<AdminStats> {
@@ -757,4 +793,46 @@ export function rejectEmployer(initData: string, employerId: string): Promise<{ 
 
 export function getAdminAuditLog(initData: string, limit = 20): Promise<AdminAuditEntry[]> {
   return apiFetch<AdminAuditEntry[]>(`/admin/audit?limit=${limit}`, initData);
+}
+
+export function listModerationQueue(initData: string): Promise<ModerationQueueEntry[]> {
+  return apiFetch<ModerationQueueEntry[]>("/admin/moderation/queue", initData);
+}
+
+export function getModerationUserDetail(
+  initData: string,
+  telegramId: number,
+): Promise<ModerationUserDetail> {
+  return apiFetch<ModerationUserDetail>(`/admin/moderation/users/${telegramId}`, initData);
+}
+
+export function blockModerationUser(
+  initData: string,
+  telegramId: number,
+): Promise<ModerationActionResult> {
+  return apiFetch<ModerationActionResult>(`/admin/moderation/users/${telegramId}/block`, initData, {
+    method: "POST",
+  });
+}
+
+export function unblockModerationUser(
+  initData: string,
+  telegramId: number,
+): Promise<ModerationActionResult> {
+  return apiFetch<ModerationActionResult>(
+    `/admin/moderation/users/${telegramId}/unblock`,
+    initData,
+    { method: "POST" },
+  );
+}
+
+export function dismissModerationUser(
+  initData: string,
+  telegramId: number,
+): Promise<ModerationActionResult> {
+  return apiFetch<ModerationActionResult>(
+    `/admin/moderation/users/${telegramId}/dismiss`,
+    initData,
+    { method: "POST" },
+  );
 }

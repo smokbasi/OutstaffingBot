@@ -13,6 +13,7 @@ from sqlalchemy.orm import selectinload
 
 from app.core.config import get_settings
 from app.db.models import ModerationViolationLog, ModerationViolationSource, User
+from app.services import audit_log_service, user_service
 from app.services.content_moderation_service import ContentRejectedError
 
 
@@ -20,6 +21,13 @@ from app.services.content_moderation_service import ContentRejectedError
 class FlaggedUserSummary:
     user: User
     violation_count: int
+
+
+@dataclass(frozen=True)
+class ModerationReviewResult:
+    user: User | None
+    changed: bool
+    message: str
 
 
 async def count_user_violations(session: AsyncSession, user_id: UUID) -> int:
@@ -97,3 +105,49 @@ async def get_violations_by_telegram_id(
     )
     violations = list(await session.scalars(stmt))
     return user, violations
+
+
+def clear_moderation_review_flag(user: User) -> bool:
+    """Remove user from admin review queue. Returns True if flag was cleared."""
+    if user.moderation_flagged_at is None:
+        return False
+    user.moderation_flagged_at = None
+    return True
+
+
+async def dismiss_moderation_review(
+    session: AsyncSession,
+    telegram_id: int,
+    *,
+    actor_telegram_id: int,
+) -> ModerationReviewResult:
+    """Admin rejects ban request — user stays active, removed from review queue."""
+    user = await user_service.get_user_by_telegram_id(session, telegram_id)
+    if user is None:
+        return ModerationReviewResult(
+            user=None,
+            changed=False,
+            message="Пользователь не найден.",
+        )
+
+    if user.moderation_flagged_at is None:
+        return ModerationReviewResult(
+            user=user,
+            changed=False,
+            message="Пользователь не в очереди модерации.",
+        )
+
+    clear_moderation_review_flag(user)
+    await session.flush()
+    await audit_log_service.record_audit(
+        session,
+        action="moderation.review_dismiss",
+        actor_telegram_id=actor_telegram_id,
+        target_user=user,
+        details={"violation_count": await count_user_violations(session, user.id)},
+    )
+    return ModerationReviewResult(
+        user=user,
+        changed=True,
+        message="Заявка на блокировку отклонена, пользователь снят с review.",
+    )

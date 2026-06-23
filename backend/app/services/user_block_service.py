@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import Employer, User, Worker
-from app.services import audit_log_service, user_service
+from app.services import audit_log_service, moderation_violation_service, user_service
 
 ACCOUNT_BLOCKED_MESSAGE = "Ваш аккаунт заблокирован."
 
@@ -45,6 +45,7 @@ async def block_user(
         return BlockActionResult(user=user, changed=False, message="Пользователь уже заблокирован.")
 
     user.is_blocked = True
+    moderation_violation_service.clear_moderation_review_flag(user)
     await session.flush()
     await audit_log_service.record_audit(
         session,
