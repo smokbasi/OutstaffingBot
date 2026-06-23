@@ -27,6 +27,12 @@ const MyApplicationsPage = lazy(() =>
 const NotificationsSettingsPage = lazy(() =>
   import("./pages/NotificationsSettingsPage").then((m) => ({ default: m.NotificationsSettingsPage })),
 );
+const AdminPanelPage = lazy(() =>
+  import("./pages/AdminPanelPage").then((m) => ({ default: m.AdminPanelPage })),
+);
+const AdminAccessDenied = lazy(() =>
+  import("./pages/AdminPanelPage").then((m) => ({ default: m.AdminAccessDenied })),
+);
 
 function PageFallback() {
   return <p className="status">Загрузка…</p>;
@@ -85,6 +91,7 @@ function readTelegramContext(): TelegramContext {
 
 const VACANCY_DEEP_LINK_RE = /^\/vacancy\/([0-9a-f-]{36})$/i;
 const STARTAPP_VACANCY_RE = /^vacancy_([0-9a-f-]{36})$/i;
+const ADMIN_DEEP_LINK_RE = /^\/admin\/?$/i;
 
 function parseVacancyDeepLink(): string | null {
   if (typeof window === "undefined") {
@@ -103,16 +110,28 @@ function parseVacancyStartParam(): string | null {
   return match?.[1] ?? null;
 }
 
+function parseAdminDeepLink(): boolean {
+  if (typeof window === "undefined") {
+    return false;
+  }
+  return ADMIN_DEEP_LINK_RE.test(window.location.pathname);
+}
+
 function readInitialWorkerRoute(): {
   appMode: AppMode | null;
   workerView: WorkerView;
   vacancyId: string | null;
+  adminDeepLink: boolean;
 } {
+  const adminDeepLink = parseAdminDeepLink();
+  if (adminDeepLink) {
+    return { appMode: null, workerView: "vacancies", vacancyId: null, adminDeepLink: true };
+  }
   const vacancyId = parseVacancyDeepLink() ?? parseVacancyStartParam();
   if (vacancyId) {
-    return { appMode: "worker", workerView: "vacancy-detail", vacancyId };
+    return { appMode: "worker", workerView: "vacancy-detail", vacancyId, adminDeepLink: false };
   }
-  return { appMode: null, workerView: "vacancies", vacancyId: null };
+  return { appMode: null, workerView: "vacancies", vacancyId: null, adminDeepLink: false };
 }
 
 function useTelegramContext(): TelegramContext {
@@ -237,6 +256,7 @@ function App() {
   const [jobsReloadKey, setJobsReloadKey] = useState(0);
   const [applicationsReloadKey, setApplicationsReloadKey] = useState(0);
   const [vacanciesReloadKey, setVacanciesReloadKey] = useState(0);
+  const [showAdminPanel, setShowAdminPanel] = useState(initialRoute.adminDeepLink);
 
   useEffect(() => {
     if (!telegram.inTelegram || !telegram.initData) {
@@ -268,6 +288,7 @@ function App() {
 
   function handleSelectMode(mode: AppMode) {
     setAppMode(mode);
+    setShowAdminPanel(false);
     if (mode === "employer") {
       setEmployerView("jobs");
     }
@@ -277,8 +298,17 @@ function App() {
     }
   }
 
+  function handleOpenAdmin() {
+    setShowAdminPanel(true);
+  }
+
+  function handleCloseAdmin() {
+    setShowAdminPanel(false);
+  }
+
   function handleSwitchRole() {
     setAppMode(null);
+    setShowAdminPanel(false);
   }
 
   function handleEmployerRegistered() {
@@ -309,6 +339,32 @@ function App() {
               : "Откройте через бота (WebApp) для просмотра профиля."}
           </p>
         </section>
+      );
+    }
+
+    if (meState.status === "idle" || meState.status === "loading") {
+      return <p className="status">Загрузка профиля…</p>;
+    }
+
+    if (meState.status === "error") {
+      return (
+        <section className="card">
+          <p className="error">{meState.message}</p>
+        </section>
+      );
+    }
+
+    const { me } = meState;
+
+    if (showAdminPanel) {
+      return (
+        <Suspense fallback={<PageFallback />}>
+          {me.is_admin ? (
+            <AdminPanelPage initData={telegram.initData} />
+          ) : (
+            <AdminAccessDenied />
+          )}
+        </Suspense>
       );
     }
 
@@ -345,21 +401,6 @@ function App() {
       );
     }
 
-    if (meState.status === "idle" || meState.status === "loading") {
-      return <p className="status">Загрузка профиля…</p>;
-    }
-
-    if (meState.status === "error") {
-      return (
-        <section className="card">
-          <p className="error">{meState.message}</p>
-        </section>
-      );
-    }
-
-    const { me } = meState;
-
-
     if (!me.has_employer_profile) {
       return (
         <EmployerSetupPrompt
@@ -393,16 +434,36 @@ function App() {
     );
   }
 
-  const showSwitchRole = telegram.inTelegram && telegram.initData && appMode !== null;
+  const showSwitchRole =
+    telegram.inTelegram && telegram.initData && appMode !== null && !showAdminPanel;
+
+  const isAdmin = meState.status === "ready" && meState.me.is_admin;
 
   const showEmployerNav =
     telegram.inTelegram &&
     telegram.initData &&
     meState.status === "ready" &&
     appMode === "employer" &&
-    meState.me.has_employer_profile;
+    meState.me.has_employer_profile &&
+    !showAdminPanel;
 
-  const showWorkerNav = telegram.inTelegram && telegram.initData && appMode === "worker";
+  const showWorkerNav =
+    telegram.inTelegram && telegram.initData && appMode === "worker" && !showAdminPanel;
+
+  const showAdminNav =
+    telegram.inTelegram &&
+    telegram.initData &&
+    meState.status === "ready" &&
+    isAdmin &&
+    appMode !== null &&
+    !showAdminPanel;
+
+  const showAdminPanelNav =
+    telegram.inTelegram &&
+    telegram.initData &&
+    meState.status === "ready" &&
+    isAdmin &&
+    showAdminPanel;
 
   return (
     <main className="app">
@@ -454,6 +515,11 @@ function App() {
           >
             Уведомления
           </button>
+          {showAdminNav ? (
+            <button type="button" className="nav-btn nav-btn-admin" onClick={handleOpenAdmin}>
+              Админ
+            </button>
+          ) : null}
         </nav>
       ) : null}
 
@@ -483,6 +549,24 @@ function App() {
           >
             Создать
           </button>
+          {showAdminNav ? (
+            <button type="button" className="nav-btn nav-btn-admin" onClick={handleOpenAdmin}>
+              Админ
+            </button>
+          ) : null}
+        </nav>
+      ) : null}
+
+      {showAdminPanelNav ? (
+        <nav className="app-nav">
+          <button type="button" className="nav-btn active">
+            Админ
+          </button>
+          {appMode !== null ? (
+            <button type="button" className="nav-btn" onClick={handleCloseAdmin}>
+              {appMode === "worker" ? "К работнику" : "К работодателю"}
+            </button>
+          ) : null}
         </nav>
       ) : null}
 
