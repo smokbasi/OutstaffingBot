@@ -236,7 +236,7 @@
 
 #### 9.7 Admin: violation log & user ban [P0]
 
-- [x] Просмотр логов и блокировка по Telegram ID — **Phase 9 MVP: команды бота** (`ADMIN_TELEGRAM_IDS`); опционально позже — Mini App admin (Phase 10+)
+- [x] Просмотр логов и блокировка по Telegram ID — команды бота (`/moderation_queue`, `/violation_log`, `/block_user`) **и** вкладка «Модерация» в Mini App admin (`/admin/moderation/*`)
   - Команды (или подменю `/admin`): список пользователей с violations ≥ N, детализация по `telegram_id`, `/admin block_user <telegram_id>`, `/admin unblock_user <telegram_id>`.
   - Admin видит примеры срабатываний (snippet + matched term + дата), принимает решение о блокировке.
   - Заблокированный пользователь: создание заявок/откликов запрещено; сообщение «аккаунт заблокирован».

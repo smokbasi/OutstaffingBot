@@ -57,7 +57,7 @@ def test_format_user_line() -> None:
 
 @pytest.mark.asyncio
 async def test_block_user_sets_flag_and_audit(monkeypatch: pytest.MonkeyPatch) -> None:
-    user = _sample_user()
+    user = _sample_user(flagged=True)
     session = MagicMock()
     session.flush = AsyncMock()
     audit_mock = AsyncMock(return_value=AuditLog(id=uuid4(), action="moderation.user_block"))
@@ -71,6 +71,7 @@ async def test_block_user_sets_flag_and_audit(monkeypatch: pytest.MonkeyPatch) -
 
     assert result.changed is True
     assert user.is_blocked is True
+    assert user.moderation_flagged_at is None
     audit_mock.assert_awaited_once()
     assert audit_mock.await_args.kwargs["action"] == "moderation.user_block"
 
@@ -202,3 +203,34 @@ async def test_apply_to_shift_blocked_worker(monkeypatch: pytest.MonkeyPatch) ->
 
     with pytest.raises(user_block_service.UserBlockedError):
         await application_service.apply_to_shift(session, worker, uuid4())
+
+
+@pytest.mark.asyncio
+async def test_dismiss_moderation_review_clears_flag(monkeypatch: pytest.MonkeyPatch) -> None:
+    user = _sample_user(flagged=True)
+    session = MagicMock()
+    session.flush = AsyncMock()
+    audit_mock = AsyncMock()
+    monkeypatch.setattr(
+        "app.services.moderation_violation_service.user_service.get_user_by_telegram_id",
+        AsyncMock(return_value=user),
+    )
+    monkeypatch.setattr(
+        "app.services.moderation_violation_service.audit_log_service.record_audit",
+        audit_mock,
+    )
+    monkeypatch.setattr(
+        "app.services.moderation_violation_service.count_user_violations",
+        AsyncMock(return_value=3),
+    )
+
+    result = await moderation_violation_service.dismiss_moderation_review(
+        session,
+        user.telegram_id,
+        actor_telegram_id=1,
+    )
+
+    assert result.changed is True
+    assert user.moderation_flagged_at is None
+    audit_mock.assert_awaited_once()
+    assert audit_mock.await_args.kwargs["action"] == "moderation.review_dismiss"
