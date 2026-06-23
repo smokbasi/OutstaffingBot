@@ -14,7 +14,15 @@ from app.db.models import (
     Worker,
     WorkerExperience,
 )
-from app.schemas.admin import AdminAnalytics, AdminStats, PendingEmployerRead, PendingWorkerRead
+from app.schemas.admin import (
+    AdminAnalytics,
+    AdminEmployerRead,
+    AdminJobRead,
+    AdminStats,
+    AdminWorkerRead,
+    PendingEmployerRead,
+    PendingWorkerRead,
+)
 from app.services import audit_service
 
 
@@ -68,6 +76,72 @@ async def get_analytics(session: AsyncSession) -> AdminAnalytics:
         applications_by_status=applications_by_status,
         jobs_by_status=jobs_by_status,
     )
+
+
+async def list_workers(session: AsyncSession, limit: int = 50) -> list[AdminWorkerRead]:
+    stmt = (
+        select(Worker, User)
+        .join(User, Worker.user_id == User.id)
+        .order_by(Worker.created_at.desc())
+        .limit(limit)
+    )
+    rows = (await session.execute(stmt)).all()
+    return [
+        AdminWorkerRead(
+            id=worker.id,
+            first_name=worker.first_name,
+            last_name=worker.last_name,
+            phone=worker.phone,
+            verification_status=worker.verification_status,
+            telegram_id=user.telegram_id,
+            username=user.username,
+            created_at=worker.created_at,
+        )
+        for worker, user in rows
+    ]
+
+
+async def list_employers(session: AsyncSession, limit: int = 50) -> list[AdminEmployerRead]:
+    stmt = (
+        select(Employer, User)
+        .join(User, Employer.user_id == User.id)
+        .order_by(Employer.created_at.desc())
+        .limit(limit)
+    )
+    rows = (await session.execute(stmt)).all()
+    return [
+        AdminEmployerRead(
+            id=employer.id,
+            company_name=employer.company_name,
+            verification_status=employer.verification_status,
+            contact_person=employer.contact_person,
+            contact_phone=employer.contact_phone,
+            telegram_id=user.telegram_id,
+            username=user.username,
+            created_at=employer.created_at,
+        )
+        for employer, user in rows
+    ]
+
+
+async def list_jobs(session: AsyncSession, limit: int = 50) -> list[AdminJobRead]:
+    stmt = (
+        select(JobRequest, Employer)
+        .join(Employer, JobRequest.employer_id == Employer.id)
+        .order_by(JobRequest.created_at.desc())
+        .limit(limit)
+    )
+    rows = (await session.execute(stmt)).all()
+    return [
+        AdminJobRead(
+            id=job.id,
+            title=job.title,
+            status=job.status,
+            employer_company_name=employer.company_name,
+            created_at=job.created_at,
+        )
+        for job, employer in rows
+    ]
 
 
 async def list_pending_employers(session: AsyncSession) -> list[PendingEmployerRead]:

@@ -80,11 +80,232 @@ function formatDateTime(iso: string): string {
   });
 }
 
-function StatsTab({ initData }: { initData: string }) {
+function AdminBackButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button type="button" className="admin-back-btn" onClick={onClick}>
+      ← Назад к статистике
+    </button>
+  );
+}
+
+function WorkersListView({ initData, onBack }: { initData: string; onBack: () => void }) {
+  const [items, setItems] = useState<AdminWorker[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      setLoading(true);
+      setError(null);
+      try {
+        const data = await listAdminWorkers(initData);
+        if (!cancelled) {
+          setItems(data);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : "Не удалось загрузить список");
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [initData]);
+
+  return (
+    <div>
+      <AdminBackButton
+        onClick={() => {
+          triggerHaptic("light");
+          onBack();
+        }}
+      />
+      <h3>Работники</h3>
+      {loading ? <p className="status">Загрузка…</p> : null}
+      {error ? <p className="error">{error}</p> : null}
+      {!loading && !error && items.length === 0 ? (
+        <p className="hint">Работников пока нет.</p>
+      ) : null}
+      {!loading && items.length > 0 ? (
+        <ul className="admin-list">
+          {items.map((worker) => (
+            <li key={worker.id} className="admin-list-item">
+              <div className="admin-list-main">
+                <strong>{worker.first_name} {worker.last_name}</strong>
+                {worker.phone ? <span className="hint">{worker.phone}</span> : null}
+                <span className="admin-list-status">
+                  {formatVerificationStatus(worker.verification_status)}
+                </span>
+                <span className="hint">
+                  TG: {worker.username ? `@${worker.username}` : worker.telegram_id}
+                  {" · "}
+                  {formatDateTime(worker.created_at)}
+                </span>
+              </div>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  );
+}
+
+function EmployersListView({ initData, onBack }: { initData: string; onBack: () => void }) {
+  const [items, setItems] = useState<AdminEmployer[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      setLoading(true);
+      setError(null);
+      try {
+        const data = await listAdminEmployers(initData);
+        if (!cancelled) {
+          setItems(data);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : "Не удалось загрузить список");
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [initData]);
+
+  return (
+    <div>
+      <AdminBackButton
+        onClick={() => {
+          triggerHaptic("light");
+          onBack();
+        }}
+      />
+      <h3>Работодатели</h3>
+      {loading ? <p className="status">Загрузка…</p> : null}
+      {error ? <p className="error">{error}</p> : null}
+      {!loading && !error && items.length === 0 ? (
+        <p className="hint">Работодателей пока нет.</p>
+      ) : null}
+      {!loading && items.length > 0 ? (
+        <ul className="admin-list">
+          {items.map((employer) => (
+            <li key={employer.id} className="admin-list-item">
+              <div className="admin-list-main">
+                <strong>{employer.company_name}</strong>
+                {employer.contact_person ? (
+                  <span className="hint">{employer.contact_person}</span>
+                ) : null}
+                {employer.contact_phone ? (
+                  <span className="hint">{employer.contact_phone}</span>
+                ) : null}
+                <span className="admin-list-status">
+                  {formatVerificationStatus(employer.verification_status)}
+                </span>
+                <span className="hint">
+                  TG: {employer.username ? `@${employer.username}` : employer.telegram_id}
+                  {" · "}
+                  {formatDateTime(employer.created_at)}
+                </span>
+              </div>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  );
+}
+
+function JobsListView({ initData, onBack }: { initData: string; onBack: () => void }) {
+  const [items, setItems] = useState<AdminJob[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      setLoading(true);
+      setError(null);
+      try {
+        const data = await listAdminJobs(initData);
+        if (!cancelled) {
+          setItems(data);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : "Не удалось загрузить список");
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [initData]);
+
+  return (
+    <div>
+      <AdminBackButton
+        onClick={() => {
+          triggerHaptic("light");
+          onBack();
+        }}
+      />
+      <h3>Заявки</h3>
+      {loading ? <p className="status">Загрузка…</p> : null}
+      {error ? <p className="error">{error}</p> : null}
+      {!loading && !error && items.length === 0 ? (
+        <p className="hint">Заявок пока нет.</p>
+      ) : null}
+      {!loading && items.length > 0 ? (
+        <ul className="admin-list">
+          {items.map((job) => (
+            <li key={job.id} className="admin-list-item">
+              <div className="admin-list-main">
+                <strong>{job.title}</strong>
+                <span className="hint">{job.employer_company_name}</span>
+                <span className="admin-list-status">{formatJobRequestStatus(job.status)}</span>
+                <span className="hint">{formatDateTime(job.created_at)}</span>
+              </div>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  );
+}
+
+function StatsTab({
+  initData,
+  onSwitchToVerifications,
+}: {
+  initData: string;
+  onSwitchToVerifications: () => void;
+}) {
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [analytics, setAnalytics] = useState<AdminAnalytics | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [listView, setListView] = useState<StatsListView | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -126,25 +347,75 @@ function StatsTab({ initData }: { initData: string }) {
     return null;
   }
 
+  if (listView === "workers") {
+    return (
+      <div className="admin-stats">
+        <WorkersListView initData={initData} onBack={() => setListView(null)} />
+      </div>
+    );
+  }
+  if (listView === "employers") {
+    return (
+      <div className="admin-stats">
+        <EmployersListView initData={initData} onBack={() => setListView(null)} />
+      </div>
+    );
+  }
+  if (listView === "jobs") {
+    return (
+      <div className="admin-stats">
+        <JobsListView initData={initData} onBack={() => setListView(null)} />
+      </div>
+    );
+  }
+
   return (
     <div className="admin-stats">
       <div className="stat-grid">
-        <div className="stat-card">
+        <button
+          type="button"
+          className="stat-card stat-card-clickable"
+          onClick={() => {
+            triggerHaptic("light");
+            setListView("workers");
+          }}
+        >
           <span className="stat-value">{stats.workers_count}</span>
           <span className="stat-label">Работники</span>
-        </div>
-        <div className="stat-card">
+        </button>
+        <button
+          type="button"
+          className="stat-card stat-card-clickable"
+          onClick={() => {
+            triggerHaptic("light");
+            setListView("employers");
+          }}
+        >
           <span className="stat-value">{stats.employers_count}</span>
           <span className="stat-label">Работодатели</span>
-        </div>
-        <div className="stat-card">
+        </button>
+        <button
+          type="button"
+          className="stat-card stat-card-clickable"
+          onClick={() => {
+            triggerHaptic("light");
+            setListView("jobs");
+          }}
+        >
           <span className="stat-value">{stats.jobs_count}</span>
           <span className="stat-label">Заявки</span>
-        </div>
-        <div className="stat-card stat-card-warn">
+        </button>
+        <button
+          type="button"
+          className="stat-card stat-card-warn stat-card-clickable"
+          onClick={() => {
+            triggerHaptic("light");
+            onSwitchToVerifications();
+          }}
+        >
           <span className="stat-value">{stats.pending_verifications}</span>
           <span className="stat-label">На верификации</span>
-        </div>
+        </button>
       </div>
 
       {Object.keys(analytics.jobs_by_status).length > 0 ? (
@@ -538,7 +809,12 @@ export function AdminPanelPage({ initData, initialTab = "stats" }: AdminPanelPag
         </button>
       </nav>
 
-      {tab === "stats" ? <StatsTab initData={initData} /> : null}
+      {tab === "stats" ? (
+        <StatsTab
+          initData={initData}
+          onSwitchToVerifications={() => setTab("verifications")}
+        />
+      ) : null}
       {tab === "verifications" ? <VerificationsTab initData={initData} /> : null}
       {tab === "audit" ? <AuditTab initData={initData} /> : null}
     </section>

@@ -191,6 +191,102 @@ async def test_admin_reject_worker_endpoint(monkeypatch, admin_client: AsyncClie
     assert response.json()["status"] == "rejected"
 
 
+@pytest.mark.asyncio
+async def test_admin_list_workers(monkeypatch, admin_client: AsyncClient):
+    from datetime import datetime, timezone
+
+    from app.db.models import VerificationStatus
+    from app.schemas.admin import AdminWorkerRead
+
+    worker_id = uuid4()
+
+    async def fake_list(session, limit=50):
+        assert limit == 50
+        return [
+            AdminWorkerRead(
+                id=worker_id,
+                first_name="Пётр",
+                last_name="Петров",
+                phone="+79991234567",
+                verification_status=VerificationStatus.verified,
+                telegram_id=54321,
+                username="petr",
+                created_at=datetime(2026, 6, 22, tzinfo=timezone.utc),
+            )
+        ]
+
+    monkeypatch.setattr(admin_service, "list_workers", fake_list)
+
+    response = await admin_client.get("/api/v1/admin/workers?limit=50")
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 1
+    assert data[0]["first_name"] == "Пётр"
+    assert data[0]["verification_status"] == "verified"
+
+
+@pytest.mark.asyncio
+async def test_admin_list_employers(monkeypatch, admin_client: AsyncClient):
+    from datetime import datetime, timezone
+
+    from app.db.models import VerificationStatus
+    from app.schemas.admin import AdminEmployerRead
+
+    employer_id = uuid4()
+
+    async def fake_list(session, limit=50):
+        return [
+            AdminEmployerRead(
+                id=employer_id,
+                company_name="Кафе Уют",
+                verification_status=VerificationStatus.pending,
+                contact_person="Анна",
+                contact_phone="+79990001122",
+                telegram_id=11111,
+                username="anna",
+                created_at=datetime(2026, 6, 22, tzinfo=timezone.utc),
+            )
+        ]
+
+    monkeypatch.setattr(admin_service, "list_employers", fake_list)
+
+    response = await admin_client.get("/api/v1/admin/employers")
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 1
+    assert data[0]["company_name"] == "Кафе Уют"
+
+
+@pytest.mark.asyncio
+async def test_admin_list_jobs(monkeypatch, admin_client: AsyncClient):
+    from datetime import datetime, timezone
+
+    from app.db.models import JobRequestStatus
+    from app.schemas.admin import AdminJobRead
+
+    job_id = uuid4()
+
+    async def fake_list(session, limit=50):
+        return [
+            AdminJobRead(
+                id=job_id,
+                title="Официант на смену",
+                status=JobRequestStatus.active,
+                employer_company_name="Кафе Уют",
+                created_at=datetime(2026, 6, 22, tzinfo=timezone.utc),
+            )
+        ]
+
+    monkeypatch.setattr(admin_service, "list_jobs", fake_list)
+
+    response = await admin_client.get("/api/v1/admin/jobs?limit=50")
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 1
+    assert data[0]["title"] == "Официант на смену"
+    assert data[0]["status"] == "active"
+
+
 def test_worker_verification_migration_chain():
     from alembic.config import Config
     from alembic.script import ScriptDirectory

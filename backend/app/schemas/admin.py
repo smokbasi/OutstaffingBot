@@ -3,6 +3,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
+from app.db.models import JobRequestStatus, VerificationStatus
+
 
 class AdminStats(BaseModel):
     workers_count: int
@@ -41,6 +43,42 @@ class PendingWorkerRead(BaseModel):
     categories: list[str] = Field(default_factory=list)
     telegram_id: int
     username: str | None = None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class AdminWorkerRead(BaseModel):
+    id: UUID
+    first_name: str
+    last_name: str
+    phone: str | None = None
+    verification_status: VerificationStatus
+    telegram_id: int
+    username: str | None = None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class AdminEmployerRead(BaseModel):
+    id: UUID
+    company_name: str
+    verification_status: VerificationStatus
+    contact_person: str | None = None
+    contact_phone: str | None = None
+    telegram_id: int
+    username: str | None = None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class AdminJobRead(BaseModel):
+    id: UUID
+    title: str
+    status: JobRequestStatus
+    employer_company_name: str
     created_at: datetime
 
     model_config = {"from_attributes": True}
