@@ -1,0 +1,11 @@
+[Unit]
+Description=OutstaffingBot Mini App static verify and permissions
+Documentation=file:///opt/outstaffingbot/deploy/linux/README.md
+After=network-online.target nginx.service
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash /opt/outstaffingbot/scripts/deploy/verify-mini-app-static.sh --fix-perms /opt/outstaffingbot/mini-app/dist
+
+[Install]
+WantedBy=multi-user.target

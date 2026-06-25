@@ -299,14 +299,18 @@
 
 #### 9.10 Mini App — «Пожаловаться» (Worker & Employer) [P1]
 
-- [x] **9.10.1** Worker: страница «Пожаловаться» + пункт навигации в [`App.tsx`](../mini-app/src/App.tsx) [P1]
-  - **Acceptance criteria:** список откликов (заявка, компания, смена, статус); drill-down → форма (4 типа + описание); success/error; haptic; empty state «Нет откликов для жалобы»; описание **не** блокируется стоп-словами (нет moderation error UI — текст жалобы приватный).
+> **UX (контекстный flow):** отдельная вкладка «Пожаловаться» убрана. Worker: **Отклики** → отклик (принят) → «Пожаловаться». Employer: **Заявки** → заявка → принятые работники → «Пожаловаться».
 
-- [x] **9.10.2** Employer: страница «Пожаловаться» + навигация [P1]
-  - **Acceptance criteria:** список заявок → отклики на заявку → форма жалобы на работника; имя работника из отклика; нельзя выбрать работника не из этой заявки; описание **не** блокируется стоп-словами.
+- [x] **9.10.1** Worker: «Пожаловаться» из детали принятого отклика в [`MyApplicationsPage.tsx`](../mini-app/src/pages/MyApplicationsPage.tsx) [P1]
+  - **Acceptance criteria:** список откликов → drill-down → для `accepted` кнопка «Пожаловаться» → форма (4 типа + описание); success/error; haptic; описание **не** блокируется стоп-словами.
+
+- [x] **9.10.2** Employer: «Пожаловаться» из детали заявки в [`EmployerJobsPage.tsx`](../mini-app/src/pages/EmployerJobsPage.tsx) [P1]
+  - **Acceptance criteria:** список заявок → деталь заявки → принятые работники → форма жалобы; имя работника из отклика; описание **не** блокируется стоп-словами.
 
 - [x] **9.10.3** API client [`client.ts`](../mini-app/src/api/client.ts): типы и методы complaints [P1]
   - **Acceptance criteria:** типы `ComplaintViolationType`, `ComplaintRead`; методы list/create для worker и employer.
+
+- [x] **9.10.4** Общий компонент формы [`ComplaintForm.tsx`](../mini-app/src/components/ComplaintForm.tsx) [P1]
 
 #### 9.11 Admin — реструктуризация вкладки «Журнал» [P1]
 

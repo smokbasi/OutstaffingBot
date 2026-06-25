@@ -1,11 +1,15 @@
 from decimal import Decimal, InvalidOperation
+from uuid import UUID
 
-from aiogram import F, Router
+from aiogram import Bot, F, Router
+from aiogram.exceptions import TelegramForbiddenError
 from aiogram.filters import StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.bot.handlers.worker_registration import _begin_registration
+from app.bot.helpers.vacancy_present import send_job_vacancy_for_apply, send_job_vacancy_for_apply_to_chat
 from app.bot.keyboards.main_menu import main_menu_keyboard
 from app.bot.keyboards.vacancy_search import (
     vacancy_categories_keyboard,
@@ -166,6 +170,68 @@ async def _start_search(message: Message, session: AsyncSession, state: FSMConte
 @router.message(F.text == "🔍 Найти вакансии")
 async def start_vacancy_search(message: Message, session: AsyncSession, state: FSMContext) -> None:
     await _start_search(message, session, state)
+
+
+@router.callback_query(F.data.startswith("vacopen:"))
+async def open_vacancy_from_button(
+    callback: CallbackQuery,
+    bot: Bot,
+    session: AsyncSession,
+    state: FSMContext,
+) -> None:
+    """Push/group «Откликнуться» — открыть карточку вакансии в личке с ботом."""
+    if callback.from_user is None or callback.data is None:
+        await callback.answer()
+        return
+
+    try:
+        job_id = UUID(callback.data.split(":", 1)[1])
+    except ValueError:
+        await callback.answer("Ссылка на вакансию некорректна", show_alert=True)
+        return
+
+    await callback.answer()
+
+    user = await _ensure_user_from_callback(callback, session)
+    if user is None:
+        return
+
+    worker = await worker_service.get_worker_by_user_id(session, user.id)
+    chat_id = callback.from_user.id
+    is_private = callback.message is not None and callback.message.chat.type == "private"
+
+    if not worker_service.is_profile_complete(worker):
+        prompt = "Чтобы откликнуться на вакансию, сначала заполните профиль работника."
+        try:
+            if is_private and callback.message is not None:
+                await callback.message.answer(prompt)
+                await _begin_registration(callback.message, state, pending_job_id=str(job_id))
+            else:
+                reg_message = await bot.send_message(chat_id, prompt)
+                await _begin_registration(reg_message, state, pending_job_id=str(job_id))
+        except TelegramForbiddenError:
+            await callback.answer("Сначала откройте бота и нажмите /start", show_alert=True)
+        return
+
+    try:
+        if is_private and callback.message is not None:
+            sent = await send_job_vacancy_for_apply(callback.message, session, worker, state, job_id)
+        else:
+            sent = await send_job_vacancy_for_apply_to_chat(
+                bot, chat_id, session, worker, state, job_id
+            )
+    except TelegramForbiddenError:
+        await callback.answer("Сначала откройте бота и нажмите /start", show_alert=True)
+        return
+
+    if sent:
+        return
+
+    unavailable = "Вакансия недоступна или уже закрыта."
+    if is_private and callback.message is not None:
+        await callback.message.answer(unavailable, reply_markup=main_menu_keyboard())
+    else:
+        await bot.send_message(chat_id, unavailable, reply_markup=main_menu_keyboard())
 
 
 @router.callback_query(F.data == "vacfilter:open", StateFilter(VacancySearch))

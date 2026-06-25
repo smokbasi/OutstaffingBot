@@ -1,6 +1,7 @@
 from decimal import Decimal
 from uuid import UUID
 
+from aiogram import Bot
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -59,25 +60,27 @@ def _slot_payload(vacancy: VacancyDetail) -> list[dict]:
     ]
 
 
-async def send_job_vacancy_for_apply(
-    message: Message,
+async def send_job_vacancy_for_apply_to_chat(
+    bot: Bot,
+    chat_id: int,
     session: AsyncSession,
     worker: Worker,
     state: FSMContext,
     job_id: UUID,
 ) -> bool:
-    """Send job card with shift apply buttons. Returns False if job unavailable."""
+    """Send job card with shift apply buttons to a chat. Returns False if job unavailable."""
     vacancy = await matching_service.get_vacancy_detail_by_id(session, job_id)
     if vacancy is None:
         return False
 
     if not vacancy.shift_slots:
-        await message.answer("На эту вакансию нет доступных смен для отклика.")
+        await bot.send_message(chat_id, "На эту вакансию нет доступных смен для отклика.")
         return False
 
     await state.update_data(current_vacancy_id=str(vacancy.id), from_job_deep_link=True)
     await state.set_state(VacancySearch.detail)
-    await message.answer(
+    await bot.send_message(
+        chat_id,
         _format_vacancy_detail_text(vacancy),
         reply_markup=vacancy_detail_keyboard(
             str(vacancy.id),
@@ -86,3 +89,23 @@ async def send_job_vacancy_for_apply(
         ),
     )
     return True
+
+
+async def send_job_vacancy_for_apply(
+    message: Message,
+    session: AsyncSession,
+    worker: Worker,
+    state: FSMContext,
+    job_id: UUID,
+) -> bool:
+    """Send job card with shift apply buttons. Returns False if job unavailable."""
+    if message.bot is None:
+        return False
+    return await send_job_vacancy_for_apply_to_chat(
+        message.bot,
+        message.chat.id,
+        session,
+        worker,
+        state,
+        job_id,
+    )

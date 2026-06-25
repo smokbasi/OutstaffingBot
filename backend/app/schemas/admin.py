@@ -91,6 +91,67 @@ class AdminComplaintListResponse(BaseModel):
     offset: int
 
 
+class AdminWorkerListItem(BaseModel):
+    id: UUID
+    first_name: str
+    last_name: str
+    telegram_id: int
+    username: str | None
+    verified: bool
+    city: str
+    created_at: datetime
+
+
+class AdminEmployerListItem(BaseModel):
+    id: UUID
+    company_name: str
+    contact_person: str | None
+    contact_phone: str | None
+    telegram_id: int
+    username: str | None
+    verified: bool
+    created_at: datetime
+
+
+class AdminJobListItem(BaseModel):
+    id: UUID
+    title: str
+    company_name: str
+    status: str
+    hourly_rate: str
+    created_at: datetime
+
+
+class AdminBlockedUserListItem(BaseModel):
+    telegram_id: int
+    username: str | None
+    role: str
+    display_name: str | None
+    created_at: datetime
+
+
+class AdminPaginatedResponse(BaseModel):
+    total: int
+    limit: int
+    offset: int
+
+
+class AdminWorkerListResponse(AdminPaginatedResponse):
+    items: list[AdminWorkerListItem]
+
+
+class AdminEmployerListResponse(AdminPaginatedResponse):
+    items: list[AdminEmployerListItem]
+
+
+class AdminJobListResponse(AdminPaginatedResponse):
+    items: list[AdminJobListItem]
+
+
+class AdminBlockedUserListResponse(AdminPaginatedResponse):
+    items: list[AdminBlockedUserListItem]
+
+
 class AdminComplaintUserBrief(BaseModel):
     telegram_id: int
     username: str | None

@@ -298,19 +298,30 @@
 
 .form-field.checkbox-field > span {
   flex: 1;
+  min-width: 0;
   font-size: 0.95rem;
   color: var(--tg-theme-text-color, #000000);
   line-height: 1.35;
 }
 
-.form-field.checkbox-field input[type="checkbox"] {
+.form-field.checkbox-field input[type="checkbox"],
+.form-field.checkbox-field input[type="radio"] {
   width: 1.15rem;
   height: 1.15rem;
   min-width: 1.15rem;
   flex-shrink: 0;
   margin: 0;
   padding: 0;
+  border: none;
+  background: transparent;
   accent-color: var(--tg-theme-button-color, #3390ec);
+}
+
+fieldset.form-field {
+  border: none;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
 }
 
 .checkbox-list {
@@ -324,9 +335,17 @@
 .radio-list {
   list-style: none;
   margin: 0.5rem 0 0;
-  padding: 0;
+  padding: 0.5rem 0.75rem;
   display: grid;
   gap: 0.35rem;
+  border: 1px solid var(--tg-theme-border-color, #e5e5ea);
+  border-radius: 10px;
+  background: var(--tg-theme-bg-color, #ffffff);
+}
+
+.radio-list > li {
+  margin: 0;
+  min-width: 0;
 }
 
 .complaint-select-btn {
@@ -489,7 +508,9 @@
 }
 
 .role-card {
-  display: grid;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
   gap: 0.35rem;
   width: 100%;
   min-height: 72px;
@@ -501,11 +522,23 @@
   color: var(--tg-theme-text-color, #000000);
   text-align: left;
   cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  font: inherit;
 }
 
 .role-card-icon {
   font-size: 1.75rem;
   line-height: 1;
+  flex-shrink: 0;
+}
+
+.role-card-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  width: 100%;
+  min-width: 0;
 }
 
 .role-card-title {

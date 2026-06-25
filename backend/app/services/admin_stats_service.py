@@ -84,3 +84,91 @@ async def list_unverified_employers(session: AsyncSession, limit: int = 30) -> l
     )
     rows = await session.execute(stmt)
     return [(employer, user) for employer, user in rows.all()]
+
+
+async def list_workers(
+    session: AsyncSession,
+    *,
+    limit: int = 50,
+    offset: int = 0,
+) -> tuple[list[tuple[Worker, User]], int]:
+    total = await session.scalar(select(func.count()).select_from(Worker)) or 0
+    stmt = (
+        select(Worker, User)
+        .join(User, Worker.user_id == User.id)
+        .order_by(Worker.created_at.desc())
+        .limit(limit)
+        .offset(offset)
+    )
+    rows = await session.execute(stmt)
+    return [(worker, user) for worker, user in rows.all()], total
+
+
+async def list_employers(
+    session: AsyncSession,
+    *,
+    limit: int = 50,
+    offset: int = 0,
+) -> tuple[list[tuple[Employer, User]], int]:
+    total = await session.scalar(select(func.count()).select_from(Employer)) or 0
+    stmt = (
+        select(Employer, User)
+        .join(User, Employer.user_id == User.id)
+        .order_by(Employer.created_at.desc())
+        .limit(limit)
+        .offset(offset)
+    )
+    rows = await session.execute(stmt)
+    return [(employer, user) for employer, user in rows.all()], total
+
+
+async def list_jobs(
+    session: AsyncSession,
+    *,
+    limit: int = 50,
+    offset: int = 0,
+) -> tuple[list[tuple[JobRequest, Employer]], int]:
+    total = await session.scalar(select(func.count()).select_from(JobRequest)) or 0
+    stmt = (
+        select(JobRequest, Employer)
+        .join(Employer, JobRequest.employer_id == Employer.id)
+        .order_by(JobRequest.created_at.desc())
+        .limit(limit)
+        .offset(offset)
+    )
+    rows = await session.execute(stmt)
+    return [(job, employer) for job, employer in rows.all()], total
+
+
+async def list_blocked_users(
+    session: AsyncSession,
+    *,
+    limit: int = 50,
+    offset: int = 0,
+) -> tuple[list[tuple[User, str | None]], int]:
+    total = (
+        await session.scalar(
+            select(func.count()).select_from(User).where(User.is_blocked.is_(True))
+        )
+        or 0
+    )
+    stmt = (
+        select(User, Worker.first_name, Worker.last_name, Employer.company_name)
+        .outerjoin(Worker, Worker.user_id == User.id)
+        .outerjoin(Employer, Employer.user_id == User.id)
+        .where(User.is_blocked.is_(True))
+        .order_by(User.updated_at.desc())
+        .limit(limit)
+        .offset(offset)
+    )
+    rows = await session.execute(stmt)
+    items: list[tuple[User, str | None]] = []
+    for user, first_name, last_name, company_name in rows.all():
+        if company_name:
+            display_name = company_name
+        elif first_name and last_name:
+            display_name = f"{first_name} {last_name}".strip()
+        else:
+            display_name = None
+        items.append((user, display_name))
+    return items, total

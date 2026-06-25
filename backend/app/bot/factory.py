@@ -26,6 +26,7 @@ def create_bot(settings: Settings | None = None) -> Bot:
 def create_dispatcher() -> Dispatcher:
     dp = Dispatcher()
     dp.update.middleware(DbSessionMiddleware())
+    dp.include_router(start_router)
     dp.include_router(admin_groups_router)
     dp.include_router(admin_basic_router)
     dp.include_router(admin_moderation_router)
@@ -34,5 +35,4 @@ def create_dispatcher() -> Dispatcher:
     dp.include_router(vacancy_search_router)
     dp.include_router(job_request_router)
     dp.include_router(notifications_router)
-    dp.include_router(start_router)
     return dp

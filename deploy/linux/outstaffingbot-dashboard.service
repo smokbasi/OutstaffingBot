@@ -3,21 +3,21 @@
 #
 # vspomni: отдельный python dashboard_main.py + Restart=always.
 # OutstaffingBot: dist в /opt/outstaffingbot/mini-app/dist, nginx :8451 → :443 SNI.
-# Unit проверяет dist и конфиг nginx; перезапуск nginx — через nginx.service (Restart=always).
+# Periodic verify: outstaffingbot-mini-app-static.timer (chmod + www-data + HTTP checks).
 
 [Unit]
 Description=OutstaffingBot Mini App dashboard (nginx static)
 Documentation=file:///opt/outstaffingbot/deploy/linux/README.md
-After=network-online.target nginx.service
+After=network-online.target nginx.service outstaffingbot-mini-app-static.service
 Requires=nginx.service
-Wants=network-online.target
+Wants=network-online.target outstaffingbot-mini-app-static.service
 
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=/bin/bash -c 'test -f @OUTSTAFFING_APP_DIR@/mini-app/dist/index.html && /usr/sbin/nginx -t'
-Restart=always
-RestartSec=10
+ExecStart=/bin/bash -c 'test -f @OUTSTAFFING_APP_DIR@/mini-app/dist/index.html && /usr/sbin/nginx -t && @OUTSTAFFING_APP_DIR@/scripts/deploy/verify-mini-app-static.sh --fix-perms @OUTSTAFFING_APP_DIR@/mini-app/dist'
+Restart=on-failure
+RestartSec=30
 TimeoutStopSec=30
 
 [Install]

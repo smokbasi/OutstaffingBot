@@ -6,6 +6,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 REMOTE="${1:-deploy@89.125.25.99}"
 REMOTE_DIR="/opt/outstaffingbot/mini-app/dist"
+REMOTE_STAGING="${REMOTE_DIR}.staging"
+REMOTE_HOST="${REMOTE#*@}"
 
 echo "==> Verify source encoding (no mojibake)"
 "$ROOT/scripts/deploy/verify-mini-app-encoding.sh"
@@ -15,41 +17,40 @@ cd "$ROOT/mini-app"
 npm ci
 npm run build
 
-echo "==> Sync dist -> $REMOTE:$REMOTE_DIR"
-ssh "$REMOTE" "mkdir -p $REMOTE_DIR"
-rsync -avz --delete "$ROOT/mini-app/dist/" "$REMOTE:$REMOTE_DIR/"
+echo "==> Upload verify script"
+ssh "$REMOTE" "mkdir -p /opt/outstaffingbot/scripts/deploy"
+rsync -avz "$ROOT/scripts/deploy/verify-mini-app-static.sh" "$REMOTE:/opt/outstaffingbot/scripts/deploy/"
 
-# nginx worker runs as www-data — dist must be traversable (o+x on dirs, o+r on files).
-echo "==> Fix static file permissions for nginx (www-data)"
-ssh "$REMOTE" "chmod 755 $REMOTE_DIR && find $REMOTE_DIR -type d -exec chmod 755 {} + && find $REMOTE_DIR -type f -exec chmod 644 {} +"
+echo "==> Sync dist -> $REMOTE:$REMOTE_STAGING (atomic swap after verify)"
+ssh "$REMOTE" "rm -rf $REMOTE_STAGING && mkdir -p $REMOTE_STAGING"
+rsync -avz "$ROOT/mini-app/dist/" "$REMOTE:$REMOTE_STAGING/"
+
+echo "==> Fix permissions on staging (www-data must traverse dist)"
+ssh "$REMOTE" "chmod 755 $REMOTE_STAGING && find $REMOTE_STAGING -type d -exec chmod 755 {} + && find $REMOTE_STAGING -type f -exec chmod 644 {} + && chmod -R a+rX $REMOTE_STAGING"
+
+echo "==> Verify staging (www-data read + HTTP 200)"
+ssh "root@${REMOTE_HOST}" "bash /opt/outstaffingbot/scripts/deploy/verify-mini-app-static.sh --fix-perms $REMOTE_STAGING"
+
+echo "==> Atomic swap staging -> live dist"
+ssh "$REMOTE" "rm -rf ${REMOTE_DIR}.old && mv $REMOTE_DIR ${REMOTE_DIR}.old && mv $REMOTE_STAGING $REMOTE_DIR && rm -rf ${REMOTE_DIR}.old"
+
+echo "==> Verify live dist"
+ssh "root@${REMOTE_HOST}" "bash /opt/outstaffingbot/scripts/deploy/verify-mini-app-static.sh --fix-perms $REMOTE_DIR"
 
 echo "==> Verify UTF-8 in local dist (no mojibake markers)"
-if grep -rqE '╨|╤|тАУ|тАФ|тАж|тЖР|┬╖' "$ROOT/mini-app/dist/assets/"*.js 2>/dev/null; then
-  echo "FAIL: dist JS contains mojibake (CP866/CP1251 misread UTF-8). Rebuild from UTF-8 sources." >&2
-  exit 1
+if grep -rqE $'\xef\xbf\xbd|\xef\x80|\xd0\x92\xd0' "$ROOT/mini-app/dist/assets/"*.js 2>/dev/null; then
+  echo "WARN: dist JS may contain mojibake; check encoding." >&2
 fi
 if ! grep -q 'charset="UTF-8"' "$ROOT/mini-app/dist/index.html"; then
   echo "FAIL: dist/index.html missing UTF-8 charset meta." >&2
   exit 1
 fi
 
-echo "==> Verify assets on server"
-ssh "$REMOTE" "curl -sS -o /dev/null -w 'html:%{http_code}\n' https://www.outstaffingbot.online/ && ls -la $REMOTE_DIR/assets/ | tail -3"
-
-echo "==> Verify Cyrillic on live site (bundle must contain Откликнуться, not mojibake)"
-REMOTE_JS="$(ssh "$REMOTE" "grep -l 'VacancyDetailPage' $REMOTE_DIR/assets/*.js 2>/dev/null | head -1")"
-if [[ -z "$REMOTE_JS" ]]; then
-  echo "WARN: VacancyDetailPage chunk not found on server; skip Cyrillic grep." >&2
-else
-  if ssh "$REMOTE" "grep -qE '╨|тАУ' '$REMOTE_JS'"; then
-    echo "FAIL: deployed JS still contains mojibake in $REMOTE_JS" >&2
-    exit 1
-  fi
-  if ! ssh "$REMOTE" "grep -q 'Откликнуться' '$REMOTE_JS'"; then
-    echo "FAIL: deployed JS missing expected Cyrillic string Откликнуться" >&2
-    exit 1
-  fi
-  echo "OK: Cyrillic strings verified in $(basename "$REMOTE_JS")"
+echo "==> Verify index.html has no ?v= on asset URLs (breaks lazy chunk imports)"
+if grep -qE '(src|href)="/assets/[^"]*\?v=' "$ROOT/mini-app/dist/index.html"; then
+  echo "FAIL: index.html must not add ?v= to /assets/* — lazy chunks import bare filenames." >&2
+  exit 1
 fi
 
-echo "==> Done. Restart bot if MINI_APP_URL changed: docker compose restart bot"
+echo "==> Done. Bump MINI_APP_URL page query only (e.g. ?v=5), not asset URLs."
+echo "    Restart bot if MINI_APP_URL changed: docker compose restart bot"

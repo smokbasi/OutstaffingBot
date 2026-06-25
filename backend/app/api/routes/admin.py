@@ -21,12 +21,20 @@ from app.db.session import get_db_session
 from app.schemas.admin import (
     AdminAnalytics,
     AdminAuditEntryRead,
+    AdminBlockedUserListItem,
+    AdminBlockedUserListResponse,
     AdminComplaintDetail,
     AdminComplaintListItem,
     AdminComplaintListResponse,
     AdminComplaintPatch,
     AdminComplaintUserBrief,
+    AdminEmployerListItem,
+    AdminEmployerListResponse,
+    AdminJobListItem,
+    AdminJobListResponse,
     AdminStats,
+    AdminWorkerListItem,
+    AdminWorkerListResponse,
     ModerationQueueEntryRead,
     ModerationUserDetailRead,
     ModerationViolationRead,
@@ -225,6 +233,137 @@ async def list_pending_employers(
         )
         for employer, user in rows
     ]
+
+
+@router.get("/workers", response_model=AdminWorkerListResponse)
+async def list_admin_workers(
+    limit: int = 50,
+    offset: int = 0,
+    _: User = Depends(get_current_admin),
+    session: AsyncSession = Depends(get_db_session),
+) -> AdminWorkerListResponse:
+    bounded_limit = min(max(limit, 1), 100)
+    bounded_offset = max(offset, 0)
+    rows, total = await admin_stats_service.list_workers(
+        session,
+        limit=bounded_limit,
+        offset=bounded_offset,
+    )
+    return AdminWorkerListResponse(
+        items=[
+            AdminWorkerListItem(
+                id=worker.id,
+                first_name=worker.first_name,
+                last_name=worker.last_name,
+                telegram_id=user.telegram_id,
+                username=user.username,
+                verified=worker.verified,
+                city=worker.city,
+                created_at=worker.created_at,
+            )
+            for worker, user in rows
+        ],
+        total=total,
+        limit=bounded_limit,
+        offset=bounded_offset,
+    )
+
+
+@router.get("/employers", response_model=AdminEmployerListResponse)
+async def list_admin_employers(
+    limit: int = 50,
+    offset: int = 0,
+    _: User = Depends(get_current_admin),
+    session: AsyncSession = Depends(get_db_session),
+) -> AdminEmployerListResponse:
+    bounded_limit = min(max(limit, 1), 100)
+    bounded_offset = max(offset, 0)
+    rows, total = await admin_stats_service.list_employers(
+        session,
+        limit=bounded_limit,
+        offset=bounded_offset,
+    )
+    return AdminEmployerListResponse(
+        items=[
+            AdminEmployerListItem(
+                id=employer.id,
+                company_name=employer.company_name,
+                contact_person=employer.contact_person,
+                contact_phone=employer.contact_phone,
+                telegram_id=user.telegram_id,
+                username=user.username,
+                verified=employer.verified,
+                created_at=employer.created_at,
+            )
+            for employer, user in rows
+        ],
+        total=total,
+        limit=bounded_limit,
+        offset=bounded_offset,
+    )
+
+
+@router.get("/jobs", response_model=AdminJobListResponse)
+async def list_admin_jobs(
+    limit: int = 50,
+    offset: int = 0,
+    _: User = Depends(get_current_admin),
+    session: AsyncSession = Depends(get_db_session),
+) -> AdminJobListResponse:
+    bounded_limit = min(max(limit, 1), 100)
+    bounded_offset = max(offset, 0)
+    rows, total = await admin_stats_service.list_jobs(
+        session,
+        limit=bounded_limit,
+        offset=bounded_offset,
+    )
+    return AdminJobListResponse(
+        items=[
+            AdminJobListItem(
+                id=job.id,
+                title=job.title,
+                company_name=employer.company_name,
+                status=job.status.value if hasattr(job.status, "value") else str(job.status),
+                hourly_rate=str(job.hourly_rate),
+                created_at=job.created_at,
+            )
+            for job, employer in rows
+        ],
+        total=total,
+        limit=bounded_limit,
+        offset=bounded_offset,
+    )
+
+
+@router.get("/users/blocked", response_model=AdminBlockedUserListResponse)
+async def list_blocked_users(
+    limit: int = 50,
+    offset: int = 0,
+    _: User = Depends(get_current_admin),
+    session: AsyncSession = Depends(get_db_session),
+) -> AdminBlockedUserListResponse:
+    bounded_limit = min(max(limit, 1), 100)
+    bounded_offset = max(offset, 0)
+    rows, total = await admin_stats_service.list_blocked_users(
+        session,
+        limit=bounded_limit,
+        offset=bounded_offset,
+    )
+    return AdminBlockedUserListResponse(
+        items=[
+            AdminBlockedUserListItem(
+                telegram_id=user.telegram_id,
+                username=user.username,
+                role=user.role.value if hasattr(user.role, "value") else str(user.role),
+                display_name=display_name,
+                created_at=user.created_at,
+            )
+            for user, display_name in rows
+        ],
+        total=total,
+        limit=bounded_limit,
+        offset=bounded_offset,
+    )
 
 
 @router.post("/employers/{employer_id}/verify")

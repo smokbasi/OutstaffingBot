@@ -33,13 +33,6 @@ const AdminPanelPage = lazy(() =>
 const AdminAccessDenied = lazy(() =>
   import("./pages/AdminPanelPage").then((m) => ({ default: m.AdminAccessDenied })),
 );
-const WorkerComplaintsPage = lazy(() =>
-  import("./pages/WorkerComplaintsPage").then((m) => ({ default: m.WorkerComplaintsPage })),
-);
-const EmployerComplaintsPage = lazy(() =>
-  import("./pages/EmployerComplaintsPage").then((m) => ({ default: m.EmployerComplaintsPage })),
-);
-
 function PageFallback() {
   return <p className="status">Загрузка…</p>;
 }
@@ -65,8 +58,8 @@ type TelegramContext = {
 };
 
 type AppMode = "worker" | "employer" | "admin";
-type EmployerView = "jobs" | "create" | "applications" | "complaints";
-type WorkerView = "profile" | "vacancies" | "vacancy-detail" | "applications" | "notifications" | "complaints";
+type EmployerView = "jobs" | "create" | "applications";
+type WorkerView = "profile" | "vacancies" | "vacancy-detail" | "applications" | "notifications";
 
 type MeState =
   | { status: "idle" }
@@ -178,20 +171,32 @@ function RolePicker({
       <p className="hint">Выберите режим — профиль работника и заявки работодателя показываются отдельно.</p>
       <div className="role-cards">
         <button type="button" className="role-card" onClick={() => onSelect("worker")}>
-          <span className="role-card-icon">👷</span>
-          <span className="role-card-title">Я ищу работу</span>
-          <span className="role-card-desc">Профиль, опыт и настройки для поиска смен</span>
+          <span className="role-card-icon" aria-hidden="true">
+            👷
+          </span>
+          <span className="role-card-text">
+            <span className="role-card-title">Я ищу работу</span>
+            <span className="role-card-desc">Профиль, опыт и настройки для поиска смен</span>
+          </span>
         </button>
         <button type="button" className="role-card" onClick={() => onSelect("employer")}>
-          <span className="role-card-icon">🏢</span>
-          <span className="role-card-title">Я работодатель</span>
-          <span className="role-card-desc">Заявки на персонал и создание новых смен</span>
+          <span className="role-card-icon" aria-hidden="true">
+            🏢
+          </span>
+          <span className="role-card-text">
+            <span className="role-card-title">Я работодатель</span>
+            <span className="role-card-desc">Заявки на персонал и создание новых смен</span>
+          </span>
         </button>
         {isAdmin ? (
           <button type="button" className="role-card role-card-admin" onClick={() => onSelect("admin")}>
-            <span className="role-card-icon">🛡️</span>
-            <span className="role-card-title">Админ-панель</span>
-            <span className="role-card-desc">Статистика, модерация, журнал и верификация</span>
+            <span className="role-card-icon" aria-hidden="true">
+              🛡️
+            </span>
+            <span className="role-card-text">
+              <span className="role-card-title">Админ-панель</span>
+              <span className="role-card-desc">Статистика, модерация, журнал и верификация</span>
+            </span>
           </button>
         ) : null}
       </div>
@@ -268,8 +273,25 @@ function App() {
   const [selectedVacancyId, setSelectedVacancyId] = useState<string | null>(initialRoute.vacancyId);
   const [jobsReloadKey, setJobsReloadKey] = useState(0);
   const [applicationsReloadKey, setApplicationsReloadKey] = useState(0);
-  const [complaintsReloadKey, setComplaintsReloadKey] = useState(0);
   const [vacanciesReloadKey, setVacanciesReloadKey] = useState(0);
+
+  useEffect(() => {
+    function applyVacancyRoute() {
+      const vacancyId = parseVacancyDeepLink() ?? parseVacancyStartParam();
+      if (!vacancyId) {
+        return;
+      }
+      setAppMode((mode) => mode ?? "worker");
+      setWorkerView("vacancy-detail");
+      setSelectedVacancyId((current) => current ?? vacancyId);
+    }
+
+    applyVacancyRoute();
+    const retryTimers = [50, 150, 300].map((delay) => window.setTimeout(applyVacancyRoute, delay));
+    return () => {
+      retryTimers.forEach((timerId) => window.clearTimeout(timerId));
+    };
+  }, [telegram.inTelegram, telegram.initData]);
 
   useEffect(() => {
     if (!telegram.inTelegram || !telegram.initData) {
@@ -380,8 +402,6 @@ function App() {
         <Suspense fallback={<PageFallback />}>
           {workerView === "applications" ? (
             <MyApplicationsPage initData={telegram.initData} />
-          ) : workerView === "complaints" ? (
-            <WorkerComplaintsPage initData={telegram.initData} />
           ) : workerView === "notifications" ? (
             <NotificationsSettingsPage initData={telegram.initData} />
           ) : workerView === "profile" ? (
@@ -427,11 +447,6 @@ function App() {
           <EmployerApplicationsPage
             initData={telegram.initData}
             reloadKey={applicationsReloadKey}
-          />
-        ) : employerView === "complaints" ? (
-          <EmployerComplaintsPage
-            initData={telegram.initData}
-            reloadKey={complaintsReloadKey}
           />
         ) : (
           <EmployerJobsPage
@@ -507,13 +522,6 @@ function App() {
           >
             Уведомления
           </button>
-          <button
-            type="button"
-            className={`nav-btn${workerView === "complaints" ? " active" : ""}`}
-            onClick={() => setWorkerView("complaints")}
-          >
-            Пожаловаться
-          </button>
         </nav>
       ) : null}
 
@@ -542,16 +550,6 @@ function App() {
             onClick={() => setEmployerView("create")}
           >
             Создать
-          </button>
-          <button
-            type="button"
-            className={`nav-btn${employerView === "complaints" ? " active" : ""}`}
-            onClick={() => {
-              setEmployerView("complaints");
-              setComplaintsReloadKey((key) => key + 1);
-            }}
-          >
-            Пожаловаться
           </button>
         </nav>
       ) : null}

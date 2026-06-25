@@ -69,6 +69,43 @@
       .app-shell .card li {
         margin-bottom: 0.5rem;
       }
+      .role-card {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.35rem;
+        width: 100%;
+        min-height: 72px;
+        padding: 1rem 1.1rem;
+        box-sizing: border-box;
+        border: 1px solid var(--tg-theme-border-color);
+        border-radius: 12px;
+        background: var(--tg-theme-bg-color);
+        color: var(--tg-theme-text-color);
+        text-align: left;
+        cursor: pointer;
+        appearance: none;
+        -webkit-appearance: none;
+        font: inherit;
+      }
+      .role-card-text {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+        width: 100%;
+      }
+      .role-card-title {
+        display: block;
+        font-size: 1.05rem;
+        font-weight: 600;
+        line-height: 1.3;
+      }
+      .role-card-desc {
+        display: block;
+        font-size: 0.9rem;
+        line-height: 1.35;
+        color: var(--tg-theme-hint-color);
+      }
       .spinner {
         display: inline-block;
         width: 1rem;
@@ -141,10 +178,26 @@
             window.__miniAppBootFailed(
               "Не удалось загрузить приложение. Проверьте интернет и откройте Mini App снова через бота.",
             );
+            return;
+          }
+          if (event.message) {
+            window.__miniAppBootFailed(
+              "Ошибка: " + event.message + ". Закройте Mini App и откройте снова через бота.",
+            );
           }
         },
         true,
       );
+      window.addEventListener("unhandledrejection", function (event) {
+        var reason = event.reason;
+        var message =
+          reason instanceof Error
+            ? reason.message
+            : typeof reason === "string"
+              ? reason
+              : "Не удалось загрузить часть приложения.";
+        window.__miniAppBootFailed(message + " Закройте Mini App и откройте снова через бота.");
+      });
     </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>

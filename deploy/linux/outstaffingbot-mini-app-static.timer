@@ -1,0 +1,10 @@
+[Unit]
+Description=Periodic OutstaffingBot Mini App static verify
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=15min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

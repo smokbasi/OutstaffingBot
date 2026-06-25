@@ -35,3 +35,8 @@ def parse_job_start_payload(payload: str | None) -> UUID | None:
 def vacancy_telegram_startapp_link(bot_username: str, job_id: UUID) -> str:
     return f"https://t.me/{bot_username}?startapp=vacancy_{job_id}"
 
+
+def vacancy_apply_callback_data(job_id: UUID) -> str:
+    """Inline callback for push/open vacancy in bot (fits Telegram 64-byte limit)."""
+    return f"vacopen:{job_id}"
+

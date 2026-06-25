@@ -34,6 +34,13 @@ def test_vacancy_telegram_startapp_link() -> None:
     )
 
 
+def test_vacancy_apply_callback_data() -> None:
+    from app.core.mini_app_urls import vacancy_apply_callback_data
+
+    assert vacancy_apply_callback_data(JOB_ID) == f"vacopen:{JOB_ID}"
+    assert len(vacancy_apply_callback_data(JOB_ID)) <= 64
+
+
 def test_job_start_deep_link() -> None:
     from app.core.mini_app_urls import job_start_deep_link
 

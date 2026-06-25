@@ -2,8 +2,9 @@ from datetime import date, time
 from decimal import Decimal
 from uuid import uuid4
 
+from app.core.config import Settings
 from app.db.models import JobCategory, JobRequest, JobRequestStatus, MetroStation, ShiftSlot
-from app.services.notification_service import format_new_vacancy_message
+from app.services.notification_service import _vacancy_keyboard, format_new_vacancy_message
 
 
 def test_format_new_vacancy_message_russian() -> None:
@@ -40,3 +41,22 @@ def test_format_new_vacancy_message_russian() -> None:
     assert "Автово" in text
     assert "450.00" in text
     assert "10.07.2026" in text
+
+
+def test_vacancy_push_keyboard_uses_apply_callback() -> None:
+    job = JobRequest(
+        id=uuid4(),
+        employer_id=uuid4(),
+        category_id=2,
+        title="Официант",
+        description="desc",
+        metro_station_id=1,
+        hourly_rate=Decimal("450.00"),
+        workers_needed=1,
+        status=JobRequestStatus.active,
+    )
+    settings = Settings()
+    keyboard = _vacancy_keyboard(job, settings)
+    button = keyboard.inline_keyboard[0][0]
+    assert button.text == "Откликнуться 👷"
+    assert button.callback_data == f"vacopen:{job.id}"

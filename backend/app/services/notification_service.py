@@ -3,13 +3,13 @@ from uuid import UUID
 
 from aiogram import Bot
 from aiogram.exceptions import TelegramForbiddenError
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.config import Settings
-from app.core.mini_app_urls import vacancy_deep_link
+from app.core.mini_app_urls import vacancy_apply_callback_data
 from app.db.models import JobRequest, Notification, NotificationType, User, Worker
 from app.services import matching_service
 
@@ -34,12 +34,14 @@ def format_new_vacancy_message(job: JobRequest) -> str:
 
 
 def _vacancy_keyboard(job: JobRequest, settings: Settings) -> InlineKeyboardMarkup:
+    # callback_data: надёжнее web_app в личке (domain/URL) и повторного ?start= в том же чате.
+    _ = settings
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text="📋 Подробнее",
-                    web_app=WebAppInfo(url=vacancy_deep_link(settings, job.id)),
+                    text="Откликнуться 👷",
+                    callback_data=vacancy_apply_callback_data(job.id),
                 )
             ]
         ]
