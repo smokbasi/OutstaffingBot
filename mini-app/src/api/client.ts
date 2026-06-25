@@ -964,3 +964,141 @@ export function dismissModerationUser(
     { method: "POST" },
   );
 }
+
+export type AdminListResponse<T> = {
+  items: T[];
+  total: number;
+  limit: number;
+  offset: number;
+};
+
+export type AdminWorkerListItem = {
+  id: string;
+  first_name: string;
+  last_name: string;
+  telegram_id: number;
+  username: string | null;
+  verified: boolean;
+  city: string;
+  created_at: string;
+};
+
+export type AdminEmployerListItem = {
+  id: string;
+  company_name: string;
+  contact_person: string | null;
+  contact_phone: string | null;
+  telegram_id: number;
+  username: string | null;
+  verified: boolean;
+  created_at: string;
+};
+
+export type AdminJobListItem = {
+  id: string;
+  title: string;
+  company_name: string;
+  status: JobRequestStatus;
+  hourly_rate: string;
+  created_at: string;
+};
+
+export type AdminBlockedUserListItem = {
+  telegram_id: number;
+  username: string | null;
+  role: string;
+  display_name: string | null;
+  created_at: string;
+};
+
+export type AdminComplaintListItem = {
+  id: string;
+  violation_type: ComplaintViolationType;
+  violation_type_label: string;
+  status: ComplaintStatus;
+  reporter_role: "worker" | "employer";
+  company_name: string;
+  job_title: string;
+  created_at: string;
+};
+
+export const COMPLAINT_STATUS_LABELS: Record<ComplaintStatus, string> = {
+  open: "Открыта",
+  under_review: "На рассмотрении",
+  resolved: "Решена",
+  dismissed: "Отклонена",
+};
+
+export function formatComplaintStatus(status: ComplaintStatus): string {
+  return COMPLAINT_STATUS_LABELS[status] ?? status;
+}
+
+export function listAdminWorkers(
+  initData: string,
+  params?: { limit?: number; offset?: number },
+): Promise<AdminListResponse<AdminWorkerListItem>> {
+  const qs = new URLSearchParams();
+  if (params?.limit != null) qs.set("limit", String(params.limit));
+  if (params?.offset != null) qs.set("offset", String(params.offset));
+  const query = qs.toString();
+  return apiFetch<AdminListResponse<AdminWorkerListItem>>(
+    `/admin/workers${query ? `?${query}` : ""}`,
+    initData,
+  );
+}
+
+export function listAdminEmployers(
+  initData: string,
+  params?: { limit?: number; offset?: number },
+): Promise<AdminListResponse<AdminEmployerListItem>> {
+  const qs = new URLSearchParams();
+  if (params?.limit != null) qs.set("limit", String(params.limit));
+  if (params?.offset != null) qs.set("offset", String(params.offset));
+  const query = qs.toString();
+  return apiFetch<AdminListResponse<AdminEmployerListItem>>(
+    `/admin/employers${query ? `?${query}` : ""}`,
+    initData,
+  );
+}
+
+export function listAdminJobs(
+  initData: string,
+  params?: { limit?: number; offset?: number },
+): Promise<AdminListResponse<AdminJobListItem>> {
+  const qs = new URLSearchParams();
+  if (params?.limit != null) qs.set("limit", String(params.limit));
+  if (params?.offset != null) qs.set("offset", String(params.offset));
+  const query = qs.toString();
+  return apiFetch<AdminListResponse<AdminJobListItem>>(
+    `/admin/jobs${query ? `?${query}` : ""}`,
+    initData,
+  );
+}
+
+export function listAdminBlockedUsers(
+  initData: string,
+  params?: { limit?: number; offset?: number },
+): Promise<AdminListResponse<AdminBlockedUserListItem>> {
+  const qs = new URLSearchParams();
+  if (params?.limit != null) qs.set("limit", String(params.limit));
+  if (params?.offset != null) qs.set("offset", String(params.offset));
+  const query = qs.toString();
+  return apiFetch<AdminListResponse<AdminBlockedUserListItem>>(
+    `/admin/users/blocked${query ? `?${query}` : ""}`,
+    initData,
+  );
+}
+
+export function listAdminApplicationViolations(
+  initData: string,
+  params?: { limit?: number; offset?: number },
+): Promise<AdminListResponse<AdminComplaintListItem>> {
+  const qs = new URLSearchParams();
+  if (params?.limit != null) qs.set("limit", String(params.limit));
+  if (params?.offset != null) qs.set("offset", String(params.offset));
+  const query = qs.toString();
+  return apiFetch<AdminListResponse<AdminComplaintListItem>>(
+    `/admin/journal/application-violations${query ? `?${query}` : ""}`,
+    initData,
+  );
+}

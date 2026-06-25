@@ -712,6 +712,43 @@ fieldset.form-field {
   border: 1px solid var(--tg-theme-border-color, #e5e5ea);
 }
 
+.stat-card-btn {
+  width: 100%;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  font: inherit;
+  color: inherit;
+  transition: opacity 0.15s ease, transform 0.1s ease;
+}
+
+.stat-card-btn:active {
+  opacity: 0.85;
+  transform: scale(0.98);
+}
+
+.stat-card-btn:focus-visible {
+  outline: 2px solid var(--tg-theme-link-color, #2481cc);
+  outline-offset: 2px;
+}
+
+.admin-drilldown {
+  margin-top: 1rem;
+}
+
+.admin-drilldown-header {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.35rem;
+  margin-bottom: 0.5rem;
+}
+
+.admin-drilldown-header h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
 .stat-card-warn .stat-value {
   color: #e65100;
 }

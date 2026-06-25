@@ -2,10 +2,17 @@ import { useCallback, useEffect, useState } from "react";
 import {
   blockModerationUser,
   dismissModerationUser,
+  formatComplaintStatus,
+  formatJobRequestStatus,
   getAdminAnalytics,
   getAdminAuditLog,
   getAdminStats,
   getModerationUserDetail,
+  listAdminApplicationViolations,
+  listAdminBlockedUsers,
+  listAdminEmployers,
+  listAdminJobs,
+  listAdminWorkers,
   listModerationQueue,
   listPendingEmployers,
   rejectEmployer,
@@ -13,7 +20,12 @@ import {
   verifyEmployer,
   type AdminAnalytics,
   type AdminAuditEntry,
+  type AdminBlockedUserListItem,
+  type AdminComplaintListItem,
+  type AdminEmployerListItem,
+  type AdminJobListItem,
   type AdminStats,
+  type AdminWorkerListItem,
   type ModerationQueueEntry,
   type ModerationUserDetail,
   type PendingEmployer,
@@ -21,6 +33,8 @@ import {
 import { triggerHaptic, triggerNotificationHaptic } from "../lib/telegram";
 
 type AdminTab = "stats" | "verifications" | "moderation" | "audit";
+
+type StatDrillDown = "workers" | "employers" | "jobs" | "blocked" | "complaints";
 
 type AdminPanelPageProps = {
   initData: string;
@@ -82,11 +96,250 @@ function formatDateTime(iso: string): string {
   });
 }
 
-function StatsTab({ initData }: { initData: string }) {
+function formatTelegramUser(username: string | null, telegramId: number): string {
+  return username ? `@${username}` : String(telegramId);
+}
+
+type StatCardButtonProps = {
+  value: number;
+  label: string;
+  warn?: boolean;
+  onClick: () => void;
+};
+
+function StatCardButton({ value, label, warn, onClick }: StatCardButtonProps) {
+  return (
+    <button
+      type="button"
+      className={`stat-card stat-card-btn${warn ? " stat-card-warn" : ""}`}
+      onClick={() => {
+        triggerHaptic("light");
+        onClick();
+      }}
+    >
+      <span className="stat-value">{value}</span>
+      <span className="stat-label">{label}</span>
+    </button>
+  );
+}
+
+type StatDrillDownViewProps = {
+  initData: string;
+  drillDown: StatDrillDown;
+  onBack: () => void;
+};
+
+function StatDrillDownView({ initData, drillDown, onBack }: StatDrillDownViewProps) {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [workers, setWorkers] = useState<AdminWorkerListItem[]>([]);
+  const [employers, setEmployers] = useState<AdminEmployerListItem[]>([]);
+  const [jobs, setJobs] = useState<AdminJobListItem[]>([]);
+  const [blocked, setBlocked] = useState<AdminBlockedUserListItem[]>([]);
+  const [complaints, setComplaints] = useState<AdminComplaintListItem[]>([]);
+  const [total, setTotal] = useState(0);
+
+  const titles: Record<StatDrillDown, string> = {
+    workers: "Работники",
+    employers: "Работодатели",
+    jobs: "Заявки",
+    blocked: "Заблокированные",
+    complaints: "Нарушения по заявкам",
+  };
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      if (drillDown === "workers") {
+        const data = await listAdminWorkers(initData, { limit: 50 });
+        setWorkers(data.items);
+        setTotal(data.total);
+      } else if (drillDown === "employers") {
+        const data = await listAdminEmployers(initData, { limit: 50 });
+        setEmployers(data.items);
+        setTotal(data.total);
+      } else if (drillDown === "jobs") {
+        const data = await listAdminJobs(initData, { limit: 50 });
+        setJobs(data.items);
+        setTotal(data.total);
+      } else if (drillDown === "blocked") {
+        const data = await listAdminBlockedUsers(initData, { limit: 50 });
+        setBlocked(data.items);
+        setTotal(data.total);
+      } else {
+        const data = await listAdminApplicationViolations(initData, { limit: 50 });
+        setComplaints(data.items);
+        setTotal(data.total);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Не удалось загрузить список");
+    } finally {
+      setLoading(false);
+    }
+  }, [drillDown, initData]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  return (
+    <div className="admin-drilldown">
+      <div className="admin-drilldown-header">
+        <button
+          type="button"
+          className="btn btn-sm"
+          onClick={() => {
+            triggerHaptic("light");
+            onBack();
+          }}
+        >
+          ← Статистика
+        </button>
+        <h3>{titles[drillDown]}</h3>
+        {!loading && !error ? <p className="hint">Всего: {total}</p> : null}
+      </div>
+      {loading ? <p className="status">Загрузка…</p> : null}
+      {error ? <p className="error">{error}</p> : null}
+      {!loading && !error && drillDown === "workers" ? (
+        workers.length === 0 ? (
+          <p className="hint">Работников пока нет.</p>
+        ) : (
+          <ul className="admin-list">
+            {workers.map((worker) => (
+              <li key={worker.id} className="admin-list-item">
+                <div className="admin-list-main">
+                  <strong>
+                    {worker.first_name} {worker.last_name}
+                  </strong>
+                  <span className="hint">
+                    TG: {formatTelegramUser(worker.username, worker.telegram_id)}
+                    {" · "}
+                    {worker.verified ? "верифицирован" : "не верифицирован"}
+                    {" · "}
+                    {worker.city}
+                  </span>
+                  <span className="hint">{formatDateTime(worker.created_at)}</span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )
+      ) : null}
+      {!loading && !error && drillDown === "employers" ? (
+        employers.length === 0 ? (
+          <p className="hint">Работодателей пока нет.</p>
+        ) : (
+          <ul className="admin-list">
+            {employers.map((employer) => (
+              <li key={employer.id} className="admin-list-item">
+                <div className="admin-list-main">
+                  <strong>{employer.company_name}</strong>
+                  {employer.contact_person ? (
+                    <span className="hint">{employer.contact_person}</span>
+                  ) : null}
+                  {employer.contact_phone ? (
+                    <span className="hint">{employer.contact_phone}</span>
+                  ) : null}
+                  <span className="hint">
+                    TG: {formatTelegramUser(employer.username, employer.telegram_id)}
+                    {" · "}
+                    {employer.verified ? "верифицирован" : "не верифицирован"}
+                    {" · "}
+                    {formatDateTime(employer.created_at)}
+                  </span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )
+      ) : null}
+      {!loading && !error && drillDown === "jobs" ? (
+        jobs.length === 0 ? (
+          <p className="hint">Заявок пока нет.</p>
+        ) : (
+          <ul className="admin-list">
+            {jobs.map((job) => (
+              <li key={job.id} className="admin-list-item">
+                <div className="admin-list-main">
+                  <strong>{job.title}</strong>
+                  <span className="hint">{job.company_name}</span>
+                  <span className="hint">
+                    {formatJobRequestStatus(job.status)}
+                    {" · "}
+                    {job.hourly_rate} ₽/ч
+                    {" · "}
+                    {formatDateTime(job.created_at)}
+                  </span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )
+      ) : null}
+      {!loading && !error && drillDown === "blocked" ? (
+        blocked.length === 0 ? (
+          <p className="hint">Заблокированных пользователей нет.</p>
+        ) : (
+          <ul className="admin-list">
+            {blocked.map((user) => (
+              <li key={user.telegram_id} className="admin-list-item">
+                <div className="admin-list-main">
+                  <strong>{user.display_name ?? formatTelegramUser(user.username, user.telegram_id)}</strong>
+                  <span className="hint">
+                    TG: {formatTelegramUser(user.username, user.telegram_id)}
+                    {" · "}
+                    {user.role}
+                  </span>
+                  <span className="hint">{formatDateTime(user.created_at)}</span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )
+      ) : null}
+      {!loading && !error && drillDown === "complaints" ? (
+        complaints.length === 0 ? (
+          <p className="hint">Жалоб по заявкам пока нет.</p>
+        ) : (
+          <ul className="admin-list">
+            {complaints.map((item) => (
+              <li key={item.id} className="admin-list-item">
+                <div className="admin-list-main">
+                  <strong>{item.violation_type_label}</strong>
+                  <span className="hint">
+                    {item.job_title}
+                    {item.company_name ? ` · ${item.company_name}` : ""}
+                  </span>
+                  <span className="hint">
+                    {formatComplaintStatus(item.status)}
+                    {" · "}
+                    {item.reporter_role === "worker" ? "от работника" : "от работодателя"}
+                    {" · "}
+                    {formatDateTime(item.created_at)}
+                  </span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )
+      ) : null}
+    </div>
+  );
+}
+
+function StatsTab({
+  initData,
+  onNavigateTab,
+}: {
+  initData: string;
+  onNavigateTab: (tab: AdminTab) => void;
+}) {
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [analytics, setAnalytics] = useState<AdminAnalytics | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [drillDown, setDrillDown] = useState<StatDrillDown | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -128,42 +381,61 @@ function StatsTab({ initData }: { initData: string }) {
     return null;
   }
 
+  if (drillDown !== null) {
+    return (
+      <StatDrillDownView
+        initData={initData}
+        drillDown={drillDown}
+        onBack={() => setDrillDown(null)}
+      />
+    );
+  }
+
   return (
     <div className="admin-stats">
       <div className="stat-grid">
-        <div className="stat-card">
-          <span className="stat-value">{stats.workers_count}</span>
-          <span className="stat-label">Работники</span>
-        </div>
-        <div className="stat-card">
-          <span className="stat-value">{stats.employers_count}</span>
-          <span className="stat-label">Работодатели</span>
-        </div>
-        <div className="stat-card">
-          <span className="stat-value">{stats.jobs_count}</span>
-          <span className="stat-label">Заявки</span>
-        </div>
-        <div className="stat-card stat-card-warn">
-          <span className="stat-value">{stats.pending_verifications}</span>
-          <span className="stat-label">На верификации</span>
-        </div>
+        <StatCardButton
+          value={stats.workers_count}
+          label="Работники"
+          onClick={() => setDrillDown("workers")}
+        />
+        <StatCardButton
+          value={stats.employers_count}
+          label="Работодатели"
+          onClick={() => setDrillDown("employers")}
+        />
+        <StatCardButton
+          value={stats.jobs_count}
+          label="Заявки"
+          onClick={() => setDrillDown("jobs")}
+        />
+        <StatCardButton
+          value={stats.pending_verifications}
+          label="На верификации"
+          warn
+          onClick={() => onNavigateTab("verifications")}
+        />
         {typeof stats.moderation_flagged_users === "number" ? (
-          <div className="stat-card stat-card-warn">
-            <span className="stat-value">{stats.moderation_flagged_users}</span>
-            <span className="stat-label">На модерации</span>
-          </div>
+          <StatCardButton
+            value={stats.moderation_flagged_users}
+            label="На модерации"
+            warn
+            onClick={() => onNavigateTab("moderation")}
+          />
         ) : null}
         {typeof stats.users_blocked === "number" ? (
-          <div className="stat-card">
-            <span className="stat-value">{stats.users_blocked}</span>
-            <span className="stat-label">Заблокированы</span>
-          </div>
+          <StatCardButton
+            value={stats.users_blocked}
+            label="Заблокированы"
+            onClick={() => setDrillDown("blocked")}
+          />
         ) : null}
         {typeof stats.violations_total === "number" ? (
-          <div className="stat-card">
-            <span className="stat-value">{stats.violations_total}</span>
-            <span className="stat-label">Нарушения</span>
-          </div>
+          <StatCardButton
+            value={stats.violations_total}
+            label="Нарушения"
+            onClick={() => setDrillDown("complaints")}
+          />
         ) : null}
       </div>
 
@@ -648,7 +920,9 @@ export function AdminPanelPage({ initData, initialTab = "stats" }: AdminPanelPag
         </button>
       </nav>
 
-      {tab === "stats" ? <StatsTab initData={initData} /> : null}
+      {tab === "stats" ? (
+        <StatsTab initData={initData} onNavigateTab={setTab} />
+      ) : null}
       {tab === "verifications" ? <VerificationsTab initData={initData} /> : null}
       {tab === "moderation" ? <ModerationTab initData={initData} /> : null}
       {tab === "audit" ? <AuditTab initData={initData} /> : null}
