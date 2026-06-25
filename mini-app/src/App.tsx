@@ -33,6 +33,12 @@ const AdminPanelPage = lazy(() =>
 const AdminAccessDenied = lazy(() =>
   import("./pages/AdminPanelPage").then((m) => ({ default: m.AdminAccessDenied })),
 );
+const WorkerComplaintsPage = lazy(() =>
+  import("./pages/WorkerComplaintsPage").then((m) => ({ default: m.WorkerComplaintsPage })),
+);
+const EmployerComplaintsPage = lazy(() =>
+  import("./pages/EmployerComplaintsPage").then((m) => ({ default: m.EmployerComplaintsPage })),
+);
 
 function PageFallback() {
   return <p className="status">Загрузка…</p>;
@@ -59,8 +65,8 @@ type TelegramContext = {
 };
 
 type AppMode = "worker" | "employer" | "admin";
-type EmployerView = "jobs" | "create" | "applications";
-type WorkerView = "profile" | "vacancies" | "vacancy-detail" | "applications" | "notifications";
+type EmployerView = "jobs" | "create" | "applications" | "complaints";
+type WorkerView = "profile" | "vacancies" | "vacancy-detail" | "applications" | "notifications" | "complaints";
 
 type MeState =
   | { status: "idle" }
@@ -262,6 +268,7 @@ function App() {
   const [selectedVacancyId, setSelectedVacancyId] = useState<string | null>(initialRoute.vacancyId);
   const [jobsReloadKey, setJobsReloadKey] = useState(0);
   const [applicationsReloadKey, setApplicationsReloadKey] = useState(0);
+  const [complaintsReloadKey, setComplaintsReloadKey] = useState(0);
   const [vacanciesReloadKey, setVacanciesReloadKey] = useState(0);
 
   useEffect(() => {
@@ -373,6 +380,8 @@ function App() {
         <Suspense fallback={<PageFallback />}>
           {workerView === "applications" ? (
             <MyApplicationsPage initData={telegram.initData} />
+          ) : workerView === "complaints" ? (
+            <WorkerComplaintsPage initData={telegram.initData} />
           ) : workerView === "notifications" ? (
             <NotificationsSettingsPage initData={telegram.initData} />
           ) : workerView === "profile" ? (
@@ -418,6 +427,11 @@ function App() {
           <EmployerApplicationsPage
             initData={telegram.initData}
             reloadKey={applicationsReloadKey}
+          />
+        ) : employerView === "complaints" ? (
+          <EmployerComplaintsPage
+            initData={telegram.initData}
+            reloadKey={complaintsReloadKey}
           />
         ) : (
           <EmployerJobsPage
@@ -493,6 +507,13 @@ function App() {
           >
             Уведомления
           </button>
+          <button
+            type="button"
+            className={`nav-btn${workerView === "complaints" ? " active" : ""}`}
+            onClick={() => setWorkerView("complaints")}
+          >
+            Пожаловаться
+          </button>
         </nav>
       ) : null}
 
@@ -521,6 +542,16 @@ function App() {
             onClick={() => setEmployerView("create")}
           >
             Создать
+          </button>
+          <button
+            type="button"
+            className={`nav-btn${employerView === "complaints" ? " active" : ""}`}
+            onClick={() => {
+              setEmployerView("complaints");
+              setComplaintsReloadKey((key) => key + 1);
+            }}
+          >
+            Пожаловаться
           </button>
         </nav>
       ) : null}

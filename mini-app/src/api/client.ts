@@ -203,6 +203,89 @@ export type ApplicationListResponse = {
   total: number;
 };
 
+export type ComplaintViolationType = "late" | "no_show" | "no_payment" | "no_work";
+
+export const COMPLAINT_VIOLATION_TYPE_LABELS: Record<ComplaintViolationType, string> = {
+  late: "Опоздание",
+  no_show: "Невыход на смену",
+  no_payment: "Отсутствие оплаты",
+  no_work: "Отсутствие работы",
+};
+
+export function formatComplaintViolationType(violationType: ComplaintViolationType): string {
+  return COMPLAINT_VIOLATION_TYPE_LABELS[violationType] ?? violationType;
+}
+
+export type ComplaintStatus = "open" | "under_review" | "resolved" | "dismissed";
+
+export type WorkerEligibleApplication = {
+  id: string;
+  job_request_id: string;
+  shift_slot_id: string;
+  status: ApplicationStatus;
+  job_title: string;
+  company_name: string;
+  shift_date: string;
+  start_time: string;
+  end_time: string;
+};
+
+export type WorkerComplaintContextResponse = {
+  applications: WorkerEligibleApplication[];
+};
+
+export type WorkerComplaintCreate = {
+  application_id: string;
+  violation_type: ComplaintViolationType;
+  description: string;
+};
+
+export type EmployerComplaintCreate = {
+  application_id: string;
+  violation_type: ComplaintViolationType;
+  description?: string | null;
+};
+
+export type ComplaintRead = {
+  id: string;
+  application_id: string;
+  job_request_id: string;
+  shift_slot_id: string;
+  violation_type: ComplaintViolationType;
+  description: string | null;
+  status: ComplaintStatus;
+  created_at: string;
+};
+
+export type EmployerComplaintJob = {
+  id: string;
+  title: string;
+  status: JobRequestStatus;
+  applications_count: number;
+};
+
+export type EmployerComplaintJobsResponse = {
+  items: EmployerComplaintJob[];
+};
+
+export type EmployerComplaintApplication = {
+  id: string;
+  job_request_id: string;
+  shift_slot_id: string;
+  status: ApplicationStatus;
+  job_title: string;
+  shift_date: string;
+  start_time: string;
+  end_time: string;
+  worker_first_name: string | null;
+  worker_last_name: string | null;
+};
+
+export type EmployerComplaintApplicationsResponse = {
+  items: EmployerComplaintApplication[];
+  total: number;
+};
+
 export type ShiftConflictBody = {
   detail: string;
   conflicting: {
@@ -685,6 +768,44 @@ export function updateEmployerApplicationStatus(
   return apiFetch<ApplicationRead>(`/employer/applications/${applicationId}`, initData, {
     method: "PATCH",
     body: JSON.stringify({ status }),
+  });
+}
+
+export function getWorkerComplaintContext(initData: string): Promise<WorkerComplaintContextResponse> {
+  return apiFetch<WorkerComplaintContextResponse>("/complaints/my-context", initData);
+}
+
+export function createWorkerComplaint(
+  initData: string,
+  data: WorkerComplaintCreate,
+): Promise<ComplaintRead> {
+  return apiFetch<ComplaintRead>("/complaints", initData, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export function listEmployerComplaintJobs(initData: string): Promise<EmployerComplaintJobsResponse> {
+  return apiFetch<EmployerComplaintJobsResponse>("/employer/complaints/jobs", initData);
+}
+
+export function listEmployerComplaintApplications(
+  initData: string,
+  jobId: string,
+): Promise<EmployerComplaintApplicationsResponse> {
+  return apiFetch<EmployerComplaintApplicationsResponse>(
+    `/employer/complaints/jobs/${jobId}/applications`,
+    initData,
+  );
+}
+
+export function createEmployerComplaint(
+  initData: string,
+  data: EmployerComplaintCreate,
+): Promise<ComplaintRead> {
+  return apiFetch<ComplaintRead>("/employer/complaints", initData, {
+    method: "POST",
+    body: JSON.stringify(data),
   });
 }
 

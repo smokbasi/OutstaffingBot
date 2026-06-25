@@ -299,13 +299,13 @@
 
 #### 9.10 Mini App — «Пожаловаться» (Worker & Employer) [P1]
 
-- [ ] **9.10.1** Worker: страница «Пожаловаться» + пункт навигации в [`App.tsx`](../mini-app/src/App.tsx) [P1]
+- [x] **9.10.1** Worker: страница «Пожаловаться» + пункт навигации в [`App.tsx`](../mini-app/src/App.tsx) [P1]
   - **Acceptance criteria:** список откликов (заявка, компания, смена, статус); drill-down → форма (4 типа + описание); success/error; haptic; empty state «Нет откликов для жалобы»; описание **не** блокируется стоп-словами (нет moderation error UI — текст жалобы приватный).
 
-- [ ] **9.10.2** Employer: страница «Пожаловаться» + навигация [P1]
+- [x] **9.10.2** Employer: страница «Пожаловаться» + навигация [P1]
   - **Acceptance criteria:** список заявок → отклики на заявку → форма жалобы на работника; имя работника из отклика; нельзя выбрать работника не из этой заявки; описание **не** блокируется стоп-словами.
 
-- [ ] **9.10.3** API client [`client.ts`](../mini-app/src/api/client.ts): типы и методы complaints [P1]
+- [x] **9.10.3** API client [`client.ts`](../mini-app/src/api/client.ts): типы и методы complaints [P1]
   - **Acceptance criteria:** типы `ComplaintViolationType`, `ComplaintRead`; методы list/create для worker и employer.
 
 #### 9.11 Admin — реструктуризация вкладки «Журнал» [P1]
