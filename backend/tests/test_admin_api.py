@@ -494,3 +494,39 @@ async def test_admin_forbidden_for_non_admin(monkeypatch: pytest.MonkeyPatch) ->
 
     app.dependency_overrides.clear()
     config.get_settings.cache_clear()
+
+
+@pytest.mark.asyncio
+async def test_admin_list_workers(admin_client, monkeypatch: pytest.MonkeyPatch) -> None:
+    client, _session = admin_client
+    worker_user = User(
+        id=uuid4(),
+        telegram_id=555100,
+        username="worker1",
+        role=UserRole.worker,
+    )
+    from app.db.models import Worker
+
+    worker = Worker(
+        id=uuid4(),
+        user_id=worker_user.id,
+        first_name="Иван",
+        last_name="Иванов",
+        age=25,
+        verified=True,
+        city="spb",
+        created_at=datetime(2026, 6, 1, tzinfo=UTC),
+    )
+    list_mock = AsyncMock(return_value=([(worker, worker_user)], 1))
+    monkeypatch.setattr(
+        "app.api.routes.admin.admin_stats_service.list_workers",
+        list_mock,
+    )
+
+    response = await client.get("/api/v1/admin/workers", headers=_auth_headers())
+    assert response.status_code == 200
+    body = response.json()
+    assert body["total"] == 1
+    assert len(body["items"]) == 1
+    assert body["items"][0]["first_name"] == "Иван"
+    list_mock.assert_awaited_once()
