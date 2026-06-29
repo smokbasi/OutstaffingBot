@@ -44,6 +44,7 @@ export type WorkerProfile = {
   metro_station_name: string | null;
   min_hourly_rate: string | null;
   resume_completed: boolean;
+  show_all_vacancies: boolean;
   experiences: WorkerExperience[];
 };
 
@@ -123,6 +124,7 @@ export type VacancyListItem = {
   next_shift_end: string | null;
   available_slots: number;
   includes_lunch: boolean;
+  is_matched: boolean;
 };
 
 export type VacancyListResponse = {
@@ -379,7 +381,7 @@ export type MetroStation = {
 
 export type WorkerProfileUpdate = Pick<
   WorkerProfile,
-  "first_name" | "last_name" | "age" | "gender" | "metro_station_id" | "min_hourly_rate"
+  "first_name" | "last_name" | "age" | "gender" | "metro_station_id" | "min_hourly_rate" | "show_all_vacancies"
 >;
 
 export type WorkerExperienceCreate = {

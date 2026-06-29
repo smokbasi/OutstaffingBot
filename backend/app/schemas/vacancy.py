@@ -31,6 +31,7 @@ class VacancyListItem(BaseModel):
     next_shift_end: time | None = None
     available_slots: int = 0
     includes_lunch: bool = False
+    is_matched: bool = False
 
 
 class VacancyListResponse(BaseModel):

@@ -119,6 +119,7 @@ def _worker_to_profile(worker: Worker) -> WorkerProfileRead:
         phone=worker.phone,
         verified=worker.verified,
         resume_completed=worker.resume_completed,
+        show_all_vacancies=worker.show_all_vacancies,
         experiences=experiences,
     )
 
@@ -143,6 +144,8 @@ async def upsert_worker_profile(
     worker.metro_station_id = data.metro_station_id
     worker.min_hourly_rate = data.min_hourly_rate
     worker.phone = data.phone
+    if data.show_all_vacancies is not None:
+        worker.show_all_vacancies = data.show_all_vacancies
     if resume_completed is not None:
         worker.resume_completed = resume_completed
 

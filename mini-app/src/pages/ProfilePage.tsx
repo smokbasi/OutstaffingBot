@@ -43,6 +43,7 @@ type ProfileFormData = {
   min_hourly_rate: string;
   metro_station_id: number | null;
   metro_label: string;
+  show_all_vacancies: boolean;
 };
 
 type FormErrors = Partial<Record<keyof ProfileFormData, string>>;
@@ -91,6 +92,7 @@ function profileToForm(profile: WorkerProfile): ProfileFormData {
     min_hourly_rate: profile.min_hourly_rate ?? "",
     metro_station_id: profile.metro_station_id,
     metro_label: profile.metro_station_name ?? "",
+    show_all_vacancies: profile.show_all_vacancies,
   };
 }
 
@@ -136,6 +138,7 @@ export function ProfilePage({ initData }: ProfilePageProps) {
   const [expSaveError, setExpSaveError] = useState<string | null>(null);
   const [isExpSaving, setIsExpSaving] = useState(false);
   const [deletingExpId, setDeletingExpId] = useState<string | null>(null);
+  const [isToggleSaving, setIsToggleSaving] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -292,6 +295,7 @@ export function ProfilePage({ initData }: ProfilePageProps) {
         gender: form.gender || null,
         metro_station_id: form.metro_station_id,
         min_hourly_rate: form.min_hourly_rate.trim() || null,
+        show_all_vacancies: form.show_all_vacancies,
       });
       setState({ status: "ready", profile: updated });
       cancelEditing();
@@ -345,6 +349,31 @@ export function ProfilePage({ initData }: ProfilePageProps) {
       setExpSaveError(message);
     } finally {
       setIsExpSaving(false);
+    }
+  }
+
+  async function handleToggleShowAll(checked: boolean) {
+    if (state.status !== "ready") {
+      return;
+    }
+    setIsToggleSaving(true);
+    setSaveError(null);
+    try {
+      const updated = await updateWorkerProfile(initData, {
+        first_name: state.profile.first_name,
+        last_name: state.profile.last_name,
+        age: state.profile.age,
+        gender: state.profile.gender,
+        metro_station_id: state.profile.metro_station_id,
+        min_hourly_rate: state.profile.min_hourly_rate,
+        show_all_vacancies: checked,
+      });
+      setState({ status: "ready", profile: updated });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Не удалось сохранить настройку";
+      setSaveError(message);
+    } finally {
+      setIsToggleSaving(false);
     }
   }
 
@@ -501,6 +530,16 @@ export function ProfilePage({ initData }: ProfilePageProps) {
             ) : null}
           </div>
 
+          <label className="form-field checkbox-field">
+            <input
+              type="checkbox"
+              checked={form.show_all_vacancies}
+              disabled={isSaving}
+              onChange={(e) => updateField("show_all_vacancies", e.target.checked)}
+            />
+            <span>Показывать все вакансии</span>
+          </label>
+
           {saveError ? <p className="error">{saveError}</p> : null}
 
           <div className="form-actions">
@@ -548,6 +587,22 @@ export function ProfilePage({ initData }: ProfilePageProps) {
           <dd>{profile.min_hourly_rate ? `${profile.min_hourly_rate} ₽/час` : "—"}</dd>
         </div>
       </dl>
+
+      <label className="form-field checkbox-field profile-setting">
+        <input
+          type="checkbox"
+          checked={profile.show_all_vacancies}
+          disabled={isToggleSaving}
+          onChange={(e) => void handleToggleShowAll(e.target.checked)}
+        />
+        <span>Показывать все вакансии</span>
+      </label>
+      <p className="hint">
+        {profile.show_all_vacancies
+          ? "В списке показываются все активные вакансии; подходящие по опыту — сверху."
+          : "В списке только вакансии в категориях из вашего опыта."}
+      </p>
+      {saveError ? <p className="error">{saveError}</p> : null}
 
       <div className="experience-header">
         <h3>Опыт</h3>

@@ -105,6 +105,13 @@
   margin: 0;
 }
 
+.vacancy-section-title {
+  margin: 1rem 0 0.5rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--tg-theme-hint-color, #6b7280);
+}
+
 .experience-add-btn {
   margin-top: 0;
   padding: 0.45rem 0.75rem;

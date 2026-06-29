@@ -3,7 +3,7 @@ from datetime import date
 from decimal import Decimal
 from uuid import UUID
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -101,11 +101,14 @@ def _distance_km_between_stations(
     )
 
 
-def _base_vacancy_conditions(worker: Worker, filters: VacancyFilters, category_ids: list[int]):
+def _base_vacancy_conditions(
+    worker: Worker,
+    filters: VacancyFilters,
+    category_ids: list[int] | None,
+):
     min_rate = effective_min_rate(worker, filters)
     conditions = [
         JobRequest.status == JobRequestStatus.active,
-        JobRequest.category_id.in_(category_ids),
         JobRequest.hourly_rate >= min_rate,
         ShiftSlot.slots_filled < ShiftSlot.slots_total,
         ShiftSlot.shift_date >= date.today(),
@@ -113,6 +116,10 @@ def _base_vacancy_conditions(worker: Worker, filters: VacancyFilters, category_i
         worker.age <= func.coalesce(JobRequest.max_age, 70),
         _gender_filter(worker),
     ]
+    if category_ids is not None:
+        if not category_ids:
+            return None
+        conditions.append(JobRequest.category_id.in_(category_ids))
     if filters.metro_station_id is not None:
         conditions.append(JobRequest.metro_station_id == filters.metro_station_id)
     city = _effective_city(worker, filters)
@@ -142,7 +149,21 @@ def _next_shift(job: JobRequest) -> ShiftSlot | None:
     return min(available, key=lambda slot: (slot.shift_date, slot.start_time))
 
 
-def _job_to_list_item(job: JobRequest) -> VacancyListItem:
+def _is_category_matched(job: JobRequest, worker: Worker) -> bool:
+    worker_cats = set(worker_category_ids(worker))
+    return bool(worker_cats) and job.category_id in worker_cats
+
+
+def _list_category_filter(worker: Worker, filters: VacancyFilters, *, show_all: bool) -> list[int] | None:
+    """None = no category filter; [] = no matches; [ids] = filter by categories."""
+    if filters.category_id is not None:
+        return [filters.category_id]
+    if show_all:
+        return None
+    return effective_category_ids(worker, filters)
+
+
+def _job_to_list_item(job: JobRequest, *, is_matched: bool = False) -> VacancyListItem:
     next_slot = _next_shift(job)
     return VacancyListItem(
         id=job.id,
@@ -158,6 +179,7 @@ def _job_to_list_item(job: JobRequest) -> VacancyListItem:
         next_shift_end=next_slot.end_time if next_slot else None,
         available_slots=_available_slots(job),
         includes_lunch=job.includes_lunch,
+        is_matched=is_matched,
     )
 
 
@@ -244,11 +266,16 @@ async def list_vacancies_for_worker(
     worker: Worker,
     filters: VacancyFilters,
 ) -> VacancyListResponse:
-    category_ids = effective_category_ids(worker, filters)
-    if not category_ids:
+    show_all = worker.show_all_vacancies
+    category_filter = _list_category_filter(worker, filters, show_all=show_all)
+    if category_filter == []:
         return VacancyListResponse(items=[], total=0, page=filters.page, limit=filters.limit)
 
-    conditions = _base_vacancy_conditions(worker, filters, category_ids)
+    conditions = _base_vacancy_conditions(worker, filters, category_filter)
+    if conditions is None:
+        return VacancyListResponse(items=[], total=0, page=filters.page, limit=filters.limit)
+
+    worker_cats = worker_category_ids(worker)
     matched_ids_subq = (
         select(JobRequest.id)
         .join(ShiftSlot, JobRequest.id == ShiftSlot.job_request_id)
@@ -260,11 +287,19 @@ async def list_vacancies_for_worker(
     total = await session.scalar(select(func.count()).select_from(matched_ids_subq)) or 0
     offset = (filters.page - 1) * filters.limit
 
+    order_by: tuple = (JobRequest.created_at.desc(),)
+    if show_all and worker_cats and filters.category_id is None:
+        match_rank = case(
+            (JobRequest.category_id.in_(worker_cats), 0),
+            else_=1,
+        )
+        order_by = (match_rank, JobRequest.created_at.desc())
+
     page_ids = list(
         await session.scalars(
             select(JobRequest.id)
             .join(matched_ids_subq, JobRequest.id == matched_ids_subq.c.id)
-            .order_by(JobRequest.created_at.desc())
+            .order_by(*order_by)
             .offset(offset)
             .limit(filters.limit)
         )
@@ -282,9 +317,10 @@ async def list_vacancies_for_worker(
                 selectinload(JobRequest.metro_station),
             )
             .where(JobRequest.id.in_(page_ids))
-            .order_by(JobRequest.created_at.desc())
         )
     )
+    jobs_by_id = {job.id: job for job in jobs}
+    ordered_jobs = [jobs_by_id[job_id] for job_id in page_ids if job_id in jobs_by_id]
 
     max_km = _effective_max_distance_km(worker, filters)
     if max_km is not None:
@@ -293,9 +329,9 @@ async def list_vacancies_for_worker(
             worker_station = await session.scalar(
                 select(MetroStation).where(MetroStation.id == worker.metro_station_id)
             )
-        jobs = [
+        ordered_jobs = [
             job
-            for job in jobs
+            for job in ordered_jobs
             if (
                 (distance := _distance_km_between_stations(worker_station, job.metro_station)) is None
                 or distance <= max_km
@@ -303,7 +339,10 @@ async def list_vacancies_for_worker(
         ]
 
     return VacancyListResponse(
-        items=[_job_to_list_item(job) for job in jobs],
+        items=[
+            _job_to_list_item(job, is_matched=_is_category_matched(job, worker))
+            for job in ordered_jobs
+        ],
         total=total,
         page=filters.page,
         limit=filters.limit,
@@ -317,11 +356,29 @@ async def get_vacancy_for_worker(
     filters: VacancyFilters | None = None,
 ) -> VacancyDetail | None:
     filters = filters or VacancyFilters()
+    show_all = worker.show_all_vacancies
+
+    if show_all:
+        job = await session.scalar(
+            select(JobRequest)
+            .options(
+                selectinload(JobRequest.shift_slots),
+                selectinload(JobRequest.category),
+                selectinload(JobRequest.metro_station),
+            )
+            .where(JobRequest.id == job_id, JobRequest.status == JobRequestStatus.active)
+        )
+        if job is None or not _job_has_available_slots(job):
+            return None
+        return _job_to_detail(job)
+
     category_ids = effective_category_ids(worker, filters)
     if not category_ids:
         return None
 
     conditions = _base_vacancy_conditions(worker, filters, category_ids)
+    if conditions is None:
+        return None
     conditions.append(JobRequest.id == job_id)
 
     matched_id = await session.scalar(

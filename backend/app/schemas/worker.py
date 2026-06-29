@@ -29,6 +29,7 @@ class WorkerProfileRead(BaseModel):
     phone: str | None = Field(default=None, max_length=20)
     verified: bool = False
     resume_completed: bool
+    show_all_vacancies: bool = True
     experiences: list[WorkerExperienceRead] = Field(default_factory=list)
 
     model_config = {"from_attributes": True}
@@ -42,6 +43,7 @@ class WorkerProfileUpdate(BaseModel):
     metro_station_id: int | None = None
     min_hourly_rate: Decimal | None = Field(default=None, ge=0)
     phone: str | None = Field(default=None, max_length=20)
+    show_all_vacancies: bool | None = None
 
 
 class WorkerExperienceCreate(BaseModel):

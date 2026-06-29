@@ -57,9 +57,41 @@ function formatTime(value: string | null): string {
   return value.slice(0, 5);
 }
 
+function VacancyCard({
+  item,
+  onOpenVacancy,
+}: {
+  item: VacancyListItem;
+  onOpenVacancy: (id: string) => void;
+}) {
+  return (
+    <li className={`job-item${item.is_matched ? " job-item-matched" : ""}`}>
+      <div className="job-item-header">
+        <strong>{item.title}</strong>
+      </div>
+      <p className="hint">
+        {item.category_name ?? "—"} · {item.metro_station_name ?? "—"}
+      </p>
+      <p>{formatHourlyRate(item.hourly_rate)}</p>
+      <p className="hint">
+        Ближайшая смена: {formatDate(item.next_shift_date)}
+        {item.next_shift_start ? ` ${formatTime(item.next_shift_start)}` : ""}
+        {item.available_slots > 0 ? ` · мест: ${item.available_slots}` : ""}
+      </p>
+      {item.includes_lunch ? <p className="hint">🍽 Обед включён</p> : null}
+      <div className="job-actions">
+        <button type="button" className="btn" onClick={() => onOpenVacancy(item.id)}>
+          Подробнее
+        </button>
+      </div>
+    </li>
+  );
+}
+
 export function VacancyListPage({ initData, reloadKey = 0, onOpenVacancy }: VacancyListPageProps) {
   const [state, setState] = useState<ListState>({ status: "loading" });
   const [profileReady, setProfileReady] = useState(false);
+  const [showAllVacancies, setShowAllVacancies] = useState(true);
   const [experienceCategories, setExperienceCategories] = useState<ExperienceCategory[]>([]);
   const [categoryId, setCategoryId] = useState<number | "">("");
   const [metroQuery, setMetroQuery] = useState("");
@@ -80,6 +112,7 @@ export function VacancyListPage({ initData, reloadKey = 0, onOpenVacancy }: Vaca
         }
         const categories = uniqueExperienceCategories(profile.experiences);
         setExperienceCategories(categories);
+        setShowAllVacancies(profile.show_all_vacancies);
         setCategoryId((prev) => {
           if (prev === "" || categories.some((cat) => cat.id === prev)) {
             return prev;
@@ -114,7 +147,7 @@ export function VacancyListPage({ initData, reloadKey = 0, onOpenVacancy }: Vaca
       return;
     }
 
-    if (experienceCategories.length === 0) {
+    if (!showAllVacancies && experienceCategories.length === 0) {
       setState({
         status: "error",
         message:
@@ -162,7 +195,17 @@ export function VacancyListPage({ initData, reloadKey = 0, onOpenVacancy }: Vaca
     return () => {
       cancelled = true;
     };
-  }, [profileReady, experienceCategories, initData, categoryId, metroStationId, minRate, page, limit]);
+  }, [
+    profileReady,
+    showAllVacancies,
+    experienceCategories,
+    initData,
+    categoryId,
+    metroStationId,
+    minRate,
+    page,
+    limit,
+  ]);
 
   useEffect(() => {
     if (!metroQuery.trim()) {
@@ -195,29 +238,40 @@ export function VacancyListPage({ initData, reloadKey = 0, onOpenVacancy }: Vaca
   const totalPages =
     state.status === "ready" ? Math.max(1, Math.ceil(state.total / limit)) : 1;
 
+  const matchedItems = state.status === "ready" ? state.items.filter((item) => item.is_matched) : [];
+  const otherItems = state.status === "ready" ? state.items.filter((item) => !item.is_matched) : [];
+  const showSections =
+    showAllVacancies && matchedItems.length > 0 && otherItems.length > 0;
+
   return (
     <section className="card vacancy-list">
       <h2>Поиск вакансий</h2>
-      <p className="hint">Показываются активные заявки по вашим категориям опыта.</p>
+      <p className="hint">
+        {showAllVacancies
+          ? "Показываются все активные вакансии; подходящие по вашему опыту — сверху."
+          : "Показываются только вакансии в категориях из вашего опыта."}
+      </p>
 
       <div className="profile-form filters-form">
-        <label className="form-field compact">
-          <span>Категория</span>
-          <select
-            value={categoryId}
-            onChange={(event) => {
-              setCategoryId(event.target.value === "" ? "" : Number(event.target.value));
-              setPage(1);
-            }}
-          >
-            <option value="">Все из моего опыта</option>
-            {experienceCategories.map((category) => (
-              <option key={category.id} value={category.id}>
-                {category.name}
-              </option>
-            ))}
-          </select>
-        </label>
+        {experienceCategories.length > 0 ? (
+          <label className="form-field compact">
+            <span>Категория</span>
+            <select
+              value={categoryId}
+              onChange={(event) => {
+                setCategoryId(event.target.value === "" ? "" : Number(event.target.value));
+                setPage(1);
+              }}
+            >
+              <option value="">{showAllVacancies ? "Все категории" : "Все из моего опыта"}</option>
+              {experienceCategories.map((category) => (
+                <option key={category.id} value={category.id}>
+                  {category.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
 
         <label className="form-field compact">
           <span>Мин. ставка (₽/час)</span>
@@ -275,11 +329,13 @@ export function VacancyListPage({ initData, reloadKey = 0, onOpenVacancy }: Vaca
 
       {state.status === "ready" && state.items.length === 0 ? (
         <p className="hint">
-          Подходящих вакансий пока нет. Показываются только заявки в категориях из вашего опыта
-          {categoryId !== ""
-            ? ` («${experienceCategories.find((cat) => cat.id === categoryId)?.name ?? "выбранная категория"}»)`
-            : ""}
-          . Попробуйте изменить фильтры или добавьте категорию в профиль через бота.
+          {showAllVacancies
+            ? "Активных вакансий пока нет. Попробуйте изменить фильтры."
+            : `Подходящих вакансий пока нет${
+                categoryId !== ""
+                  ? ` («${experienceCategories.find((cat) => cat.id === categoryId)?.name ?? "выбранная категория"}»)`
+                  : ""
+              }. Попробуйте изменить фильтры, включите «Показывать все вакансии» в профиле или добавьте категорию опыта.`}
         </p>
       ) : null}
 
@@ -288,30 +344,28 @@ export function VacancyListPage({ initData, reloadKey = 0, onOpenVacancy }: Vaca
           <p className="hint">
             Найдено: {state.total} · стр. {state.page}/{totalPages}
           </p>
-          <ul className="jobs-list">
-            {state.items.map((item) => (
-              <li key={item.id} className="job-item">
-                <div className="job-item-header">
-                  <strong>{item.title}</strong>
-                </div>
-                <p className="hint">
-                  {item.category_name ?? "—"} · {item.metro_station_name ?? "—"}
-                </p>
-                <p>{formatHourlyRate(item.hourly_rate)}</p>
-                <p className="hint">
-                  Ближайшая смена: {formatDate(item.next_shift_date)}
-                  {item.next_shift_start ? ` ${formatTime(item.next_shift_start)}` : ""}
-                  {item.available_slots > 0 ? ` · мест: ${item.available_slots}` : ""}
-                </p>
-                {item.includes_lunch ? <p className="hint">🍽 Обед включён</p> : null}
-                <div className="job-actions">
-                  <button type="button" className="btn" onClick={() => onOpenVacancy(item.id)}>
-                    Подробнее
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ul>
+          {showSections ? (
+            <>
+              <h3 className="vacancy-section-title">Подходящие</h3>
+              <ul className="jobs-list">
+                {matchedItems.map((item) => (
+                  <VacancyCard key={item.id} item={item} onOpenVacancy={onOpenVacancy} />
+                ))}
+              </ul>
+              <h3 className="vacancy-section-title">Остальные</h3>
+              <ul className="jobs-list">
+                {otherItems.map((item) => (
+                  <VacancyCard key={item.id} item={item} onOpenVacancy={onOpenVacancy} />
+                ))}
+              </ul>
+            </>
+          ) : (
+            <ul className="jobs-list">
+              {state.items.map((item) => (
+                <VacancyCard key={item.id} item={item} onOpenVacancy={onOpenVacancy} />
+              ))}
+            </ul>
+          )}
           <div className="pagination">
             <button
               type="button"

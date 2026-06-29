@@ -44,6 +44,7 @@ def sample_vacancy_list() -> VacancyListResponse:
                 next_shift_end=time(22, 0),
                 available_slots=2,
                 includes_lunch=True,
+                is_matched=True,
             )
         ],
         total=1,
