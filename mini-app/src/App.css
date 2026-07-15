@@ -1,9 +1,15 @@
 .app {
   min-height: 100svh;
   padding: 1.5rem;
+  padding-left: max(1.5rem, env(safe-area-inset-left, 0px));
+  padding-right: max(1.5rem, env(safe-area-inset-right, 0px));
   box-sizing: border-box;
   background: var(--tg-theme-bg-color, #ffffff);
   color: var(--tg-theme-text-color, #000000);
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: clip;
 }
 
 .app h1 {
@@ -38,6 +44,9 @@
   border-radius: 12px;
   background: var(--tg-theme-secondary-bg-color, #f4f4f5);
   border: 1px solid var(--tg-theme-border-color, #e5e5ea);
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .card ul {
@@ -172,11 +181,15 @@
 .profile-form {
   display: grid;
   gap: 1rem;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .form-field {
   display: grid;
   gap: 0.35rem;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .form-field > span {
@@ -187,6 +200,8 @@
 .form-field input,
 .form-field select {
   width: 100%;
+  min-width: 0;
+  max-width: 100%;
   box-sizing: border-box;
   padding: 0.55rem 0.75rem;
   border: 1px solid var(--tg-theme-border-color, #e5e5ea);
@@ -200,6 +215,20 @@
   color: #e53935;
   font-size: 0.85rem;
   font-style: normal;
+}
+
+.required-mark {
+  color: #e53935;
+}
+
+.validation-summary {
+  color: #e53935;
+  background: rgba(229, 57, 53, 0.08);
+  border: 1px solid rgba(229, 57, 53, 0.25);
+  border-radius: 8px;
+  margin: 0.5rem 0 0;
+  padding: 0.65rem 0.75rem;
+  font-size: 0.9rem;
 }
 
 .form-actions {
@@ -274,6 +303,8 @@
 
 .form-field textarea {
   width: 100%;
+  min-width: 0;
+  max-width: 100%;
   box-sizing: border-box;
   padding: 0.55rem 0.75rem;
   border: 1px solid var(--tg-theme-border-color, #e5e5ea);
@@ -291,16 +322,29 @@
 
 .form-row {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.75rem;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.form-row > .form-field {
+  min-width: 0;
+  overflow: hidden;
 }
 
 .form-field.checkbox-field {
   display: flex;
+  flex-flow: wrap;
   flex-direction: row;
   align-items: center;
   gap: 0.6rem;
   cursor: pointer;
+}
+
+.form-field.checkbox-field .field-error {
+  flex-basis: 100%;
+  margin-left: 1.75rem;
 }
 
 .form-field.checkbox-field > span {
@@ -870,4 +914,427 @@ fieldset.form-field {
 .contact-block a {
   color: var(--tg-theme-link-color, #007aff);
   text-decoration: none;
+}
+
+/* --- Category picker (CT2.3) --- */
+.category-picker {
+  display: grid;
+  gap: 0.5rem;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.category-recent {
+  margin-bottom: 0.25rem;
+}
+
+.category-group-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.category-group-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.2rem;
+  min-height: 72px;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--tg-theme-border-color, #e5e5ea);
+  border-radius: 10px;
+  background: var(--tg-theme-secondary-bg-color, #f4f4f5);
+  color: var(--tg-theme-text-color, #000000);
+  text-align: left;
+  cursor: pointer;
+}
+
+.category-group-card:active:not(:disabled) {
+  opacity: 0.85;
+}
+
+.category-group-card:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.category-group-card__title {
+  display: block;
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.25;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.category-group-card__count {
+  font-size: 0.75rem;
+}
+
+.category-selected,
+.metro-selected {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--tg-theme-border-color, #e5e5ea);
+  border-radius: 10px;
+  background: var(--tg-theme-bg-color, #ffffff);
+  min-width: 0;
+  max-width: 100%;
+}
+
+.category-role-step,
+.category-custom-step {
+  display: grid;
+  gap: 0.5rem;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.category-custom-btn {
+  margin-top: 0.25rem;
+}
+
+.category-role-results .metro-option .hint {
+  font-size: 0.8rem;
+}
+
+.verify-card {
+  margin-top: 0.5rem;
+  padding: 0.75rem;
+  border: 1px solid var(--tg-theme-border-color, #e5e5ea);
+  border-radius: 10px;
+  background: var(--tg-theme-secondary-bg-color, #f4f4f5);
+}
+
+.verify-card p {
+  margin: 0.35rem 0 0;
+  font-size: 0.9rem;
+}
+
+.verify-card--approved {
+  border-color: #34c759;
+}
+
+.verify-card--map_to_existing {
+  border-color: #3390ec;
+}
+
+.verify-card--revise {
+  border-color: #ff9500;
+}
+
+.verify-card--rejected {
+  border-color: #e53935;
+}
+
+/* --- Phone / Telegram contact inputs --- */
+.phone-input-row {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  gap: 0.5rem;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.phone-input-row > input:not(.phone-custom-code-input) {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.phone-input-row .phone-country-code {
+  flex: none;
+  width: auto;
+  min-width: 5rem;
+  max-width: 6.5rem;
+  padding-left: 0.55rem;
+  padding-right: 1.5rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.phone-input-row .phone-country-code option {
+  background-color: var(--tg-theme-bg-color, #1c1c1e);
+  color: var(--tg-theme-text-color, #ffffff);
+  padding: 0.5rem 0.75rem;
+}
+
+.phone-input-row--custom {
+  flex-wrap: wrap;
+}
+
+.phone-input-row--custom .phone-country-code {
+  flex: 1 0 100%;
+  width: 100%;
+  max-width: none;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+.phone-custom-code {
+  display: flex;
+  flex: 1 0 100%;
+  align-items: stretch;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.phone-custom-code-input {
+  flex: 1 1 0;
+  min-width: 0;
+  font-family: inherit;
+}
+
+.phone-custom-code-btn {
+  flex: none;
+  min-width: 3rem;
+  padding-left: 0.85rem;
+  padding-right: 0.85rem;
+}
+
+.telegram-input-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: stretch;
+  gap: 0.5rem;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.telegram-input-field {
+  display: flex;
+  align-items: stretch;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--tg-theme-border-color, #e5e5ea);
+  border-radius: 10px;
+  background: var(--tg-theme-bg-color, #ffffff);
+}
+
+.telegram-at-prefix {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  padding: 0.55rem 0 0.55rem 0.75rem;
+  font-size: 0.95rem;
+  color: var(--tg-theme-text-color, #000000);
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.telegram-input-field input {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding-left: 0.1rem;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+}
+
+.telegram-fill-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: stretch;
+  min-width: 2.75rem;
+  min-height: 44px;
+  margin-top: 0;
+  padding: 0.55rem 0.85rem;
+  box-sizing: border-box;
+  border: 1px solid var(--tg-theme-button-color, #3390ec);
+  border-radius: 10px;
+  background: var(--tg-theme-secondary-bg-color, #2c2c2e);
+  color: var(--tg-theme-button-color, #3390ec);
+  font-size: 0.85rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.telegram-fill-btn:disabled {
+  border-color: var(--tg-theme-border-color, #5a5a5e);
+  color: var(--tg-theme-hint-color, #707579);
+  background: var(--tg-theme-secondary-bg-color, #2c2c2e);
+}
+
+/* --- Filter chips --- */
+.filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 1rem 0 0.75rem;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.filter-chips .chip {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  appearance: none;
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.2;
+  min-height: 44px;
+  padding: 0.5rem 0.85rem;
+  border: 1px solid var(--tg-theme-border-color, #e5e5ea);
+  border-radius: 10px;
+  background: var(--tg-theme-bg-color, #ffffff);
+  color: var(--tg-theme-text-color, #000000);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.filter-chips .chip.active {
+  background: var(--tg-theme-button-color, #3390ec);
+  color: var(--tg-theme-button-text-color, #ffffff);
+  border-color: var(--tg-theme-button-color, #3390ec);
+}
+
+.filter-chips .chip:active:not(.active) {
+  opacity: 0.85;
+}
+
+@media (max-width: 480px) {
+  .filter-chips {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    margin-inline: -0.25rem;
+    padding-inline: 0.25rem 0.5rem;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .filter-chips::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* --- Job detail --- */
+.job-detail-fields {
+  margin: 0.75rem 0 0;
+}
+
+.job-detail-summary {
+  margin: 0 0 0.75rem;
+}
+
+.detail-block {
+  margin-bottom: 0.75rem;
+}
+
+.detail-block h3 {
+  margin: 0 0 0.35rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--tg-theme-hint-color, #707579);
+}
+
+.detail-text {
+  margin: 0;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+
+.detail-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.detail-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.detail-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--tg-theme-hint-color, #707579);
+}
+
+.detail-value {
+  line-height: 1.4;
+}
+
+.job-info-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0 0 0.75rem;
+  padding: 0;
+  list-style: none;
+}
+
+.info-badge {
+  display: inline-block;
+  padding: 0.25rem 0.55rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0.5rem;
+  background: var(--tg-theme-secondary-bg-color, rgba(255, 255, 255, 0.08));
+  color: var(--tg-theme-text-color, #ffffff);
+  font-size: 0.8rem;
+}
+
+.shift-slot-row {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.form-actions {
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* iOS WebKit (Telegram Mini App): prevent horizontal layout drift */
+@supports (-webkit-touch-callout: none) {
+  input,
+  select,
+  textarea,
+  button {
+    max-width: 100%;
+  }
+
+  .form-actions .btn {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+}
+
+@media (max-width: 400px) {
+  .app {
+    padding-left: max(0.75rem, env(safe-area-inset-left, 0px));
+    padding-right: max(0.75rem, env(safe-area-inset-right, 0px));
+  }
+
+  .form-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .form-actions .btn {
+    width: 100%;
+  }
+
+  .telegram-input-row {
+    grid-template-columns: 1fr;
+  }
 }

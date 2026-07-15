@@ -2,11 +2,13 @@ import { useEffect, useState } from "react";
 import {
   getWorkerProfile,
   listWorkerVacancies,
-  searchMetroStations,
-  type MetroStation,
+  type CategorySearchResult,
   type VacancyListItem,
 } from "../api/client";
-import { formatHourlyRate } from "../utils/formatRate";
+import { useCategoryGlobalSearch } from "../hooks/useCategoryGlobalSearch";
+import { useMetroStationSearch } from "../hooks/useMetroStationSearch";
+import { getTelegramUserId } from "../lib/telegram";
+import { formatHourlyRateDisplay } from "../utils/formatRate";
 
 type VacancyListPageProps = {
   initData: string;
@@ -19,10 +21,37 @@ type ExperienceCategory = {
   name: string;
 };
 
+type CategoryFilter = {
+  id: number;
+  label: string;
+} | null;
+
 type ListState =
   | { status: "loading" }
   | { status: "error"; message: string }
   | { status: "ready"; items: VacancyListItem[]; total: number; page: number };
+
+const MIN_RATE_SESSION_KEY = "vacancySearchMinRate";
+
+function loadStoredMinRate(): string {
+  try {
+    return sessionStorage.getItem(MIN_RATE_SESSION_KEY) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+function saveStoredMinRate(value: string) {
+  try {
+    if (value.trim()) {
+      sessionStorage.setItem(MIN_RATE_SESSION_KEY, value);
+    } else {
+      sessionStorage.removeItem(MIN_RATE_SESSION_KEY);
+    }
+  } catch {
+    // ignore storage errors
+  }
+}
 
 function uniqueExperienceCategories(
   experiences: { category_id: number; category_name: string }[],
@@ -72,7 +101,7 @@ function VacancyCard({
       <p className="hint">
         {item.category_name ?? "—"} · {item.metro_station_name ?? "—"}
       </p>
-      <p>{formatHourlyRate(item.hourly_rate)}</p>
+      <p>{formatHourlyRateDisplay(item.hourly_rate)}</p>
       <p className="hint">
         Ближайшая смена: {formatDate(item.next_shift_date)}
         {item.next_shift_start ? ` ${formatTime(item.next_shift_start)}` : ""}
@@ -93,14 +122,38 @@ export function VacancyListPage({ initData, reloadKey = 0, onOpenVacancy }: Vaca
   const [profileReady, setProfileReady] = useState(false);
   const [showAllVacancies, setShowAllVacancies] = useState(true);
   const [experienceCategories, setExperienceCategories] = useState<ExperienceCategory[]>([]);
-  const [categoryId, setCategoryId] = useState<number | "">("");
-  const [metroQuery, setMetroQuery] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>(null);
   const [metroStationId, setMetroStationId] = useState<number | null>(null);
   const [metroLabel, setMetroLabel] = useState("");
-  const [metroResults, setMetroResults] = useState<MetroStation[]>([]);
-  const [minRate, setMinRate] = useState("");
+  const [minRate, setMinRate] = useState(loadStoredMinRate);
   const [page, setPage] = useState(1);
   const limit = 10;
+
+  const telegramUserId = getTelegramUserId();
+
+  const {
+    categoryQuery,
+    setCategoryQuery,
+    categoryResults,
+    categoryLoading,
+    handleCategoryFocus,
+    handleCategoryBlur,
+    resetCategorySearch,
+  } = useCategoryGlobalSearch({ enabled: categoryFilter === null });
+
+  const {
+    metroQuery,
+    setMetroQuery,
+    metroResults,
+    handleMetroFocus,
+    handleMetroBlur,
+    recordMetroSelection,
+    resetMetroSearch,
+  } = useMetroStationSearch({ telegramUserId, enabled: metroStationId === null });
+
+  useEffect(() => {
+    saveStoredMinRate(minRate);
+  }, [minRate]);
 
   useEffect(() => {
     let cancelled = false;
@@ -113,12 +166,9 @@ export function VacancyListPage({ initData, reloadKey = 0, onOpenVacancy }: Vaca
         const categories = uniqueExperienceCategories(profile.experiences);
         setExperienceCategories(categories);
         setShowAllVacancies(profile.show_all_vacancies);
-        setCategoryId((prev) => {
-          if (prev === "" || categories.some((cat) => cat.id === prev)) {
-            return prev;
-          }
-          return "";
-        });
+        setCategoryFilter((prev) =>
+          !prev || categories.some((cat) => cat.id === prev.id) ? prev : null,
+        );
         setProfileReady(true);
       })
       .catch((err) => {
@@ -162,7 +212,7 @@ export function VacancyListPage({ initData, reloadKey = 0, onOpenVacancy }: Vaca
       setState({ status: "loading" });
       try {
         const response = await listWorkerVacancies(initData, {
-          category_id: categoryId === "" ? undefined : categoryId,
+          category_id: categoryFilter?.id,
           metro_station_id: metroStationId ?? undefined,
           min_hourly_rate: minRate.trim() ? minRate.trim() : undefined,
           page,
@@ -200,48 +250,52 @@ export function VacancyListPage({ initData, reloadKey = 0, onOpenVacancy }: Vaca
     showAllVacancies,
     experienceCategories,
     initData,
-    categoryId,
+    categoryFilter,
     metroStationId,
     minRate,
     page,
     limit,
   ]);
 
-  useEffect(() => {
-    if (!metroQuery.trim()) {
-      setMetroResults([]);
+  function selectCategoryResult(result: CategorySearchResult) {
+    const categoryId = result.legacy_category_id ?? result.role_id;
+    if (categoryId <= 0) {
       return;
     }
-    const timer = window.setTimeout(() => {
-      void searchMetroStations(metroQuery)
-        .then(setMetroResults)
-        .catch(() => setMetroResults([]));
-    }, 300);
-    return () => window.clearTimeout(timer);
-  }, [metroQuery]);
+    setCategoryFilter({
+      id: categoryId,
+      label: `${result.group_name_ru} · ${result.name_ru}`,
+    });
+    setCategoryQuery("");
+    resetCategorySearch();
+    setPage(1);
+  }
 
-  function handleMetroSelect(station: MetroStation) {
+  function clearCategoryFilter() {
+    setCategoryFilter(null);
+    resetCategorySearch();
+    setPage(1);
+  }
+
+  function selectMetro(station: { id: number; name: string; line_name: string }) {
     setMetroStationId(station.id);
     setMetroLabel(`${station.name} (${station.line_name})`);
+    recordMetroSelection(station);
     setMetroQuery("");
-    setMetroResults([]);
     setPage(1);
   }
 
   function clearMetro() {
     setMetroStationId(null);
     setMetroLabel("");
-    setMetroQuery("");
+    resetMetroSearch();
     setPage(1);
   }
 
-  const totalPages =
-    state.status === "ready" ? Math.max(1, Math.ceil(state.total / limit)) : 1;
-
+  const totalPages = state.status === "ready" ? Math.max(1, Math.ceil(state.total / limit)) : 1;
   const matchedItems = state.status === "ready" ? state.items.filter((item) => item.is_matched) : [];
   const otherItems = state.status === "ready" ? state.items.filter((item) => !item.is_matched) : [];
-  const showSections =
-    showAllVacancies && matchedItems.length > 0 && otherItems.length > 0;
+  const showSections = showAllVacancies && matchedItems.length > 0 && otherItems.length > 0;
 
   return (
     <section className="card vacancy-list">
@@ -253,38 +307,81 @@ export function VacancyListPage({ initData, reloadKey = 0, onOpenVacancy }: Vaca
       </p>
 
       <div className="profile-form filters-form">
-        {experienceCategories.length > 0 ? (
-          <label className="form-field compact">
-            <span>Категория</span>
-            <select
-              value={categoryId}
-              onChange={(event) => {
-                setCategoryId(event.target.value === "" ? "" : Number(event.target.value));
-                setPage(1);
-              }}
-            >
-              <option value="">{showAllVacancies ? "Все категории" : "Все из моего опыта"}</option>
-              {experienceCategories.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.name}
-                </option>
-              ))}
-            </select>
-          </label>
+        <label className="form-field compact">
+          <span>Категория</span>
+          {categoryFilter ? (
+            <div className="metro-selected">
+              <span>{categoryFilter.label}</span>
+              <button type="button" className="link-btn" onClick={clearCategoryFilter}>
+                Сбросить
+              </button>
+            </div>
+          ) : (
+            <>
+              <input
+                type="search"
+                value={categoryQuery}
+                placeholder="Поиск должности…"
+                onFocus={handleCategoryFocus}
+                onBlur={handleCategoryBlur}
+                onChange={(e) => setCategoryQuery(e.target.value)}
+              />
+              {categoryLoading ? <p className="hint">Поиск…</p> : null}
+              {categoryResults.length > 0 ? (
+                <ul className="metro-results category-role-results">
+                  {categoryResults.map((item) => (
+                    <li key={`${item.group_slug}-${item.role_id}`}>
+                      <button
+                        type="button"
+                        className="metro-option"
+                        disabled={item.role_id <= 0}
+                        onClick={() => selectCategoryResult(item)}
+                      >
+                        {item.name_ru}
+                        <span className="hint"> ({item.group_name_ru})</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : categoryQuery.trim().length >= 1 && !categoryLoading ? (
+                <p className="hint">Ничего не найдено</p>
+              ) : null}
+            </>
+          )}
+        </label>
+
+        {!showAllVacancies && experienceCategories.length > 0 ? (
+          <p className="hint">
+            Фильтр по опыту: {experienceCategories.map((cat) => cat.name).join(", ")}
+          </p>
         ) : null}
 
         <label className="form-field compact">
           <span>Мин. ставка (₽/час)</span>
-          <input
-            type="number"
-            min={0}
-            value={minRate}
-            onChange={(event) => {
-              setMinRate(event.target.value);
-              setPage(1);
-            }}
-            placeholder="350"
-          />
+          <div className="metro-selected">
+            <input
+              type="number"
+              min={0}
+              value={minRate}
+              onChange={(e) => {
+                setMinRate(e.target.value);
+                setPage(1);
+              }}
+              placeholder="Не задано"
+            />
+            {minRate.trim() ? (
+              <button
+                type="button"
+                className="link-btn"
+                onClick={() => {
+                  setMinRate("");
+                  setPage(1);
+                }}
+              >
+                Сбросить
+              </button>
+            ) : null}
+          </div>
         </label>
 
         <label className="form-field compact">
@@ -301,7 +398,9 @@ export function VacancyListPage({ initData, reloadKey = 0, onOpenVacancy }: Vaca
               <input
                 type="search"
                 value={metroQuery}
-                onChange={(event) => setMetroQuery(event.target.value)}
+                onFocus={handleMetroFocus}
+                onBlur={handleMetroBlur}
+                onChange={(e) => setMetroQuery(e.target.value)}
                 placeholder="Поиск станции"
               />
               {metroResults.length > 0 ? (
@@ -311,7 +410,7 @@ export function VacancyListPage({ initData, reloadKey = 0, onOpenVacancy }: Vaca
                       <button
                         type="button"
                         className="metro-option"
-                        onClick={() => handleMetroSelect(station)}
+                        onClick={() => selectMetro(station)}
                       >
                         {station.name} ({station.line_name})
                       </button>
@@ -332,9 +431,7 @@ export function VacancyListPage({ initData, reloadKey = 0, onOpenVacancy }: Vaca
           {showAllVacancies
             ? "Активных вакансий пока нет. Попробуйте изменить фильтры."
             : `Подходящих вакансий пока нет${
-                categoryId !== ""
-                  ? ` («${experienceCategories.find((cat) => cat.id === categoryId)?.name ?? "выбранная категория"}»)`
-                  : ""
+                categoryFilter ? ` («${categoryFilter.label}»)` : ""
               }. Попробуйте изменить фильтры, включите «Показывать все вакансии» в профиле или добавьте категорию опыта.`}
         </p>
       ) : null}

@@ -1,7 +1,7 @@
 import type { WheelEvent } from "react";
 
 /** Format API decimal string (e.g. "500.00") without float rounding. */
-export function formatHourlyRate(rate: string): string {
+export function formatHourlyRateDisplay(rate: string): string {
   const trimmed = rate.trim();
   if (!trimmed) {
     return rate;
@@ -26,6 +26,9 @@ export function formatHourlyRate(rate: string): string {
     maximumFractionDigits: 2,
   })} ₽/час`;
 }
+
+/** @deprecated Use formatHourlyRateDisplay */
+export const formatHourlyRate = formatHourlyRateDisplay;
 
 /** Prevent accidental value changes when scrolling over number inputs. */
 export function preventNumberInputWheel(event: WheelEvent<HTMLInputElement>): void {

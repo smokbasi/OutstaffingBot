@@ -3,13 +3,18 @@ import {
   addWorkerExperience,
   deleteWorkerExperience,
   getWorkerProfile,
-  listCategories,
-  searchMetroStations,
   updateWorkerProfile,
-  type JobCategory,
+  type CategorySelection,
   type MetroStation,
   type WorkerProfile,
 } from "../api/client";
+import {
+  CategoryPicker,
+  categorySelectionToFormFields,
+  isCategorySelectionValid,
+} from "../components/CategoryPicker";
+import { useMetroStationSearch } from "../hooks/useMetroStationSearch";
+import { getTelegramUserId } from "../lib/telegram";
 
 const GENDER_LABELS: Record<string, string> = {
   male: "Мужской",
@@ -40,7 +45,6 @@ type ProfileFormData = {
   last_name: string;
   age: string;
   gender: string;
-  min_hourly_rate: string;
   metro_station_id: number | null;
   metro_label: string;
   show_all_vacancies: boolean;
@@ -57,17 +61,16 @@ type ExperienceFormData = {
 type ExperienceFormErrors = Partial<Record<keyof ExperienceFormData, string>>;
 
 function emptyExperienceForm(): ExperienceFormData {
-  return {
-    category_id: "",
-    role_title: "",
-    duration_months: "",
-  };
+  return { category_id: "", role_title: "", duration_months: "" };
 }
 
-function validateExperienceForm(form: ExperienceFormData): ExperienceFormErrors {
+function validateExperienceForm(
+  form: ExperienceFormData,
+  categorySelection: CategorySelection | null,
+): ExperienceFormErrors {
   const errors: ExperienceFormErrors = {};
-  if (!form.category_id) {
-    errors.category_id = "Выберите категорию";
+  if (!isCategorySelectionValid(categorySelection, null)) {
+    errors.category_id = "Выберите группу и должность";
   }
   if (!form.role_title.trim()) {
     errors.role_title = "Укажите должность";
@@ -89,7 +92,6 @@ function profileToForm(profile: WorkerProfile): ProfileFormData {
     last_name: profile.last_name,
     age: String(profile.age),
     gender: profile.gender ?? "",
-    min_hourly_rate: profile.min_hourly_rate ?? "",
     metro_station_id: profile.metro_station_id,
     metro_label: profile.metro_station_name ?? "",
     show_all_vacancies: profile.show_all_vacancies,
@@ -110,12 +112,6 @@ function validateForm(form: ProfileFormData): FormErrors {
   } else if (age < 16 || age > 70) {
     errors.age = "Возраст от 16 до 70";
   }
-  if (form.min_hourly_rate.trim()) {
-    const rate = Number(form.min_hourly_rate);
-    if (Number.isNaN(rate) || rate < 0) {
-      errors.min_hourly_rate = "Ставка должна быть ≥ 0";
-    }
-  }
   return errors;
 }
 
@@ -127,18 +123,28 @@ export function ProfilePage({ initData }: ProfilePageProps) {
   const [formErrors, setFormErrors] = useState<FormErrors>({});
   const [saveError, setSaveError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [metroQuery, setMetroQuery] = useState("");
-  const [metroResults, setMetroResults] = useState<MetroStation[]>([]);
-  const [metroLoading, setMetroLoading] = useState(false);
   const [isAddingExperience, setIsAddingExperience] = useState(false);
-  const [categories, setCategories] = useState<JobCategory[]>([]);
-  const [categoriesLoading, setCategoriesLoading] = useState(false);
+  const [categorySelection, setCategorySelection] = useState<CategorySelection | null>(null);
   const [expForm, setExpForm] = useState<ExperienceFormData>(emptyExperienceForm);
   const [expFormErrors, setExpFormErrors] = useState<ExperienceFormErrors>({});
   const [expSaveError, setExpSaveError] = useState<string | null>(null);
   const [isExpSaving, setIsExpSaving] = useState(false);
   const [deletingExpId, setDeletingExpId] = useState<string | null>(null);
   const [isToggleSaving, setIsToggleSaving] = useState(false);
+
+  const telegramUserId = getTelegramUserId();
+
+  const {
+    metroQuery,
+    setMetroQuery,
+    metroResults,
+    metroLoading,
+    handleMetroFocus,
+    handleMetroBlur,
+    recordMetroSelection,
+    resetMetroSearch,
+    setMetroResults,
+  } = useMetroStationSearch({ telegramUserId, enabled: isEditing });
 
   useEffect(() => {
     let cancelled = false;
@@ -172,70 +178,10 @@ export function ProfilePage({ initData }: ProfilePageProps) {
   }, [initData, reloadKey]);
 
   useEffect(() => {
-    if (!isEditing) {
-      return;
-    }
-    const query = metroQuery.trim();
-    if (query.length < 2) {
-      setMetroResults([]);
-      return;
-    }
-
-    let cancelled = false;
-    const timer = setTimeout(() => {
-      setMetroLoading(true);
-      void searchMetroStations(query)
-        .then((stations) => {
-          if (!cancelled) {
-            setMetroResults(stations);
-          }
-        })
-        .catch(() => {
-          if (!cancelled) {
-            setMetroResults([]);
-          }
-        })
-        .finally(() => {
-          if (!cancelled) {
-            setMetroLoading(false);
-          }
-        });
-    }, 300);
-
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
-  }, [isEditing, metroQuery]);
-
-  useEffect(() => {
-    if (!isAddingExperience) {
-      return;
-    }
-
-    let cancelled = false;
-    setCategoriesLoading(true);
-    void listCategories()
-      .then((data) => {
-        if (!cancelled) {
-          setCategories(data);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setCategories([]);
-        }
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setCategoriesLoading(false);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [isAddingExperience]);
+    const { category_id } = categorySelectionToFormFields(categorySelection);
+    setExpForm((prev) => ({ ...prev, category_id }));
+    setExpFormErrors((prev) => ({ ...prev, category_id: undefined }));
+  }, [categorySelection]);
 
   function startEditing(profile: WorkerProfile) {
     setForm(profileToForm(profile));
@@ -251,8 +197,7 @@ export function ProfilePage({ initData }: ProfilePageProps) {
     setForm(null);
     setFormErrors({});
     setSaveError(null);
-    setMetroQuery("");
-    setMetroResults([]);
+    resetMetroSearch();
   }
 
   function updateField<K extends keyof ProfileFormData>(key: K, value: ProfileFormData[K]) {
@@ -265,14 +210,13 @@ export function ProfilePage({ initData }: ProfilePageProps) {
     updateField("metro_station_id", station.id);
     updateField("metro_label", station.name);
     setMetroQuery(station.name);
-    setMetroResults([]);
+    recordMetroSelection(station);
   }
 
   function clearMetro() {
     updateField("metro_station_id", null);
     updateField("metro_label", "");
-    setMetroQuery("");
-    setMetroResults([]);
+    resetMetroSearch();
   }
 
   async function handleSave() {
@@ -294,7 +238,6 @@ export function ProfilePage({ initData }: ProfilePageProps) {
         age: Number(form.age),
         gender: form.gender || null,
         metro_station_id: form.metro_station_id,
-        min_hourly_rate: form.min_hourly_rate.trim() || null,
         show_all_vacancies: form.show_all_vacancies,
       });
       setState({ status: "ready", profile: updated });
@@ -308,6 +251,7 @@ export function ProfilePage({ initData }: ProfilePageProps) {
   }
 
   function startAddingExperience() {
+    setCategorySelection(null);
     setExpForm(emptyExperienceForm());
     setExpFormErrors({});
     setExpSaveError(null);
@@ -316,6 +260,7 @@ export function ProfilePage({ initData }: ProfilePageProps) {
 
   function cancelAddingExperience() {
     setIsAddingExperience(false);
+    setCategorySelection(null);
     setExpForm(emptyExperienceForm());
     setExpFormErrors({});
     setExpSaveError(null);
@@ -328,7 +273,7 @@ export function ProfilePage({ initData }: ProfilePageProps) {
   }
 
   async function handleAddExperience() {
-    const errors = validateExperienceForm(expForm);
+    const errors = validateExperienceForm(expForm, categorySelection);
     if (Object.keys(errors).length > 0) {
       setExpFormErrors(errors);
       return;
@@ -365,7 +310,6 @@ export function ProfilePage({ initData }: ProfilePageProps) {
         age: state.profile.age,
         gender: state.profile.gender,
         metro_station_id: state.profile.metro_station_id,
-        min_hourly_rate: state.profile.min_hourly_rate,
         show_all_vacancies: checked,
       });
       setState({ status: "ready", profile: updated });
@@ -474,21 +418,6 @@ export function ProfilePage({ initData }: ProfilePageProps) {
             </select>
           </label>
 
-          <label className="form-field">
-            <span>Мин. ставка (₽/час)</span>
-            <input
-              type="number"
-              min={0}
-              step="1"
-              value={form.min_hourly_rate}
-              disabled={isSaving}
-              onChange={(e) => updateField("min_hourly_rate", e.target.value)}
-            />
-            {formErrors.min_hourly_rate ? (
-              <em className="field-error">{formErrors.min_hourly_rate}</em>
-            ) : null}
-          </label>
-
           <div className="form-field">
             <span>Метро</span>
             <input
@@ -496,6 +425,8 @@ export function ProfilePage({ initData }: ProfilePageProps) {
               value={metroQuery}
               placeholder="Начните вводить станцию…"
               disabled={isSaving}
+              onFocus={handleMetroFocus}
+              onBlur={handleMetroBlur}
               onChange={(e) => {
                 setMetroQuery(e.target.value);
                 updateField("metro_station_id", null);
@@ -582,10 +513,6 @@ export function ProfilePage({ initData }: ProfilePageProps) {
           <dt>Метро</dt>
           <dd>{profile.metro_station_name ?? "—"}</dd>
         </div>
-        <div>
-          <dt>Мин. ставка</dt>
-          <dd>{profile.min_hourly_rate ? `${profile.min_hourly_rate} ₽/час` : "—"}</dd>
-        </div>
       </dl>
 
       <label className="form-field checkbox-field profile-setting">
@@ -621,25 +548,17 @@ export function ProfilePage({ initData }: ProfilePageProps) {
             void handleAddExperience();
           }}
         >
-          <label className="form-field">
-            <span>Категория</span>
-            <select
-              value={expForm.category_id}
-              disabled={isExpSaving || categoriesLoading || categories.length === 0}
-              onChange={(e) => updateExpField("category_id", e.target.value)}
-            >
-              <option value="">Выберите категорию…</option>
-              {categories.map((cat) => (
-                <option key={cat.id} value={cat.id}>
-                  {cat.name_ru}
-                </option>
-              ))}
-            </select>
-            {categoriesLoading ? <p className="hint">Загрузка категорий…</p> : null}
-            {expFormErrors.category_id ? (
-              <em className="field-error">{expFormErrors.category_id}</em>
-            ) : null}
-          </label>
+          <CategoryPicker
+            initData={initData}
+            context="worker"
+            value={categorySelection}
+            onChange={setCategorySelection}
+            disabled={isExpSaving}
+            error={expFormErrors.category_id ?? null}
+            allowCustomRole={false}
+            customVerifyResult={null}
+            onCustomVerifyResultChange={() => {}}
+          />
 
           <label className="form-field">
             <span>Должность</span>
@@ -693,7 +612,9 @@ export function ProfilePage({ initData }: ProfilePageProps) {
       {!isAddingExperience && expSaveError ? <p className="error">{expSaveError}</p> : null}
 
       {profile.experiences.length === 0 && !isAddingExperience ? (
-        <p className="hint">Опыт не указан. Нажмите «Добавить опыт», чтобы указать категории для поиска вакансий.</p>
+        <p className="hint">
+          Опыт не указан. Нажмите «Добавить опыт», чтобы указать категории для поиска вакансий.
+        </p>
       ) : (
         <ul className="experience-list">
           {profile.experiences.map((exp) => (

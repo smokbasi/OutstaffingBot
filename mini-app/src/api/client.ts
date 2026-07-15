@@ -78,6 +78,72 @@ export type JobCategory = {
   name_ru: string;
 };
 
+export type CategoryGroup = {
+  id: number;
+  slug: string;
+  name_ru: string;
+  roles_count: number;
+};
+
+export type CategoryRole = {
+  id: number;
+  slug: string;
+  name_ru: string;
+  legacy_category_id: number | null;
+};
+
+export type CategorySelection = {
+  group_id: number;
+  group_slug: string;
+  group_name_ru: string;
+  role_id: number;
+  role_slug: string;
+  role_name_ru: string;
+  legacy_category_id: number | null;
+  is_custom: boolean;
+  custom_title: string | null;
+};
+
+export type CategorySearchResult = {
+  group_slug: string;
+  group_name_ru: string;
+  role_id: number;
+  role_slug?: string;
+  name_ru: string;
+  legacy_category_id: number | null;
+};
+
+export type RecentCategorySelectionsResponse = {
+  items: CategorySelection[];
+};
+
+export type CustomRoleVerifyRequest = {
+  group_id: number;
+  group_slug: string;
+  proposed_title: string;
+};
+
+export type CustomRoleVerifyResult = {
+  status: "approved" | "map_to_existing" | "revise" | "rejected";
+  reason: string;
+  proposed_title: string;
+  suggested_title?: string | null;
+  category_id?: number | null;
+  category_name_ru?: string | null;
+  category_slug?: string | null;
+  role_slug?: string | null;
+};
+
+export type PhoneCountryPrefs = {
+  preferred: string;
+  customCodes: string[];
+};
+
+export type EmployerPhoneCountryProfile = {
+  preferred_phone_country_code: string;
+  custom_phone_country_codes: string[];
+};
+
 export type JobRequestStatus = "draft" | "active" | "filled" | "cancelled" | "expired";
 
 export const JOB_REQUEST_STATUS_LABELS: Record<JobRequestStatus, string> = {
@@ -343,7 +409,8 @@ export type JobRequest = {
   min_age: number | null;
   max_age: number | null;
   dress_code: string | null;
-  contact_info: string | null;
+  contact_phone: string | null;
+  telegram_username: string | null;
   includes_lunch: boolean;
   status: JobRequestStatus;
   post_to_groups: boolean;
@@ -366,7 +433,8 @@ export type JobRequestCreate = {
   min_age?: number | null;
   max_age?: number | null;
   dress_code?: string | null;
-  contact_info?: string | null;
+  contact_phone?: string | null;
+  telegram_username?: string | null;
   includes_lunch?: boolean;
   post_to_groups?: boolean;
   notify_matching_workers?: boolean;
@@ -379,10 +447,15 @@ export type MetroStation = {
   line_name: string;
 };
 
-export type WorkerProfileUpdate = Pick<
-  WorkerProfile,
-  "first_name" | "last_name" | "age" | "gender" | "metro_station_id" | "min_hourly_rate" | "show_all_vacancies"
->;
+export type WorkerProfileUpdate = {
+  first_name: string;
+  last_name: string;
+  age: number;
+  gender: string | null;
+  metro_station_id: number | null;
+  min_hourly_rate?: string | null;
+  show_all_vacancies: boolean;
+};
 
 export type WorkerExperienceCreate = {
   category_id: number;
@@ -417,7 +490,11 @@ const FIELD_LABELS: Record<string, string> = {
   min_age: "Мин. возраст",
   max_age: "Макс. возраст",
   dress_code: "Дресс-код",
-  contact_info: "Контакт",
+  contact_phone: "Телефон",
+  telegram_username: "ТГ имя",
+  includes_lunch: "Входит обед",
+  post_to_groups: "Публикация в Telegram-группы",
+  notify_matching_workers: "Уведомление работников",
   shift_date: "Дата смены",
   start_time: "Начало смены",
   end_time: "Конец смены",
@@ -616,8 +693,73 @@ export function listCategories(): Promise<JobCategory[]> {
   return publicFetch<JobCategory[]>("/reference/categories");
 }
 
+export function listCategoryGroups(): Promise<CategoryGroup[]> {
+  return publicFetch<CategoryGroup[]>("/reference/category-groups");
+}
+
+export function listGroupRoles(groupSlug: string, query = ""): Promise<CategoryRole[]> {
+  const params = new URLSearchParams();
+  if (query.trim()) {
+    params.set("q", query.trim());
+  }
+  const queryString = params.toString();
+  return publicFetch<CategoryRole[]>(
+    `/reference/category-groups/${encodeURIComponent(groupSlug)}/roles${queryString ? `?${queryString}` : ""}`,
+  );
+}
+
+export function searchCategories(query: string): Promise<CategorySearchResult[]> {
+  return publicFetch<CategorySearchResult[]>(
+    `/reference/categories/search?${new URLSearchParams({ q: query.trim() })}`,
+  );
+}
+
+export function getEmployerRecentCategorySelections(
+  initData: string,
+  limit = 5,
+): Promise<RecentCategorySelectionsResponse> {
+  return apiFetch<RecentCategorySelectionsResponse>(
+    `/employer/category-selections/recent?limit=${limit}`,
+    initData,
+  );
+}
+
+export function getWorkerRecentCategorySelections(
+  initData: string,
+  limit = 5,
+): Promise<RecentCategorySelectionsResponse> {
+  return apiFetch<RecentCategorySelectionsResponse>(
+    `/worker/category-selections/recent?limit=${limit}`,
+    initData,
+  );
+}
+
+export function verifyCustomRole(
+  initData: string,
+  data: CustomRoleVerifyRequest,
+): Promise<CustomRoleVerifyResult> {
+  return apiFetch<CustomRoleVerifyResult>("/employer/job-categories/verify-custom-role", initData, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export function getEmployerPhoneCountryPrefs(initData: string): Promise<EmployerPhoneCountryProfile> {
+  return apiFetch<EmployerPhoneCountryProfile>("/employer/profile/phone-country", initData);
+}
+
+export function updateEmployerPhoneCountryPref(
+  initData: string,
+  countryCode: string,
+): Promise<EmployerPhoneCountryProfile> {
+  return apiFetch<EmployerPhoneCountryProfile>("/employer/profile/phone-country", initData, {
+    method: "PATCH",
+    body: JSON.stringify({ country_code: countryCode }),
+  });
+}
+
 export function createJob(initData: string, data: JobRequestCreate): Promise<JobRequest> {
-  return apiFetch<JobRequest>("/employer/jobs", initData, {
+  return apiFetchWithContentRejected<JobRequest>("/employer/jobs", initData, {
     method: "POST",
     body: JSON.stringify(data),
   });

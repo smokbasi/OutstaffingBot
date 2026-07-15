@@ -59,3 +59,33 @@ export function triggerNotificationHaptic(type: "error" | "success" | "warning" 
   const webApp = (window.Telegram?.WebApp ?? null) as TgWebApp | null;
   webApp?.HapticFeedback?.notificationOccurred?.(type);
 }
+
+type TgWebAppUser = {
+  id?: number;
+  username?: string;
+};
+
+type TgWebAppWithUser = TgWebApp & {
+  initDataUnsafe?: {
+    user?: TgWebAppUser;
+  };
+};
+
+export function getTelegramUsername(): string | null {
+  const user = (window.Telegram?.WebApp as TgWebAppWithUser | undefined)?.initDataUnsafe?.user
+    ?.username;
+  if (!user || typeof user !== "string") {
+    return null;
+  }
+  const trimmed = user.trim().replace(/^@+/, "");
+  return trimmed || null;
+}
+
+export function getTelegramUserId(): number | null {
+  const id = (window.Telegram?.WebApp as TgWebAppWithUser | undefined)?.initDataUnsafe?.user?.id;
+  return typeof id === "number" ? id : null;
+}
+
+export function normalizeTelegramUsername(value: string): string {
+  return value.trim().replace(/^@+/, "").replace(/\s/g, "");
+}

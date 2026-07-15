@@ -6,16 +6,26 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+html {
+  overflow-x: clip;
+  width: 100%;
+}
+
 #root {
   width: 100%;
   max-width: 720px;
   margin: 0 auto;
   min-height: 100svh;
   box-sizing: border-box;
+  overflow-x: clip;
+  min-width: 0;
 }
 
 body {
   margin: 0;
+  overflow-x: clip;
+  width: 100%;
+  max-width: 100%;
   background: var(--tg-theme-bg-color, #ffffff);
   color: var(--tg-theme-text-color, #000000);
 }
