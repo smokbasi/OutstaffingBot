@@ -1,0 +1,50 @@
+# source: globalvoices 2023, svoboda.org, unian.net, tsn.ua, kugimiya banlist
+# license: journalism + vendored yaml
+# extracted: 2026-07-09 — political figures/titles (incitement context)
+путин
+путинский
+путинизм
+зеленский
+зеленская
+зеленский наркоман
+навальный
+навальная
+фбк
+медведев
+собянин
+шойгу
+пригожин
+лукашенко
+медведчук
+собчак
+сталин
+ленин
+гитлер
+адольф
+депутат
+госдума
+государственная дума
+совет федерации
+президент
+премьер
+министр
+канцлер
+диктатор
+узурпатор
+террорист
+наркоман
+вор
+убийца
+предатель
+расист
+господин зеленский
+putin
+zelensky
+zelenskiy
+navalny
+medvedev
+shoigu
+lukashenko
+prigozhin
+stalin
+hitler

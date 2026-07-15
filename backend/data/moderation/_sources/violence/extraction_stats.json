@@ -1,0 +1,50 @@
+{
+  "source_line_counts": {
+    "web_terrorism_urfu.txt": 50,
+    "web_cyberleninka_igil.txt": 20,
+    "web_war_glossary_ru.txt": 83,
+    "web_dfrlab_rkn_tags.txt": 8,
+    "web_protests_legal.txt": 20,
+    "web_police_slang.txt": 39,
+    "web_political_figures.txt": 43,
+    "web_hate_speech.txt": 67,
+    "web_islamism_terms.txt": 37,
+    "web_torture_violence.txt": 63,
+    "web_weapons_drones.txt": 73,
+    "krugozor_stopwords.php": 37,
+    "kugimiya_banlist.yaml": 16,
+    "vsecoder_make_multilabel.py": 56,
+    "vsecoder_make_multilabel.py (regex)": 12,
+    "hurtlex_ru_12.tsv": 211
+  },
+  "token_counts_by_section": {
+    "terrorism/extremism": 88,
+    "war/SVO/Ukraine": 94,
+    "weapons/explosives/drones": 71,
+    "protests/political actions": 20,
+    "law enforcement (slang)": 37,
+    "political figures/titles": 44,
+    "hate speech / ethnic slurs": 215,
+    "torture/violence verbs": 96,
+    "suicide/self-harm": 7
+  },
+  "total_unique_tokens": 672,
+  "regex_patterns": 12,
+  "phrases": 100,
+  "context_required": 53,
+  "skip": 42,
+  "exclude_terms": 47,
+  "web_source_files": [
+    "web_terrorism_urfu.txt",
+    "web_cyberleninka_igil.txt",
+    "web_war_glossary_ru.txt",
+    "web_dfrlab_rkn_tags.txt",
+    "web_protests_legal.txt",
+    "web_police_slang.txt",
+    "web_political_figures.txt",
+    "web_hate_speech.txt",
+    "web_islamism_terms.txt",
+    "web_torture_violence.txt",
+    "web_weapons_drones.txt"
+  ]
+}

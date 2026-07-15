@@ -7,13 +7,33 @@
 
 | Файл | Назначение | Терминов (≈) |
 |------|------------|--------------|
-| `stop_words_profanity.txt` | Мат / ненормативная лексика (RU) | **8348** |
-| `stop_words_sex.txt` | Эскорт, prostitution, adult services | **313** |
-| `stop_words_drugs.txt` | Наркотики, slang, darknet-площадки | **358** |
-| `stop_words_translit.txt` | Латиница / obfuscation (GOVNO, PIDOR, mephedrone…) | **50** |
+| `stop_words_profanity.txt` | Мат / ненормативная лексика (RU) | **8134** (без badwords-py в venv: ~4578) |
+| `stop_words_sex.txt` | Эскорт, prostitution, adult services | **237** |
+| `stop_words_violence.txt` | Терроризм, угрозы, война, hate speech (Phase 9 violence merge) | **463** |
+| `stop_words_drugs.txt` | Наркотики, slang, darknet-площадки | **374** |
+| `stop_words_translit.txt` | Латиница / obfuscation (GOVNO, PIDOR, mephedrone…) | **56** |
+| `stop_words_slang_manual.txt` | Жаргон / фразы — **только exact match**, без lemma (Phase 9.3.4) | **509** |
 | `allow_words_alcohol.txt` | Whitelist-справочник для Phase 9.5 (не блок-лист) | **62** |
 
 Пересборка: `python build_wordlists.py` (исходники в `_sources/`).
+
+### Violence merge (2026-07)
+
+Кандидаты из `_sources/violence/candidates_*.txt` мержатся скриптом `curate_violence_merge.py`:
+
+```bash
+python backend/data/moderation/_sources/violence/curate_violence_merge.py
+python backend/data/moderation/build_wordlists.py
+```
+
+| Артефакт | Назначение |
+|----------|------------|
+| `curated/curated_violence.txt` | Токены → `stop_words_violence.txt` (lemma canonicalization) |
+| `curated/curated_violence_phrases.txt` | Угрозы/политика → `stop_words_slang_manual.txt` (exact) |
+| `violence_regex_patterns.txt` | Regex phrase-engine (vsecoder THREAT) в `content_moderation_service.py` |
+| `context_required.txt` | Омонимы violence + drugs (не blind block) |
+
+Исключения при merge: `## skip` в candidates, `EXCLUDE_TERMS`, `candidates_context_required.txt`.
 
 ## Источники и лицензии
 
@@ -74,10 +94,23 @@
 
 `teen`, `teens`, `young`, `youngs`, `branding`, `finesse`, `quota`, `purchaser`, `seasoning`
 
-**stop_words_profanity.txt** — без изменений (8348).  
+**stop_words_profanity.txt** — `есть` удалён (2026-07): бытовой глагол «есть» давал FP на «Есть витамины»; в `EXCLUDE_FALSE_POSITIVES` + post-canonicalize filter.
+
+**stop_words_profanity.txt** (−1 после 9.3.7.0, 8135 → 8134).  
 **stop_words_translit.txt** — без изменений (50).
 
 **Не удаляли** (намеренно): `соль` (не было в списках), `шмаль`, `косяк`, `закладка`, `феназепам`/`фентанил` и др. однозначный drug/sex/profanity контент; `asap-market`, `megadarknet` и составные darknet-имена.
+
+### Context-required (Phase 9.3 curation)
+
+Омонимы из academic extraction **не** попадают в block-листы. Справочник: `context_required.txt` (копия `candidates_context_required.txt`). Примеры: `кекс`, `снег`, `герыч`, `белый`, `домохозяйка`, `шишки`. Нужен proximity/context слой (Phase 9.4+) — до внедрения только exact block + lemma по однозначным терминам.
+
+Пересборка с academic curation:
+
+```bash
+python backend/data/moderation/_sources/academic/curate_candidates.py
+python backend/data/moderation/build_wordlists.py
+```
 
 ## Attribution
 
@@ -128,3 +161,21 @@ ALCOHOL_ALLOW = load_terms("allow_words_alcohol.txt")
 ```
 
 См. также: [docs/TASKS.md § Phase 9.1](../../../docs/TASKS.md#91-content-moderation--базовый-pipeline-p0), [docs/PLAN.md § 10.1](../../../docs/PLAN.md#101-content-moderation--compliance).
+
+## Lemma layer (Phase 9.1+)
+
+После exact wordlist-match по токенам с кириллицей дополнительно проверяется **лемма** (`pymorphy3`):
+
+- `гашиша` → `гашиш`, `героина` → `героин`
+- Модуль: `app/services/moderation_lemmatizer.py`
+- **Slang** (`stop_words_slang_manual.txt`) — exact-only, проверяется до lemma
+- **Build-time** lemma canonicalization (9.3.5): `build_wordlists.py` сжимает profanity/drugs/sex до лемм
+
+## Pipeline (целевой порядок)
+
+1. Deobfuscation (leet, скобки, разделители)
+2. **Visual homoglyph** — mixed-script `Хyй`, `Пиздa` → кириллица по виду буквы
+3. **Phonetic translit** — `GOVNO`, `BLYAT` → кириллица по звучанию
+4. Exact match (block + slang_manual + многословные фразы)
+5. Lemma (pymorphy3) — только block-листы, не slang
+6. Block + violation log

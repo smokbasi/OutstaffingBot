@@ -8,6 +8,8 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
+from app.services.moderation_lemmatizer import lemmatize_ru_token
+
 MODERATION_DIR = Path(__file__).resolve().parents[2] / "data" / "moderation"
 
 CONTENT_REJECTED_MESSAGE = (
@@ -24,6 +26,37 @@ _LEET_TRANSLATION = str.maketrans(
         "1": "i",
         "!": "i",
     }
+)
+
+# Digits / symbols → Cyrillic when token already mixes Cyrillic + leet (Phase 9.3.7.2).
+_CYRILLIC_LEET_TRANSLATION = str.maketrans(
+    {
+        "@": "а",
+        "0": "о",
+        "$": "с",
+        "1": "и",
+        "!": "и",
+        "3": "е",
+        "4": "ч",
+        "5": "с",
+        "6": "б",
+        "7": "т",
+        "8": "в",
+    }
+)
+
+_CYRILLIC_LEET_CHARS = re.compile(r"[0-9@$!]")
+
+# Spaced single-letter evasion: «и щ у» → «ищу» (Phase 9.3.7.1).
+_INTRA_WORD_SPACE_RUN = re.compile(
+    r"(?<![a-zа-яё0-9])"
+    r"(?:"
+    r"[a-zа-яё](?!\.)"
+    r"(?: (?=[a-zа-яё]))"
+    r"){2,}"
+    r"[a-zа-яё]"
+    r"(?![a-zа-яё0-9.])",
+    re.IGNORECASE,
 )
 
 # Latin letters that visually match Cyrillic — used for homoglyph / mixed-script evasion.
@@ -139,6 +172,15 @@ _TRANSLIT_TO_CYRILLIC: dict[str, str] = {
     "zaklad": "заклад",
     "zakladka": "закладка",
     "zhopa": "жопа",
+    "metadon": "метадон",
+    "prodau": "продаю",
+    "prodam": "продам",
+    "intima": "интим",
+    "intim": "интим",
+    "gashish": "гашиш",
+    "g3roin": "героин",
+    "devochku": "девочку",
+    "devushki": "девушки",
 }
 
 _COMPANY_BRAND_TERMS = frozenset(
@@ -228,23 +270,45 @@ def _load_terms(filename: str) -> frozenset[str]:
 
 
 @lru_cache(maxsize=1)
-def _wordlists() -> tuple[frozenset[str], frozenset[str], frozenset[str], frozenset[str], frozenset[str]]:
+def _wordlists() -> tuple[
+    frozenset[str],
+    frozenset[str],
+    frozenset[str],
+    frozenset[str],
+    frozenset[str],
+    frozenset[str],
+    frozenset[str],
+]:
     return (
         _load_terms("stop_words_profanity.txt"),
         _load_terms("stop_words_sex.txt"),
+        _load_terms("stop_words_violence.txt"),
         _load_terms("stop_words_drugs.txt"),
         _load_terms("stop_words_translit.txt"),
         _load_terms("allow_words_alcohol.txt"),
+        _load_terms("stop_words_slang_manual.txt"),
     )
 
 
+def _slang_terms() -> frozenset[str]:
+    return _wordlists()[6]
+
+
+def _violence_terms() -> frozenset[str]:
+    return _wordlists()[2]
+
+
 def _block_terms() -> frozenset[str]:
-    profanity, sex, drugs, translit, _ = _wordlists()
-    return profanity | sex | drugs | translit
+    profanity, sex, violence, drugs, translit, _, _ = _wordlists()
+    return profanity | sex | violence | drugs | translit
+
+
+def _exact_match_terms() -> frozenset[str]:
+    return _block_terms() | _slang_terms()
 
 
 def _alcohol_allow_terms() -> frozenset[str]:
-    return _wordlists()[4]
+    return _wordlists()[5]
 
 
 @lru_cache(maxsize=1)
@@ -263,6 +327,15 @@ def _is_legitimate_paren_phrase(inner: str) -> bool:
     return _ADDRESS_ABBREV.match(stripped) is not None
 
 
+def _collapse_intra_word_spaces(text: str) -> str:
+    """Join spaced single-letter runs (и щ у → ищу) before token matching."""
+
+    def _join(match: re.Match[str]) -> str:
+        return match.group(0).replace(" ", "")
+
+    return _INTRA_WORD_SPACE_RUN.sub(_join, text)
+
+
 def _mask_legitimate_parentheses(text: str) -> tuple[str, dict[str, str]]:
     """Replace legitimate parenthetical phrases with placeholders before token normalize."""
     placeholders: dict[str, str] = {}
@@ -278,9 +351,21 @@ def _mask_legitimate_parentheses(text: str) -> tuple[str, dict[str, str]]:
     return _PAREN_GROUP.sub(_replace, text), placeholders
 
 
+def _token_has_cyrillic_leet(token: str) -> bool:
+    lowered = token.lower()
+    return (
+        _CYRILLIC_LETTERS.search(lowered) is not None
+        and _CYRILLIC_LEET_CHARS.search(lowered) is not None
+    )
+
+
 def _deobfuscate_token(token: str) -> str:
     """Collapse obfuscation chars inside a single suspicious token."""
-    lowered = token.lower().replace("ё", "е").translate(_LEET_TRANSLATION)
+    lowered = token.lower().replace("ё", "е")
+    if _token_has_cyrillic_leet(lowered):
+        lowered = lowered.translate(_CYRILLIC_LEET_TRANSLATION)
+    else:
+        lowered = lowered.translate(_LEET_TRANSLATION)
     lowered = re.sub(r"(?<=[a-zа-я0-9])[.\-_|$]+(?=[a-zа-я0-9])", "", lowered)
     lowered = re.sub(r"(?<=[a-zа-я0-9])[\[\]{}]+(?=[a-zа-я0-9])", "", lowered)
     return lowered
@@ -305,7 +390,11 @@ def _deobfuscated_matches_block_term(token: str) -> bool:
 
 
 def _should_deobfuscate_token(token: str) -> bool:
-    return _token_has_obfuscation_markers(token) or _deobfuscated_matches_block_term(token)
+    return (
+        _token_has_obfuscation_markers(token)
+        or _deobfuscated_matches_block_term(token)
+        or _token_has_cyrillic_leet(token)
+    )
 
 
 def _token_has_latin(token: str) -> bool:
@@ -357,6 +446,25 @@ def _should_normalize_translit_token(token: str) -> bool:
     return any(key in latin_form for key in _TRANSLIT_TO_CYRILLIC)
 
 
+def _apply_visual_homoglyph_token(token: str) -> str:
+    """Map latin lookalikes to Cyrillic inside mixed-script tokens (Phase 9.3.2)."""
+    lowered = token.lower().replace("ё", "е")
+    return "".join(
+        _HOMOGLYPH_LATIN_TO_CYRILLIC.get(ch, ch) if ch.isascii() and ch.isalpha() else ch
+        for ch in lowered
+    )
+
+
+def _normalize_visual_homoglyph_tokens(text: str) -> str:
+    def _replace_token(match: re.Match[str]) -> str:
+        token = match.group(0)
+        if _token_is_mixed_script(token):
+            return _apply_visual_homoglyph_token(token)
+        return token
+
+    return _OBFUSCATED_TOKEN.sub(_replace_token, text)
+
+
 def _normalize_translit_tokens(text: str) -> str:
     def _replace_token(match: re.Match[str]) -> str:
         token = match.group(0)
@@ -388,6 +496,7 @@ def _normalize_obfuscated_tokens(text: str) -> str:
 def normalize_for_matching(text: str) -> str:
     """Normalize text for wordlist matching without altering stored user content."""
     normalized = text.lower().replace("ё", "е")
+    normalized = _collapse_intra_word_spaces(normalized)
     masked, placeholders = _mask_legitimate_parentheses(normalized)
     if not placeholders:
         normalized = _normalize_obfuscated_tokens(masked)
@@ -400,6 +509,7 @@ def normalize_for_matching(text: str) -> str:
             else _normalize_obfuscated_tokens(segment)
             for segment in segments
         )
+    normalized = _normalize_visual_homoglyph_tokens(normalized)
     normalized = _normalize_translit_tokens(normalized)
     normalized = re.sub(r"\s+", " ", normalized).strip()
     return normalized
@@ -531,15 +641,169 @@ def _check_contact_info(field: str, text: str) -> ModerationViolation | None:
 
 
 def _category_for_term(term: str) -> str | None:
-    profanity, sex, drugs, translit, _ = _wordlists()
+    profanity, sex, violence, drugs, translit, _, slang = _wordlists()
+    if term in slang:
+        if term in sex:
+            return "sex"
+        if term in violence:
+            return "violence"
+        if term in drugs:
+            return "drugs"
+        if term in profanity:
+            return "profanity"
+        return "slang"
     if term in sex:
         return "sex"
+    if term in violence:
+        return "violence"
     if term in drugs:
         return "drugs"
     if term in translit:
         return "translit"
     if term in profanity:
         return "profanity"
+    return None
+
+
+def _violation_for_term(
+    *,
+    field: str,
+    term: str,
+    normalized: str,
+    raw: str,
+) -> ModerationViolation:
+    return ModerationViolation(
+        field=field,
+        matched_term=term,
+        normalized_snippet=normalized[:200],
+        raw_snippet=raw[:500],
+        category=_category_for_term(term),
+    )
+
+
+def _find_violation_by_exact_terms(
+    masked: str,
+    field: str,
+    normalized: str,
+    raw: str,
+) -> ModerationViolation | None:
+    for term in sorted(_exact_match_terms(), key=len, reverse=True):
+        if _is_allowed_alcohol_term(term):
+            continue
+        pattern = re.compile(
+            _WORD_BOUNDARY_BEFORE + re.escape(term) + _WORD_BOUNDARY_AFTER,
+            re.IGNORECASE,
+        )
+        if pattern.search(masked):
+            return _violation_for_term(
+                field=field,
+                term=term,
+                normalized=normalized,
+                raw=raw,
+            )
+    return None
+
+
+def _find_violation_by_lemmas(
+    masked: str,
+    field: str,
+    normalized: str,
+    raw: str,
+) -> ModerationViolation | None:
+    """Match inflected Cyrillic tokens via pymorphy3 lemmas (e.g. гашиша → гашиш)."""
+    block = _block_terms()
+    seen_lemmas: set[str] = set()
+
+    for match in _OBFUSCATED_TOKEN.finditer(masked):
+        token = match.group(0)
+        if not _CYRILLIC_LETTERS.search(token):
+            continue
+
+        lemma = lemmatize_ru_token(token)
+        if lemma == token.lower().replace("ё", "е"):
+            continue
+        if lemma in seen_lemmas:
+            continue
+        seen_lemmas.add(lemma)
+
+        if lemma in block and not _is_allowed_alcohol_term(lemma):
+            return _violation_for_term(
+                field=field,
+                term=lemma,
+                normalized=normalized,
+                raw=raw,
+            )
+    return None
+
+
+def _find_violation_by_glued_substrings(
+    masked: str,
+    field: str,
+    normalized: str,
+    raw: str,
+) -> ModerationViolation | None:
+    """Match block terms embedded in space-collapsed glued tokens (Phase 9.3.7.1)."""
+    block = _block_terms()
+    min_glued_len = 8
+    min_term_len = 4
+
+    for match in _OBFUSCATED_TOKEN.finditer(masked):
+        token = match.group(0)
+        if len(token) < min_glued_len:
+            continue
+        if not _CYRILLIC_LETTERS.search(token):
+            continue
+
+        for term in sorted(block, key=len, reverse=True):
+            if len(term) < min_term_len:
+                continue
+            if _is_allowed_alcohol_term(term):
+                continue
+            if term in token:
+                return _violation_for_term(
+                    field=field,
+                    term=term,
+                    normalized=normalized,
+                    raw=raw,
+                )
+    return None
+
+
+@lru_cache(maxsize=1)
+def _violence_regex_patterns() -> tuple[re.Pattern[str], ...]:
+    """Phrase-engine regex from violence_regex_patterns.txt (vsecoder THREAT rules)."""
+    path = MODERATION_DIR / "violence_regex_patterns.txt"
+    if not path.exists():
+        return ()
+    patterns: list[re.Pattern[str]] = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if not line.strip() or line.startswith("#"):
+            continue
+        raw = line.split("#", 1)[0].strip()
+        if not raw:
+            continue
+        patterns.append(re.compile(raw, re.IGNORECASE))
+    return tuple(patterns)
+
+
+def _find_violation_by_violence_regex(
+    masked: str,
+    field: str,
+    normalized: str,
+    raw: str,
+) -> ModerationViolation | None:
+    for pattern in _violence_regex_patterns():
+        match = pattern.search(masked)
+        if match is None:
+            continue
+        matched = match.group(0).lower().replace("ё", "е")
+        return ModerationViolation(
+            field=field,
+            matched_term=matched,
+            normalized_snippet=normalized[:200],
+            raw_snippet=raw[:500],
+            category="violence",
+        )
     return None
 
 
@@ -552,22 +816,19 @@ def _find_violation(text: str, field: str) -> ModerationViolation | None:
     if not masked:
         return None
 
-    for term in sorted(_block_terms(), key=len, reverse=True):
-        if _is_allowed_alcohol_term(term):
-            continue
-        pattern = re.compile(
-            _WORD_BOUNDARY_BEFORE + re.escape(term) + _WORD_BOUNDARY_AFTER,
-            re.IGNORECASE,
-        )
-        if pattern.search(masked):
-            return ModerationViolation(
-                field=field,
-                matched_term=term,
-                normalized_snippet=normalized[:200],
-                raw_snippet=text[:500],
-                category=_category_for_term(term),
-            )
-    return None
+    exact = _find_violation_by_exact_terms(masked, field, normalized, text)
+    if exact is not None:
+        return exact
+
+    regex_hit = _find_violation_by_violence_regex(masked, field, normalized, text)
+    if regex_hit is not None:
+        return regex_hit
+
+    lemma = _find_violation_by_lemmas(masked, field, normalized, text)
+    if lemma is not None:
+        return lemma
+
+    return _find_violation_by_glued_substrings(masked, field, normalized, text)
 
 
 def check_text(field: str, text: str | None) -> ModerationViolation | None:
@@ -619,3 +880,7 @@ def moderate_company_name(company_name: str) -> None:
 
 def moderate_worker_experience(role_title: str, description: str | None = None) -> None:
     require_clean_fields({"role_title": role_title, "description": description})
+
+
+def moderate_worker_profile_names(first_name: str, last_name: str) -> None:
+    require_clean_fields({"first_name": first_name, "last_name": last_name})

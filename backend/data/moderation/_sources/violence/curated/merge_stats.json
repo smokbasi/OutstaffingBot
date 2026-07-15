@@ -1,0 +1,20 @@
+{
+  "candidate_tokens_raw": 601,
+  "candidate_phrases_raw": 100,
+  "candidate_context_required": 53,
+  "skip_terms": 42,
+  "exclude_terms": 47,
+  "rejected": {
+    "context_or_skip_or_exclude": 46,
+    "global_exclude": 1
+  },
+  "phrases_skipped_duplicate": 0,
+  "merged_counts": {
+    "curated_violence.txt": 554,
+    "curated_violence_phrases.txt": 100,
+    "violence_regex_patterns.txt": 12,
+    "context_required.txt": 86
+  },
+  "context_required_total": 86,
+  "regex_patterns": 12
+}

@@ -1,0 +1,86 @@
+автомат  # gun vs machine
+аппарат  # syringe vs equipment
+аптека  # paraphernalia vs pharmacy job
+бабочка  # IV catheter vs insect/name
+база  # drug stash vs database/base
+балда  # drugs vs fool/name
+белый  # heroin color vs neutral adjective
+бомба  # demolition engineering vs terror device
+бпла  # commercial UAV vs military
+быстрый  # speed drug vs neutral adjective
+вагнер  # corporate name vs PMC
+ватник  # clothing vs slur
+взрыв  # demolition vs terror
+война  # history vs warmongering
+граната  # sports trophy vs weapon
+грелка  # prostitution euphemism vs hot water bottle
+грустный  # heroin grade vs sad
+демонстрация  # product demo vs demonstration
+депутат  # neutral vs campaigning
+джихад  # religious term vs extremism
+добить  # threat vs sports
+домохозяйка  # prostitution euphemism vs housewife job ads
+дорога  # vein injection track slang vs road
+дорожка  # injection track marks vs path
+дрон  # delivery jobs vs weaponized UAV
+дубинка  # weapon vs security gear
+дым  # marijuana smoke vs neutral
+забить  # threat vs nails
+зарезать  # threat vs cooking
+застрелить  # threat vs hunting license context
+зеленский  # news vs slur campaigns
+избить  # threat vs sports
+изнасиловать  # legal reporting vs threat
+ислам  # religion/halal vs islamism
+казнь  # history vs threat
+кекс  # кокаин jargon vs bakery
+кожа  # prostitution euphemism vs skin/leather trade
+кровь  # threat vs medicine
+крым  # tourism vs territorial propaganda
+лед  # meth jargon vs ice/water
+липучка  # prostitution euphemism vs Velcro/sticker
+лошадь  # heroin dose vs animal
+мина  # HR onboarding vs landmine
+митинг  # corporate vs street protest
+мобилизация  # HR vs draft evasion
+молоко  # marijuana/opium vs dairy
+мочалка  # prostitution euphemism vs sponge/scouring pad
+мука  # cocaine jargon vs baking
+мусор  # waste vs police slang
+насилие  # threat vs anti-violence advocacy
+нацизм  # history education vs glorification
+огнестрел  # weapon vs security license
+орки  # fantasy/gaming vs dehumanization
+перец  # drug vs spice
+пластилин  # hash vs toy clay
+полиция  # security jobs vs anti-police
+порезать  # threat vs budget/cooking
+президент  # corporate title vs political figure
+протест  # legal dissent vs riot incitement
+путин  # neutral mention vs incitement
+пытать  # fiction/legal vs torture threat
+ракета  # space vs missile; drug slang
+расизм  # anti-racism advocacy vs hate speech
+расстрел  # threat vs photography
+свежий  # drug quality vs food
+светлый  # heroin grade vs neutral
+силовик  # journalism vs derogatory
+скучный  # heroin grade vs boring
+снайпер  # esports vs combat role
+снег  # кокаин jargon vs weather
+снежок  # экстази brand vs weather
+спецоперация  # medical vs SVO euphemism
+сырой  # raw drug vs uncooked
+теракт  # news vs planning
+тетка  # prostitution euphemism vs aunt/family
+трава  # marijuana vs lawn/plant
+травмат  # weapon vs trauma medicine
+убивать  # threat vs neutral
+убить  # threat vs neutral (убить баг)
+убью  # threat vs idiom
+украина  # geography/logistics vs war propaganda
+фашизм  # history education vs glorification
+фсб  # clearance vs agency threat
+хлеб  # heroin vs food
+черный  # heroin grade vs neutral
+шахид  # memorial context vs terror glorification

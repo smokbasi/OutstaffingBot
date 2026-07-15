@@ -9,6 +9,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 SRC = ROOT / "_sources"
+CURATED_DIR = SRC / "academic" / "curated"
+VIOLENCE_CURATED_DIR = SRC / "violence" / "curated"
 OUT = ROOT
 
 CYRILLIC_RE = re.compile(r"[а-яё]", re.IGNORECASE)
@@ -86,6 +88,38 @@ def parse_krugozor_section(path: Path, start_marker: str, end_markers: tuple[str
 
 def parse_txt_lines(path: Path) -> set[str]:
     return {norm(line) for line in path.read_text(encoding="utf-8", errors="replace").splitlines() if is_valid_term(line)}
+
+
+def load_curated_manifest(name: str, *, base_dir: Path = CURATED_DIR) -> set[str]:
+    """Load curated manifests (academic or violence curation output)."""
+    path = base_dir / name
+    if not path.exists():
+        return set()
+    return {
+        norm(line.split("#", 1)[0].strip())
+        for line in path.read_text(encoding="utf-8", errors="replace").splitlines()
+        if line.strip() and not line.startswith("#") and is_valid_term(line.split("#", 1)[0].strip())
+    }
+
+
+def load_context_required(path: Path) -> set[str]:
+    """Terms needing proximity context — never blind block."""
+    if not path.exists():
+        return set()
+    return {
+        norm(line.split("#", 1)[0].strip())
+        for line in path.read_text(encoding="utf-8", errors="replace").splitlines()
+        if line.strip() and not line.startswith("#") and is_valid_term(line.split("#", 1)[0].strip())
+    }
+
+
+def load_wiki_terms_accepted() -> dict[str, set[str]]:
+    """Load wiki curation manifest (wiki_terms_accepted.txt).
+
+    DISABLED 2026-07-09: Phase B wiki bulk rollback — terms moved to
+    ``_sources/violence/candidates_*`` for user review; no auto-merge to live lists.
+    """
+    return {"drugs": set(), "phrases": set(), "translit": set()}
 
 
 def parse_kugimiya_filtered(path: Path, stems: set[str]) -> set[str]:
@@ -167,6 +201,7 @@ DRUG_STEMS = {
     "опиум", "опиух", "метамфетамин", "кетамин", "метадон", "фентанил", "морфин",
     "кодеин", "трамадол", "каннабино", "психодел", "заклад", "zaklad", "кладмен",
     "клад", "барыг", "дозняк", "торч", "нарком", "наркош", "наркота",
+    "абстин", "психостимул", "первитин", "эфедрон",
     "mephedrone", "mephedron", "desomorphin", "kraken", "гидра", "hydra", "blacksprut",
     "silkroad", "darknet", "даркнет", "пusher", "пушer", "легалка",
     "шмаль", "шир", "косяк", "бошк", "гандж", "травк", "марijuana",
@@ -175,9 +210,21 @@ DRUG_STEMS = {
     "alpha-pvp", "a-pvp", "apvp", "фен", "амф", "мдма", "экстаз",
 }
 
+VIOLENCE_STEMS = {
+    "убью", "убий", "убив", "убит", "застрел", "зарез", "заруб",
+    "расстрел", "придуш", "пореш", "грохн", "избью", "избив", "избит",
+    "добью", "добив", "пришью", "пришиб", "проломл", "истребл",
+    "сдохн", "суицид", "суизид", "самоубий", "харакири", "выпилиться",
+    "эвтаназ", "задуш", "заруб", "закол", "заруб",
+    "огнестрел", "травмат", "электрошокер", "шокер", "кастет", "дубинк",
+    "игил", "джихад", "моджахед", "шахид", "халифат", "ваххаб",
+    "свастик", "зигхайл", "зиг-хайл",
+}
+
 SEX_STEMS = {
     "проститут", "эскорт", "escort", "интим", "порно", "porn", "sex", "sexy",
     "эрот", "erot", "разврат", "шлюх", "бордел", "brothel", "call girl", "callgirl",
+    "курсет", "легкотруд", "легкотрудн", "проститу", "куртизан", "институтк",
     "incall", "outcall", "webcam", "вебкам", "striptiz", "striptease", "стriptiz",
     "минет", "кунилинг", "лесби", "хентай", "hentai", "мжм", "жмж", "ммж",
     "sugar daddy", "sugardaddy", "pimp", "madam", "lot lizard", "cat house",
@@ -195,6 +242,7 @@ TRANSLIT_EXPLICIT = {
     "zakladka", "zaklad", "kladmen", "heroin", "cocaine", "cannabis", "marijuana", "fuck",
     "shit", "bitch", "whore", "slut", "porn", "porno", "sex", "sexy", "escort", "prostitute",
     "prostitut", "bordel", "brothel", "xuy", "xyi", "govno", "suck", "spice", "spais",
+    "jwh",
 }
 
 LATIN_BLOCKLIST = {
@@ -208,6 +256,19 @@ LATIN_BLOCKLIST = {
     "alphabay", "dream-market", "dreammarket", "asap-market", "hydra-reborn", "hydra2",
     "hydra3", "blackmarket", "darkode", "dark0de", "darkbay", "cryptonia", "archetyp",
     "cyberden", "cannazon", "bohemia", "abacus", "ramp", "blacksprut", "silkroad",
+}
+
+SLANG_MANUAL_SEED = {
+    norm(x)
+    for x in [
+        "косяк", "косяки", "шмаль", "заклад", "закладки", "торч", "дозняк", "барыга", "барыги",
+        "vip девушки", "массаж 18", "интим услуги",
+        "mephedrone", "spice", "darknet",
+        "ширка", "ширки", "бошка", "бошки", "дурь", "дурман", "дурьма",
+        "закладочник", "закладочница", "кладмен", "кладмены",
+        "наркоша", "наркоши", "пушер", "пушеры", "легалка", "легалочка",
+        "meow meow", "meowmeow", "alpha-pvp", "a-pvp", "apvp",
+    ]
 }
 
 ALCOHOL_ALLOW = {
@@ -243,7 +304,7 @@ EXCLUDE_FALSE_POSITIVES = {
         "канюля", "карбид", "кикер", "крис", "крисы",
         "кроссвордный", "кумар", "натур", "оттянуться", "пинки", "пласт",
         "подзаправиться", "расколбаситься", "стимульнуться", "треснуться", "ужалиться",
-        "ускоритель", "фен", "мача", "мулька", "шала", "жмых", "брахман", "гарик",
+        "ускоритель", "мача", "мулька", "шала", "жмых", "брахман", "гарик",
         "марго", "вторяк", "духарь", "калики", "килики",
         # EN marketplace tokens vs normal business speech
         "asap", "onion", "ramp", "mega", "versus", "empire", "evolution", "monopoly",
@@ -253,6 +314,51 @@ EXCLUDE_FALSE_POSITIVES = {
         "seasoning",
         # Krugozor section header misparsed as term
         "наркоманский жаргон в одну строку, с разных источников",
+        # badwords-py false positive: everyday RU verb «есть» (e.g. «Есть витамины»)
+        "есть",
+        # Krugozor «наркоманские площадки» — gambling/darknet marketplace, not drug slang
+        "казино",
+        # abannet dictionary homonyms — vitamins vs drug jargon
+        "витамин", "витамины",
+        # abannet/russki_mat everyday-word FPs (2026-07 curation cleanup)
+        "парфюм", "парфюмерия", "пассажир", "пекарня", "вольт", "вольты",
+        "движок", "десяток", "десятка", "крест", "кресты",
+        "мультик", "мультики", "мультяшка", "мультяшки", "мультяха", "мультяхи",
+        "напряжный", "напрячь", "напряг", "напряжно",
+        "непонятка", "непонятки", "обезьяна", "огород", "огородник", "одеколонщик",
+        "палочка", "пальма", "плановик", "плановщик", "плановый", "плановой",
+        "планокеш", "планокеша", "планокишеть", "планокиша",
+        "плантатор", "плантация", "пластик", "платформа", "подвиг", "поддувать",
+        "подогрев", "подогреть", "подогретый", "подошва", "полина", "помидор",
+        "пончик", "потолок", "праздник", "президент", "прибор", "присоска",
+        "компания", "компании", "центр",
+        "причиндалы", "пробка", "прогон", "продвинуть", "продвинутый", "продукт",
+        "промокашка", "прорез", "прорезы", "простокваша", "пустота",
+        "путешественник", "пчелка", "пыльца", "рабочка", "пятачок",
+        "разведка", "разведчик", "разлом", "реактор", "резина", "резидент",
+        "рекорд", "рубиновка", "ручник", "рыжик", "рыжики", "садовник", "сажать",
+        "самовар", "самоварка", "самоделка", "самодуринский", "саморуб",
+        "самосад", "самосадка", "самосвал", "сапог", "сапоги", "сверло",
+        "свинина", "свинопас", "свиняк", "сезонник", "сенокос", "сидней",
+        "сине-зеленый", "система", "скороварка", "скрипка", "случайный", "сменка",
+        "сметана", "смолка", "собачка", "солома", "соломка", "сонник", "сонники",
+        "сопливчик", "стакан", "стандарт", "старый", "стекло", "стекляшка",
+        "стимул", "стимульный", "стимульной", "стрелка", "струна", "струнка",
+        "ступенька", "ступеньки", "тарелка", "тарелки", "тарталетка", "тарталетки",
+        "телега", "темнота", "температурка", "теплый",
+        # wiki/academic homonyms — user curation 2026-07-09
+        "абрикос", "аленка", "антенна", "аппаратура", "аптекарь", "атом", "банка",
+        "барсик", "баян", "баянист", "боец", "болт", "булик", "бублики", "бумага",
+        "бутылка", "валек", "варить", "вата", "весло", "виталя", "витек", "вода",
+        "вулкан", "выкупить", "галя", "гараж", "гвоздь", "гильза", "гонец", "гонки",
+        "грязь", "гусь", "дед", "дизель", "дима", "дома", "дрова", "зима", "знахарь",
+        "камень", "инструмент", "качели", "каша", "кнопка", "ковбой", "коделак",
+        "колодец", "колючий", "колючка", "компот", "контроль", "конфета", "космонавт",
+        "котелок", "красный", "кратер", "крыса", "купец", "ликвид", "машина",
+        "медицина", "метла", "метро", "москва", "мокрый", "мягкий", "напарить",
+        "настя", "оксана", "парашют", "подзаборка", "покрышка", "свин", "свинак",
+        "федя", "фрукт", "часики", "часы", "чек", "шланг",
+        "забить гвоздь", "черный русский",
     ]
 }
 
@@ -272,6 +378,63 @@ def is_excluded(term: str) -> bool:
     return t in GLOBAL_EXCLUDE or t in EXCLUDE_FALSE_POSITIVES
 
 
+# Inflected runtime lemmas that must not be collapsed at build time.
+SKIP_BUILD_LEMMA = frozenset({"марка"})
+
+
+def lemmatize_build_term(term: str, morph: object | None = None) -> str:
+    """Canonicalize inflected Cyrillic tokens at build time (Phase 9.3.5)."""
+    t = norm(term)
+    if t in SKIP_BUILD_LEMMA:
+        return t
+    if " " in t or is_translit(t) or not CYRILLIC_RE.search(t) or len(t) < 4:
+        return t
+    try:
+        if morph is None:
+            from pymorphy3 import MorphAnalyzer
+
+            morph = MorphAnalyzer()
+        parsed = morph.parse(t)  # type: ignore[union-attr]
+        if parsed:
+            lemma = norm(parsed[0].normal_form)
+            if lemma and lemma != t:
+                return lemma
+    except Exception:
+        pass
+    return t
+
+
+def canonicalize_bucket(terms: set[str]) -> set[str]:
+    morph = None
+    try:
+        from pymorphy3 import MorphAnalyzer
+
+        morph = MorphAnalyzer()
+    except Exception:
+        morph = None
+    canonical: set[str] = set()
+    for term in terms:
+        if not is_valid_term(term):
+            continue
+        t = norm(term)
+        if " " in t or is_translit(t):
+            canonical.add(t)
+            continue
+        canonical.add(lemmatize_build_term(t, morph))
+    return canonical
+
+
+def build_slang_bucket(krugozor_jargon: set[str], sex_manual: set[str]) -> set[str]:
+    slang = {norm(x) for x in SLANG_MANUAL_SEED if is_valid_term(x) and not is_excluded(x)}
+    for t in krugozor_jargon:
+        if is_valid_term(t) and not is_excluded(t):
+            slang.add(norm(t))
+    for t in sex_manual:
+        if is_valid_term(t) and " " in t and not is_excluded(t):
+            slang.add(norm(t))
+    return slang
+
+
 def classify(term: str) -> str | None:
     t = norm(term)
     if not is_valid_term(t) or is_excluded(t) or t in LATIN_BLOCKLIST:
@@ -282,6 +445,8 @@ def classify(term: str) -> str | None:
         return "translit"
     if matches_stem(t, SEX_STEMS):
         return "sex"
+    if matches_stem(t, VIOLENCE_STEMS):
+        return "violence"
     if matches_stem(t, DRUG_STEMS):
         return "drugs"
     if matches_stem(t, PROFANITY_STEMS):
@@ -290,11 +455,12 @@ def classify(term: str) -> str | None:
 
 
 def main() -> None:
-    krugozor_drugs = parse_krugozor_section(
+    krugozor_jargon = parse_krugozor_section(
         SRC / "krugozor_stopwords.php",
         "// Наркоманский жаргон",
         ("// На это очень сильно реагирует РКН",),
     )
+    krugozor_drugs = set(krugozor_jargon)
     krugozor_drugs |= parse_krugozor_section(
         SRC / "krugozor_stopwords.php",
         "// Наркоманские препараты",
@@ -335,6 +501,8 @@ def main() -> None:
                 "дезоморфин", "кrokodil", "крокодил", "бошки", "травка", "marijuana",
                 "cannabis", "weed", "наркота", "наркотик", "наркотики", "закладчик", "закладчики",
                 "курьер заклад", "закладочник", "закладочница",
+                "ешка",  # MDMA/ecstasy slang (abannet)
+                "марка", "фен", "колоться", "колиться", "укол",
             ]
         },
         "sex_manual": {
@@ -356,25 +524,55 @@ def main() -> None:
             ]
         },
         "translit_manual": set(TRANSLIT_EXPLICIT),
+        "academic_curated_drugs": load_curated_manifest("curated_drugs.txt"),
+        "academic_curated_sex": load_curated_manifest("curated_sex.txt"),
+        "academic_curated_translit": load_curated_manifest("curated_translit.txt"),
+        "academic_curated_phrases": load_curated_manifest("curated_phrases.txt"),
+        "violence_curated_phrases": load_curated_manifest(
+            "curated_violence_phrases.txt", base_dir=VIOLENCE_CURATED_DIR
+        ),
     }
+    wiki_accepted = load_wiki_terms_accepted()
+    sources["wiki_accepted_drugs"] = wiki_accepted["drugs"]
+    sources["wiki_accepted_phrases"] = wiki_accepted["phrases"]
+    sources["wiki_accepted_translit"] = wiki_accepted["translit"]
+
+    violence_live = parse_txt_lines(OUT / "stop_words_violence.txt")
+    violence_curated = load_curated_manifest("curated_violence.txt", base_dir=VIOLENCE_CURATED_DIR)
 
     buckets: dict[str, set[str]] = {
         "profanity": set(),
         "sex": set(),
+        "violence": set(violence_live) | violence_curated,
         "drugs": set(),
         "translit": set(),
     }
 
     # Force-assign dedicated source buckets first
-    for t in sources["krugozor_drugs"] | sources["drugs_manual"] | sources["kugimiya_drugs"]:
+    for t in (
+        sources["krugozor_drugs"]
+        | sources["drugs_manual"]
+        | sources["kugimiya_drugs"]
+        | sources["academic_curated_drugs"]
+        | sources["wiki_accepted_drugs"]
+    ):
         if is_valid_term(t) and not is_excluded(t):
             buckets["drugs"].add(norm(t))
 
-    for t in sources["krugozor_sex"] | sources["sex_manual"] | sources["censureblock"] | sources["hacking_buds"] | sources["kugimiya_sex"]:
+    context_required = load_context_required(OUT / "context_required.txt")
+
+    for t in (
+        sources["krugozor_sex"]
+        | sources["sex_manual"]
+        | sources["censureblock"]
+        | sources["hacking_buds"]
+        | sources["kugimiya_sex"]
+        | sources["academic_curated_sex"]
+    ):
         if is_valid_term(t) and not is_excluded(t):
             buckets["sex"].add(norm(t))
 
-    for t in sources["translit_manual"]:
+    for t in sources["translit_manual"] | sources["academic_curated_translit"] | sources["wiki_accepted_translit"]:
         if is_valid_term(t):
             buckets["translit"].add(norm(t))
 
@@ -393,13 +591,20 @@ def main() -> None:
             # readme/badwords default to profanity if from profanity lists
             buckets["profanity"].add(norm(t))
 
-    # Dedupe priority: sex > drugs > translit > profanity
+    buckets["drugs"] -= context_required
+    buckets["violence"] -= context_required
+
+    # Dedupe priority: sex > violence > drugs > translit > profanity
     assigned: set[str] = set()
     final: dict[str, set[str]] = {k: set() for k in buckets}
 
     for t in sorted(buckets["sex"]):
         final["sex"].add(t)
         assigned.add(t)
+    for t in sorted(buckets["violence"]):
+        if t not in assigned:
+            final["violence"].add(t)
+            assigned.add(t)
     for t in sorted(buckets["drugs"]):
         if t not in assigned:
             final["drugs"].add(t)
@@ -412,15 +617,36 @@ def main() -> None:
         if t not in assigned:
             final["profanity"].add(t)
 
+    slang_manual = build_slang_bucket(krugozor_jargon, sources["sex_manual"])
+    for t in (
+        sources["academic_curated_phrases"]
+        | sources["wiki_accepted_phrases"]
+        | sources["violence_curated_phrases"]
+    ):
+        if is_valid_term(t) and not is_excluded(t):
+            slang_manual.add(norm(t))
+    final["profanity"] = {t for t in canonicalize_bucket(final["profanity"]) if not is_excluded(t)}
+    final["sex"] = {t for t in canonicalize_bucket(final["sex"]) if not is_excluded(t)}
+    final["violence"] = {
+        t
+        for t in canonicalize_bucket(final["violence"])
+        if not is_excluded(t) and t not in context_required
+    }
+    final["drugs"] = {
+        t for t in canonicalize_bucket(final["drugs"]) if not is_excluded(t) and t not in context_required
+    }
+
     counts = {
         "stop_words_profanity.txt": write_list(OUT / "stop_words_profanity.txt", final["profanity"]),
         "stop_words_sex.txt": write_list(OUT / "stop_words_sex.txt", final["sex"]),
+        "stop_words_violence.txt": write_list(OUT / "stop_words_violence.txt", final["violence"]),
         "stop_words_drugs.txt": write_list(OUT / "stop_words_drugs.txt", final["drugs"]),
         "stop_words_translit.txt": write_list(OUT / "stop_words_translit.txt", final["translit"]),
         "allow_words_alcohol.txt": write_list(
             OUT / "allow_words_alcohol.txt",
             {norm(x) for x in ALCOHOL_ALLOW if is_valid_term(x)},
         ),
+        "stop_words_slang_manual.txt": write_list(OUT / "stop_words_slang_manual.txt", slang_manual),
     }
 
     stats_path = OUT / "_build_stats.txt"

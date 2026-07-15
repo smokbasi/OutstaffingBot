@@ -1,0 +1,9 @@
+# DISABLED 2026-07-09 — Phase B wiki bulk rollback
+# Do NOT re-enable without user review. Rebuild ignores this file (see build_wordlists.py).
+# Original manifest archived in git history; violence-related terms → _sources/violence/candidates_*.txt
+
+## drugs (0)
+
+## phrases (0)
+
+## translit (0)

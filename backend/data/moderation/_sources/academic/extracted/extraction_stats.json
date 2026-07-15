@@ -1,0 +1,50 @@
+{
+  "sources": {
+    "abannet_narcotics.txt": "parse_abannet",
+    "cuni_bppr_2014.txt": "parse_cuni_bppr",
+    "cyberleninka_bayramova.txt": "parse_bayramova_review",
+    "hf_sensitive_topics.txt": "parse_hf_sensitive",
+    "newlit_shkarin.txt": "parse_newlit_shkarin",
+    "researchgate_euphemisms.txt": "parse_prostitution_papers",
+    "russki_mat_narc.txt": "parse_russki_mat",
+    "shlyakhov_adler_dict.txt": "parse_shlyakhov",
+    "umk_dembska.txt": "parse_prostitution_papers"
+  },
+  "per_source_raw_hits": {
+    "abannet_narcotics.txt": 630,
+    "cyberleninka_bayramova.txt": 7,
+    "hf_sensitive_topics.txt": 4,
+    "newlit_shkarin.txt": 84,
+    "researchgate_euphemisms.txt": 30,
+    "russki_mat_narc.txt": 1730,
+    "shlyakhov_adler_dict.txt": 149,
+    "umk_dembska.txt": 20
+  },
+  "per_source_new_candidates": {
+    "abannet_narcotics.txt": 328,
+    "hf_sensitive_topics.txt": 1,
+    "newlit_shkarin.txt": 13,
+    "researchgate_euphemisms.txt": 1,
+    "russki_mat_narc.txt": 1072,
+    "shlyakhov_adler_dict.txt": 25,
+    "umk_dembska.txt": 8
+  },
+  "totals": {
+    "phrases": 6,
+    "tokens": 1263,
+    "tokens_by_category": {
+      "drugs": 1239,
+      "translit": 23,
+      "sex": 1
+    },
+    "context_required": 34
+  },
+  "skipped": {
+    "existing_or_excluded": 749,
+    "invalid": 90,
+    "unclassified": 367,
+    "routed_to_context": 49,
+    "duplicates_in_existing_wordlists": 749
+  },
+  "existing_wordlist_size": 5734
+}

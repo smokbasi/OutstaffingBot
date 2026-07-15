@@ -1,0 +1,34 @@
+автомат  # syringe vs machine/gun
+аппарат  # syringe vs equipment
+аптека  # paraphernalia vs pharmacy job
+бабочка  # IV catheter vs insect/name
+база  # drug stash vs database/base
+балда  # drugs vs fool/name
+белый  # heroin color vs neutral adjective
+быстрый  # speed drug vs neutral adjective
+грелка  # prostitution euphemism vs hot water bottle
+грустный  # heroin grade vs sad
+домохозяйка  # prostitution euphemism vs housewife job ads
+дорога  # vein injection track slang vs road
+дорожка  # injection track marks vs path
+дым  # marijuana smoke vs neutral
+кекс  # кокаин jargon vs bakery
+кожа  # prostitution euphemism vs skin/leather trade
+лед  # meth jargon vs ice/water
+липучка  # prostitution euphemism vs Velcro/sticker
+лошадь  # heroin dose vs animal
+молоко  # marijuana/opium vs dairy
+мочалка  # prostitution euphemism vs sponge/scouring pad
+мука  # cocaine jargon vs baking
+перец  # drug vs spice
+пластилин  # hash vs toy clay
+свежий  # drug quality vs food
+светлый  # heroin grade vs neutral
+скучный  # heroin grade vs boring
+снег  # кокаин jargon vs weather
+снежок  # экстази brand vs weather
+сырой  # raw drug vs uncooked
+тетка  # prostitution euphemism vs aunt/family
+трава  # marijuana vs lawn/plant
+хлеб  # heroin vs food
+черный  # heroin grade vs neutral

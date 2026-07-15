@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime, time
 
 from uuid import UUID
 
@@ -105,6 +105,42 @@ async def get_violations_by_telegram_id(
     )
     violations = list(await session.scalars(stmt))
     return user, violations
+
+
+async def list_stop_word_violations(
+    session: AsyncSession,
+    *,
+    from_date: date | None = None,
+    to_date: date | None = None,
+    telegram_id: int | None = None,
+    limit: int = 20,
+    offset: int = 0,
+) -> tuple[list[ModerationViolationLog], int]:
+    """Paginated moderation_violations log for admin journal (Phase 9.11.1)."""
+    stmt = select(ModerationViolationLog).order_by(ModerationViolationLog.created_at.desc())
+    count_stmt = select(func.count()).select_from(ModerationViolationLog)
+
+    if telegram_id is not None:
+        stmt = stmt.where(ModerationViolationLog.telegram_id == telegram_id)
+        count_stmt = count_stmt.where(ModerationViolationLog.telegram_id == telegram_id)
+
+    if from_date is not None:
+        start = datetime.combine(from_date, time.min, tzinfo=UTC)
+        stmt = stmt.where(ModerationViolationLog.created_at >= start)
+        count_stmt = count_stmt.where(ModerationViolationLog.created_at >= start)
+
+    if to_date is not None:
+        end = datetime.combine(to_date, time(23, 59, 59, 999999), tzinfo=UTC)
+        stmt = stmt.where(ModerationViolationLog.created_at <= end)
+        count_stmt = count_stmt.where(ModerationViolationLog.created_at <= end)
+
+    total = int(await session.scalar(count_stmt) or 0)
+    rows = list(
+        await session.scalars(
+            stmt.limit(limit).offset(offset).options(selectinload(ModerationViolationLog.user))
+        )
+    )
+    return rows, total
 
 
 def clear_moderation_review_flag(user: User) -> bool:

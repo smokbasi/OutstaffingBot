@@ -1,0 +1,59 @@
+{
+  "before_wordlist_sizes": {
+    "stop_words_drugs.txt": 685,
+    "stop_words_sex.txt": 238,
+    "stop_words_translit.txt": 60,
+    "stop_words_slang_manual.txt": 428
+  },
+  "accepted": {
+    "drugs": 400,
+    "sex": 10,
+    "translit": 9,
+    "phrases": 33
+  },
+  "rejected": {
+    "cap_reached": 340,
+    "no_stem_or_marker": 336,
+    "inflected_verb": 323,
+    "homonym": 56,
+    "translit_drop": 23,
+    "invalid_phrase": 19,
+    "ocr_mojibake": 11,
+    "too_short": 5,
+    "garbage_or_ambiguous": 5,
+    "phrase_existing": 5,
+    "translit_unclassified": 2,
+    "no_category_match": 2,
+    "existing": 1
+  },
+  "rejected_totals_by_reason": {
+    "inflected_verb": 323,
+    "homonym": 56,
+    "too_short": 5,
+    "no_stem_or_marker": 336,
+    "ocr_mojibake": 11,
+    "existing": 1,
+    "cap_reached": 340,
+    "translit_drop": 23,
+    "translit_unclassified": 2,
+    "garbage_or_ambiguous": 5,
+    "no_category_match": 2,
+    "invalid_phrase": 19,
+    "phrase_existing": 5
+  },
+  "curated_counts": {
+    "curated_drugs.txt": 400,
+    "curated_sex.txt": 10,
+    "curated_phrases.txt": 33,
+    "curated_translit.txt": 9,
+    "context_required.txt": 34,
+    "curated_context_required.txt": 34
+  },
+  "candidate_totals": {
+    "drugs": 1195,
+    "sex": 1,
+    "translit": 23,
+    "phrases": 6,
+    "context_required": 34
+  }
+}
