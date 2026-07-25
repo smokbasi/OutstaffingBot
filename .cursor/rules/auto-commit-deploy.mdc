@@ -1,0 +1,68 @@
+--
+description: HARD — после каждого изменения автоматически commit → merge/rebase → deploy из git
+alwaysApply: true
+---
+
+# Auto Commit → Merge → Deploy (HARD)
+
+> Скопируй этот файл в `.cursor/rules/` своего проекта Cursor и оставь `alwaysApply: true`.
+> Инструкция для людей: `docs/AGENT_AUTO_DEPLOY.md`.
+
+## Обязательный цикл (не пропускать)
+
+После **каждого** завершённого запрошенного изменения (код / docs / rules / скрипты):
+
+1. **Commit** — conventional commits: `type(scope): описание` (для OutstaffingBot — описание на русском).
+2. **Merge / rebase к `main`** — по git-workflow проекта:
+   - feature-ветка → push → PR → **squash merge** в `main` (OutstaffingBot: `docs/GIT_WORKFLOW.md`);
+   - работа прямо на `main` → `git pull --rebase origin main` (или merge, как принято в проекте), затем push.
+3. **Deploy из git** — только с committed (+ pushed) SHA, одной командой проекта.
+
+**Не ждать** второго «закоммить» / «замержь» / «задеплой», кроме явного отказа пользователя: `только локально`, `без деплоя`, `не коммить`.
+
+## Уровни деплоя
+
+| Уровень | Когда | Действие |
+|---------|-------|----------|
+| **Фиксация в git** | любое изменение, в т.ч. «только docs/rules» | commit + push (**обязательно**) |
+| **Sync сервера** | docs / deploy-скрипты / без runtime | `./scripts/deploy/deploy-from-git.sh --git-only` |
+| **Деплой приложения** | api / bot / worker / mini-app / runtime | `./scripts/deploy/deploy-from-git.sh` (или partial / mini-app) |
+
+«Кажется мелочь / docs only» — **не отменяет commit**. App-rebuild пропускается только если runtime не менялся.
+
+## Одна команда (OutstaffingBot)
+
+```bash
+# Приложение (git sync + zero-downtime):
+./scripts/deploy/deploy-from-git.sh
+
+# Только git pull на сервере (без recreate контейнеров):
+./scripts/deploy/deploy-from-git.sh --git-only
+```
+
+На сервере эквивалент полного деплоя: `cd /opt/outstaffingbot && ./scripts/deploy/deploy-zero-downtime.sh`.
+
+Подробности: `docs/DEPLOYMENT.md`, `.cursor/rules/deploy-zero-downtime.mdc`, `.cursor/rules/git-workflow.mdc`.
+
+## Запрещено (всегда)
+
+- Деплой **dirty tree** / uncommitted кода
+- `SKIP_GIT=1` для routine deploy
+- Force-push в `main` / `master` без явного запроса
+- `--no-verify`, пропуск hooks
+- Изменение `git config`
+- Секреты в коммите: `.env`, токены, `*.tar.gz` junk, дампы
+- `docker compose down` / `up -d --build` на весь stack (только zero-downtime паттерн)
+- Трогать чужие сервисы на shared VPS (vspomni / 3x-ui)
+
+## Перед коммитом (минимум)
+
+1. `git status` + `git diff`
+2. Stage **только** файлы текущей задачи
+3. Не коммитить секреты и мусор
+4. Сообщение: `feat|fix|docs|chore|refactor|test|ci(scope): …`
+
+## Verify после деплоя приложения
+
+- `curl -sf http://127.0.0.1:8000/health` (на сервере)
+- Bot: `/start` в Telegram при затрагивании bot

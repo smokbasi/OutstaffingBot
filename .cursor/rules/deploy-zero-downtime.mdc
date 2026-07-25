@@ -1,0 +1,88 @@
+---
+description: Zero-downtime deploy + auto commit-deploy — agents MUST follow for VPS/docker/mini-app
+alwaysApply: true
+---
+
+# Zero-Downtime Deploy (OutstaffingBot)
+
+Полная документация: **`docs/DEPLOYMENT.md`**. Сервер: `/opt/outstaffingbot`, `COMPOSE_PROJECT_NAME=outstaffingbot`.
+
+## Автоматический коммит → деплой (HARD)
+
+После запрошенного изменения, которое затрагивает runtime (api/bot/worker/mini-app) или серверные скрипты:
+
+1. Сначала **commit + push** (см. `git-workflow.mdc`).
+2. Затем деплой **из git**, не из dirty tree.
+3. Не ждать второго «задеплой», кроме явного `без деплоя` / `только локально`.
+
+| Изменение | Действие после commit+push |
+|-----------|----------------------------|
+| api / bot / worker / полный backend | `./scripts/deploy/deploy-from-git.sh` |
+| только mini-app | `./scripts/deploy/deploy-mini-app-only.sh` (дерево = коммит) |
+| только docs / rules / deploy-скрипты | `./scripts/deploy/deploy-from-git.sh --git-only` (без docker rebuild) |
+| только `.cursor/rules` (нет runtime) | commit + push достаточно |
+
+## Одна команда (деплой приложения из git)
+
+```bash
+# С dev-машины (SSH → сервер → git sync → zero-downtime):
+./scripts/deploy/deploy-from-git.sh
+
+# Уже на сервере:
+cd /opt/outstaffingbot && ./scripts/deploy/deploy-zero-downtime.sh
+
+# Только git pull на сервере (docs/scripts, без recreate контейнеров):
+./scripts/deploy/deploy-from-git.sh --git-only
+```
+
+## Обязательный паттерн
+
+1. **Build while old runs** — `docker compose build api|bot|worker` (старые контейнеры обслуживают трафик).
+2. **Migrations** — `compose run --rm --no-deps api alembic upgrade head` (postgres не рестартуем).
+3. **Rolling swap** — `compose up -d --no-deps --force-recreate <service>` по одному: api → worker → bot.
+4. **Mini App** — только `deploy-mini-app-only.sh`: staging → verify → atomic `mv` (~1–2 с).
+5. **Только .env** — `deploy-env-only.sh`, без rebuild.
+
+## Скрипты (использовать, не изобретать заново)
+
+| Задача | Скрипт |
+|--------|--------|
+| **Одна команда из git** | `scripts/deploy/deploy-from-git.sh` |
+| Полный backend (на сервере) | `scripts/deploy/deploy-zero-downtime.sh` |
+| Только API | `scripts/deploy/deploy-api.sh` |
+| Только bot | `scripts/deploy/deploy-bot.sh` |
+| Только worker | `scripts/deploy/deploy-worker.sh` |
+| Только mini-app | `scripts/deploy/deploy-mini-app-only.sh` (локально) |
+| Только .env | `scripts/deploy/deploy-env-only.sh` |
+| Только git sync | `scripts/deploy/deploy-from-git.sh --git-only` |
+
+## Деплой только из git (HARD)
+
+**Запрещено** деплой app-кода, если изменения **не закоммичены** / не запушены:
+
+- uncommitted локальные правки как источник деплоя
+- `SKIP_GIT=1` для routine deploy
+- правки исходников на сервере как source of truth
+- dirty tree «как main»
+
+Агент **сам** коммитит и пушит перед деплоем (см. auto commit-deploy). Не деплоить dirty tree в обход git.
+
+## ЗАПРЕЩЕНО (агенты и люди)
+
+- `docker compose down` на routine deploy
+- `docker compose up -d --build` на весь stack
+- Останавливать bot **до** завершения build
+- `rm` live `mini-app/dist` до готовности staging
+- `scp`/`rsync` напрямую в live `dist`
+- Трогать vspomni / 3x-ui на shared VPS
+- Деплой без git-коммита / из dirty tree
+
+## Python / FastAPI ограничение
+
+Hot-swap одного `.py` без rebuild **невозможен** (код в образе). Допустимо: деплой **компонента** (только api, только bot, только mini-app).
+
+## После деплоя
+
+- Проверить `curl -sf http://127.0.0.1:8000/health`
+- Bot: `/start` в Telegram
+- При ошибке — rollback по `docs/DEPLOYMENT.md` § Rollback

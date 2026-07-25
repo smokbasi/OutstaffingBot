@@ -172,8 +172,9 @@ Squash сохраняет линейную историю `main`: один ло�
 | Держите ветку короткой | Мержите PR за 1–3 дня |
 | Rebase перед push | `git fetch origin && git rebase origin/main` |
 | Секреты | `.env` только локально и на сервере; в git — `.env.example` |
-| Staging deploy | После merge в `main` — `git pull` на VPS (см. SERVER_AND_TEAM.md § G) |
-| Агенты не пушат в main | Только через PR; force-push в main **запрещён** |
+| Staging deploy | После commit+push в `main` — `./scripts/deploy/deploy-from-git.sh` ([DEPLOYMENT.md](./DEPLOYMENT.md)) |
+| Агенты: auto commit-deploy | После запрошенной работы — commit → push → deploy из git (см. §8) |
+| Force-push в main | **Запрещён** |
 | Миграции Alembic | Новая revision в PR; не редактировать чужие migration-файлы |
 
 
@@ -204,13 +205,36 @@ GitHub → **Settings → Branches → Add branch protection rule** для `main
 
 ## 8. Правила для AI-агентов (Cursor)
 
+### Автоматический коммит → деплой (HARD)
+
+После завершения запрошенного изменения (код / docs / rules / deploy-скрипты) агент **автоматически**:
+
+1. Коммитит (`type(scope): описание` на русском)
+2. Пушит на tracking-ветку
+3. Деплоит из git (или делает git-sync на сервере)
+
+**Не ждать** второго «закоммить» / «задеплой», кроме явного отказа: `только локально`, `без деплоя`, `не коммить`.
+
+| Уровень | Когда | Минимум |
+|---------|-------|---------|
+| **Фиксация в git** | любое запрошенное изменение | commit + push |
+| **Sync сервера** | docs / `scripts/deploy` без runtime-кода | `./scripts/deploy/deploy-from-git.sh --git-only` |
+| **Деплой приложения** | api / bot / worker / mini-app | `./scripts/deploy/deploy-from-git.sh` (или partial / mini-app) |
+
+`.cursor/rules` без runtime-влияния: достаточно commit + push. Подробнее: [DEPLOYMENT.md](./DEPLOYMENT.md).
+
 ### Запрещено всегда
 
 - Force push в `main` / `master`
 - `git push --force` на shared-ветки без явного запроса пользователя
 - `--no-verify` / пропуск pre-commit hooks
 - Изменение `git config` (локального или глобального)
-- Коммит без явного запроса пользователя (или без явного пункта в задаче «создать коммит»)
+- Секреты / `.env` / tar.gz junk в коммите
+- **Деплой dirty tree:** app-деплой с uncommitted правками; `SKIP_GIT=1` для routine; правки на сервере как source of truth
+
+### Деплой только из git (HARD)
+
+Деплой приложения — только с committed (+ pushed) SHA. Агент **сам** коммитит перед деплоем; не деплоить dirty tree в обход git. Mini App: локальная сборка должна совпадать с коммитом.
 
 ### Amend — только при выполнении ВСЕХ условий
 
@@ -225,6 +249,8 @@ git status
 git diff
 git diff --staged   # если файлы уже добавлены
 ```
+
+Stage **только** файлы текущей задачи — не тащить чужой dirty work.
 
 ### Коммит с сообщением (PowerShell)
 
@@ -244,9 +270,9 @@ feat(bot): добавить команду /start
 git commit -m "feat(bot): добавить команду /start"
 ```
 
-### Push и PR — только по запросу
+### Push и деплой
 
-Агент создаёт коммит, если задача это включает. Push и PR — только когда пользователь явно просит.
+После запрошенной работы: push на tracking-ветку, затем deploy-from-git (или `--git-only`). Отдельный PR — когда задача идёт через feature-ветку / review; force-push в `main` запрещён.
 
 ---
 
@@ -294,6 +320,12 @@ Semver: `vMAJOR.MINOR.PATCH`. Релизные notes — через `gh release 
 - [ ] Локально проверена ключевая функциональность
 - [ ] PR описание содержит Summary + Test plan
 - [ ] Секреты не попали в diff
+
+### Перед деплоем (дополнительно)
+
+- [ ] Deployable-изменения **закоммичены и запушены** (не деплоить dirty tree)
+- [ ] Деплой через `./scripts/deploy/deploy-from-git.sh` (или `--git-only` / partial)
+- [ ] Не использовать `SKIP_GIT=1` для routine deploy
 
 ---
 

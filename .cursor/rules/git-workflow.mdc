@@ -14,18 +14,50 @@ alwaysApply: true
 - Коммиты: `type(scope): описание на русском` (feat, fix, docs, chore, refactor, test, ci)
 - Merge PR: **squash merge** через `gh pr merge --squash`
 
+## Автоматический коммит → деплой (HARD)
+
+После завершения запрошенного изменения (код / docs / rules / скрипты деплоя):
+
+1. **Автоматически закоммитить** (conventional `type(scope): …` на русском).
+2. **Запушить** на tracking-ветку (`origin`), если она есть.
+3. **Задеплоить из git** (только committed SHA) — см. уровни ниже.
+
+**Не ждать** второго «закоммить» / «задеплой», если пользователь не сказал иное (`только локально`, `без деплоя`, `не коммить`).
+
+### Уровни «деплоя»
+
+| Уровень | Когда | Минимум |
+|---------|-------|---------|
+| **Фиксация в git** | любое запрошенное изменение | `commit` + `push` (обязательно) |
+| **Sync сервера** | изменились docs / `scripts/deploy` / правила, которые живут в `/opt/outstaffingbot` | `git pull` на сервере (`deploy-from-git.sh --git-only`) |
+| **Деплой приложения** | изменились api / bot / worker / mini-app / runtime-конфиг | zero-downtime / partial / mini-app из git |
+
+Cursor rules (`.cursor/rules`) критичны локально через git; для них минимум — **commit + push**. Full docker rebuild для docs/rules-only **не нужен**.
+
 ## Запрещено
 
 - Force push в `main` / `master` и на shared-ветки без явного запроса
 - `--no-verify`, пропуск hooks
 - Изменение `git config`
-- Коммит/push/PR без явного запроса пользователя (или пункта задачи)
+- Секреты в коммите (`.env`, токены, дампы, `*.tar.gz` junk)
+- **Деплой dirty tree / без коммита:** app-деплой с uncommitted правками; `SKIP_GIT=1` для routine; правки на сервере как source of truth
+
+## Деплой только из git (HARD)
+
+Перед **деплоем приложения** (api, bot, worker, mini-app, full):
+
+1. Изменения **закоммичены** и **запушены**.
+2. На сервере — checkout/pull этого SHA (`deploy-from-git.sh` или `deploy-zero-downtime.sh`).
+3. Mini App: локальная сборка должна совпадать с закоммиченным деревом.
+
+**Одна команда (приложение):** см. `docs/DEPLOYMENT.md` — `./scripts/deploy/deploy-from-git.sh`.
 
 ## Перед коммитом
 
 1. `git status` + `git diff` (+ `git diff --staged`)
-2. Не коммитить: `.env`, секреты, `__pycache__`, `node_modules`, `.venv`, дампы ECC agent memory (`%USERPROFILE%\.cursor\ecc\`)
+2. Не коммитить: `.env`, секреты, `__pycache__`, `node_modules`, `.venv`, tar.gz, дампы ECC (`%USERPROFILE%\.cursor\ecc\`)
 3. PowerShell: `git commit -m @"..."@` для многострочного сообщения
+4. Stage **только** файлы текущей задачи — не тащить чужой dirty work
 
 ## Amend — только если
 
@@ -39,4 +71,4 @@ alwaysApply: true
 
 ## Workflow
 
-`pull main → checkout -b feature/... → work → commit → rebase → push → gh pr create`
+`work → commit → push → deploy-from-git` (или sync `--git-only` для docs/rules)
