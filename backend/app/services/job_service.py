@@ -1,3 +1,4 @@
+from datetime import date
 from uuid import UUID
 
 from sqlalchemy import select
@@ -13,8 +14,62 @@ from app.services import user_block_service
 
 _ALLOWED_STATUS_TRANSITIONS: dict[JobRequestStatus, set[JobRequestStatus]] = {
     JobRequestStatus.draft: {JobRequestStatus.active, JobRequestStatus.cancelled},
-    JobRequestStatus.active: {JobRequestStatus.cancelled, JobRequestStatus.filled},
+    JobRequestStatus.active: {
+        JobRequestStatus.cancelled,
+        JobRequestStatus.filled,
+        JobRequestStatus.expired,
+    },
 }
+
+
+def job_has_upcoming_shifts(job: JobRequest, *, today: date | None = None) -> bool:
+    """True if the job has at least one shift on today or in the future."""
+    reference = today or date.today()
+    if not job.shift_slots:
+        return True
+    return any(slot.shift_date >= reference for slot in job.shift_slots)
+
+
+def job_is_historical(job: JobRequest, *, today: date | None = None) -> bool:
+    """True when the job belongs in employer history (past shifts or terminal status)."""
+    if job.status in {
+        JobRequestStatus.cancelled,
+        JobRequestStatus.filled,
+        JobRequestStatus.expired,
+    }:
+        return True
+    if job.status == JobRequestStatus.active:
+        return not job_has_upcoming_shifts(job, today=today)
+    return False
+
+
+async def expire_past_active_jobs(
+    session: AsyncSession,
+    employer_id: UUID,
+    *,
+    today: date | None = None,
+) -> int:
+    """Mark active jobs with only past shifts as expired."""
+    reference = today or date.today()
+    stmt = (
+        select(JobRequest)
+        .options(selectinload(JobRequest.shift_slots))
+        .where(
+            JobRequest.employer_id == employer_id,
+            JobRequest.status == JobRequestStatus.active,
+        )
+    )
+    jobs = list(await session.scalars(stmt))
+    expired_count = 0
+    for job in jobs:
+        if job_has_upcoming_shifts(job, today=reference):
+            continue
+        job.status = JobRequestStatus.expired
+        expired_count += 1
+        await enqueue_job("close_group_posts", str(job.id))
+    if expired_count:
+        await session.flush()
+    return expired_count
 
 
 async def _get_job_stmt(job_id: UUID, employer_id: UUID):
@@ -135,6 +190,7 @@ async def create_job_request(
 
 
 async def list_job_requests(session: AsyncSession, employer_id: UUID) -> list[JobRequestRead]:
+    await expire_past_active_jobs(session, employer_id)
     stmt = (
         select(JobRequest)
         .options(

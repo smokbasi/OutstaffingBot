@@ -58,7 +58,7 @@ type TelegramContext = {
 };
 
 type AppMode = "worker" | "employer" | "admin";
-type EmployerView = "jobs" | "create" | "applications";
+type EmployerView = "jobs" | "history" | "create" | "applications";
 type WorkerView = "profile" | "vacancies" | "vacancy-detail" | "applications" | "notifications";
 
 type MeState =
@@ -448,10 +448,17 @@ function App() {
             initData={telegram.initData}
             reloadKey={applicationsReloadKey}
           />
+        ) : employerView === "history" ? (
+          <EmployerJobsPage
+            initData={telegram.initData}
+            reloadKey={jobsReloadKey}
+            variant="history"
+          />
         ) : (
           <EmployerJobsPage
             initData={telegram.initData}
             reloadKey={jobsReloadKey}
+            variant="current"
             onCreateClick={() => setEmployerView("create")}
           />
         )}
@@ -533,6 +540,13 @@ function App() {
             onClick={() => setEmployerView("jobs")}
           >
             Заявки
+          </button>
+          <button
+            type="button"
+            className={`nav-btn${employerView === "history" ? " active" : ""}`}
+            onClick={() => setEmployerView("history")}
+          >
+            История
           </button>
           <button
             type="button"

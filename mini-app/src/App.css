@@ -486,6 +486,26 @@ fieldset.form-field {
   gap: 0.75rem;
 }
 
+.jobs-drafts-block {
+  margin-bottom: 0.75rem;
+}
+
+.jobs-active-block {
+  margin-top: 0.25rem;
+}
+
+.jobs-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.35rem;
+}
+
+.jobs-section-header .vacancy-section-title {
+  margin: 0;
+}
+
 .job-item {
   padding: 0.75rem;
   border: 1px solid var(--tg-theme-border-color, #e5e5ea);

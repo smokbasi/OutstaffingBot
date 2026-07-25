@@ -17,6 +17,7 @@ type EmployerJobsPageProps = {
   initData: string;
   onCreateClick?: () => void;
   reloadKey?: number;
+  variant?: "current" | "history";
 };
 
 type JobsState =
@@ -32,6 +33,8 @@ type ApplicantsState =
 
 type View = "list" | "job-detail" | "complaint" | "complaint-success";
 
+const DRAFTS_COLLAPSED_KEY = "employer_jobs_drafts_collapsed";
+
 function formatDate(iso: string): string {
   const [year, month, day] = iso.split("-");
   if (!year || !month || !day) {
@@ -42,6 +45,60 @@ function formatDate(iso: string): string {
 
 function formatTime(value: string): string {
   return value.slice(0, 5);
+}
+
+function parseShiftDate(iso: string): Date | null {
+  const [year, month, day] = iso.split("-").map(Number);
+  if (!year || !month || !day) {
+    return null;
+  }
+  return new Date(year, month - 1, day);
+}
+
+function startOfToday(): Date {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return today;
+}
+
+/** Current jobs: drafts + active with today/future shifts (defensive if API lag). */
+function isCurrentJob(job: JobRequest): boolean {
+  if (job.status === "draft") {
+    return true;
+  }
+  if (job.status !== "active") {
+    return false;
+  }
+  if (job.shift_slots.length === 0) {
+    return true;
+  }
+  const today = startOfToday();
+  return job.shift_slots.some((slot) => {
+    const shiftDate = parseShiftDate(slot.shift_date);
+    return shiftDate !== null && shiftDate >= today;
+  });
+}
+
+function loadDraftsCollapsed(): boolean {
+  if (typeof localStorage === "undefined") {
+    return false;
+  }
+  try {
+    return localStorage.getItem(DRAFTS_COLLAPSED_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function saveDraftsCollapsed(collapsed: boolean): void {
+  if (typeof localStorage === "undefined") {
+    return;
+  }
+  try {
+    localStorage.setItem(DRAFTS_COLLAPSED_KEY, collapsed ? "1" : "0");
+  } catch {
+    // ignore quota / private mode
+  }
 }
 
 function workerLabel(item: EmployerComplaintApplication): string {
@@ -56,7 +113,12 @@ function workerLabel(item: EmployerComplaintApplication): string {
   return "Работник";
 }
 
-export function EmployerJobsPage({ initData, onCreateClick, reloadKey = 0 }: EmployerJobsPageProps) {
+export function EmployerJobsPage({
+  initData,
+  onCreateClick,
+  reloadKey = 0,
+  variant = "current",
+}: EmployerJobsPageProps) {
   const [state, setState] = useState<JobsState>({ status: "loading" });
   const [applicantsState, setApplicantsState] = useState<ApplicantsState>({ status: "idle" });
   const [view, setView] = useState<View>("list");
@@ -64,6 +126,7 @@ export function EmployerJobsPage({ initData, onCreateClick, reloadKey = 0 }: Emp
   const [selectedApplication, setSelectedApplication] = useState<EmployerComplaintApplication | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [busyJobId, setBusyJobId] = useState<string | null>(null);
+  const [draftsCollapsed, setDraftsCollapsed] = useState(loadDraftsCollapsed);
 
   useEffect(() => {
     let cancelled = false;
@@ -121,6 +184,14 @@ export function EmployerJobsPage({ initData, onCreateClick, reloadKey = 0 }: Emp
     setView("job-detail");
   }
 
+  function handleToggleDrafts() {
+    setDraftsCollapsed((prev) => {
+      const next = !prev;
+      saveDraftsCollapsed(next);
+      return next;
+    });
+  }
+
   async function handleStatusChange(jobId: string, status: JobRequestStatus) {
     setBusyJobId(jobId);
     setActionError(null);
@@ -161,6 +232,59 @@ export function EmployerJobsPage({ initData, onCreateClick, reloadKey = 0 }: Emp
     setView("complaint-success");
   }
 
+  function renderJobItem(job: JobRequest, allowActions: boolean) {
+    return (
+      <li key={job.id} className="job-item">
+        <button type="button" className="complaint-select-btn" onClick={() => void handleOpenJob(job)}>
+          <div className="job-item-header">
+            <strong>{job.title}</strong>
+            <span className={`status-badge status-${job.status}`}>
+              {formatJobRequestStatus(job.status)}
+            </span>
+          </div>
+          <p className="hint">
+            {job.category_name ?? "Категория"} · {job.metro_station_name ?? "Метро"} ·{" "}
+            {formatHourlyRate(job.hourly_rate)} · {job.workers_needed} чел.
+          </p>
+          {job.shift_slots.length > 0 ? (
+            <ul className="job-shifts">
+              {job.shift_slots.map((slot) => (
+                <li key={slot.id}>
+                  {formatDate(slot.shift_date)} {formatTime(slot.start_time)}–
+                  {formatTime(slot.end_time)}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </button>
+        {allowActions ? (
+          <div className="job-actions">
+            {job.status === "draft" ? (
+              <button
+                type="button"
+                className="btn"
+                disabled={busyJobId === job.id}
+                onClick={() => void handleStatusChange(job.id, "active")}
+              >
+                Опубликовать
+              </button>
+            ) : null}
+            {job.status === "draft" || job.status === "active" ? (
+              <button
+                type="button"
+                className="btn secondary"
+                disabled={busyJobId === job.id}
+                onClick={() => void handleStatusChange(job.id, "cancelled")}
+              >
+                Отменить
+              </button>
+            ) : null}
+          </div>
+        ) : null}
+      </li>
+    );
+  }
+
   if (view === "complaint-success") {
     return (
       <ComplaintSuccess
@@ -189,6 +313,7 @@ export function EmployerJobsPage({ initData, onCreateClick, reloadKey = 0 }: Emp
   }
 
   if (view === "job-detail" && selectedJob) {
+    const allowActions = isCurrentJob(selectedJob);
     return (
       <section className="card jobs-list-card">
         <button type="button" className="link-btn back-link" onClick={handleBackToList}>
@@ -213,28 +338,30 @@ export function EmployerJobsPage({ initData, onCreateClick, reloadKey = 0 }: Emp
             ))}
           </ul>
         ) : null}
-        <div className="job-actions">
-          {selectedJob.status === "draft" ? (
-            <button
-              type="button"
-              className="btn"
-              disabled={busyJobId === selectedJob.id}
-              onClick={() => void handleStatusChange(selectedJob.id, "active")}
-            >
-              Опубликовать
-            </button>
-          ) : null}
-          {selectedJob.status === "draft" || selectedJob.status === "active" ? (
-            <button
-              type="button"
-              className="btn secondary"
-              disabled={busyJobId === selectedJob.id}
-              onClick={() => void handleStatusChange(selectedJob.id, "cancelled")}
-            >
-              Отменить
-            </button>
-          ) : null}
-        </div>
+        {allowActions ? (
+          <div className="job-actions">
+            {selectedJob.status === "draft" ? (
+              <button
+                type="button"
+                className="btn"
+                disabled={busyJobId === selectedJob.id}
+                onClick={() => void handleStatusChange(selectedJob.id, "active")}
+              >
+                Опубликовать
+              </button>
+            ) : null}
+            {selectedJob.status === "draft" || selectedJob.status === "active" ? (
+              <button
+                type="button"
+                className="btn secondary"
+                disabled={busyJobId === selectedJob.id}
+                onClick={() => void handleStatusChange(selectedJob.id, "cancelled")}
+              >
+                Отменить
+              </button>
+            ) : null}
+          </div>
+        ) : null}
 
         <h3>Принятые работники</h3>
         {applicantsState.status === "loading" ? (
@@ -279,7 +406,7 @@ export function EmployerJobsPage({ initData, onCreateClick, reloadKey = 0 }: Emp
     return (
       <section className="card">
         <p className="error">{state.message}</p>
-        {onCreateClick ? (
+        {onCreateClick && variant === "current" ? (
           <button type="button" className="btn secondary" onClick={onCreateClick}>
             Создать заявку
           </button>
@@ -289,12 +416,17 @@ export function EmployerJobsPage({ initData, onCreateClick, reloadKey = 0 }: Emp
   }
 
   const { jobs } = state;
+  const visibleJobs =
+    variant === "history" ? jobs.filter((job) => !isCurrentJob(job)) : jobs.filter(isCurrentJob);
+  const draftJobs = visibleJobs.filter((job) => job.status === "draft");
+  const activeJobs = visibleJobs.filter((job) => job.status !== "draft");
+  const isHistory = variant === "history";
 
   return (
     <section className="card jobs-list-card">
       <div className="profile-header">
-        <h2>Мои заявки</h2>
-        {onCreateClick ? (
+        <h2>{isHistory ? "История" : "Мои заявки"}</h2>
+        {!isHistory && onCreateClick ? (
           <button type="button" className="btn" onClick={onCreateClick}>
             + Создать
           </button>
@@ -303,59 +435,53 @@ export function EmployerJobsPage({ initData, onCreateClick, reloadKey = 0 }: Emp
 
       {actionError ? <p className="error">{actionError}</p> : null}
 
-      {jobs.length === 0 ? (
-        <p className="hint">Заявок пока нет. Создайте первую.</p>
+      {visibleJobs.length === 0 ? (
+        <p className="hint">
+          {isHistory
+            ? "В истории пока нет заявок."
+            : "Заявок пока нет. Создайте первую."}
+        </p>
+      ) : isHistory ? (
+        <ul className="jobs-list">{visibleJobs.map((job) => renderJobItem(job, false))}</ul>
       ) : (
-        <ul className="jobs-list">
-          {jobs.map((job) => (
-            <li key={job.id} className="job-item">
-              <button type="button" className="complaint-select-btn" onClick={() => void handleOpenJob(job)}>
-                <div className="job-item-header">
-                  <strong>{job.title}</strong>
-                  <span className={`status-badge status-${job.status}`}>
-                    {formatJobRequestStatus(job.status)}
-                  </span>
-                </div>
-                <p className="hint">
-                  {job.category_name ?? "Категория"} · {job.metro_station_name ?? "Метро"} ·{" "}
-                  {formatHourlyRate(job.hourly_rate)} · {job.workers_needed} чел.
-                </p>
-                {job.shift_slots.length > 0 ? (
-                  <ul className="job-shifts">
-                    {job.shift_slots.map((slot) => (
-                      <li key={slot.id}>
-                        {formatDate(slot.shift_date)} {formatTime(slot.start_time)}–
-                        {formatTime(slot.end_time)}
-                      </li>
-                    ))}
-                  </ul>
-                ) : null}
-              </button>
-              <div className="job-actions">
-                {job.status === "draft" ? (
-                  <button
-                    type="button"
-                    className="btn"
-                    disabled={busyJobId === job.id}
-                    onClick={() => void handleStatusChange(job.id, "active")}
-                  >
-                    Опубликовать
-                  </button>
-                ) : null}
-                {job.status === "draft" || job.status === "active" ? (
-                  <button
-                    type="button"
-                    className="btn secondary"
-                    disabled={busyJobId === job.id}
-                    onClick={() => void handleStatusChange(job.id, "cancelled")}
-                  >
-                    Отменить
-                  </button>
-                ) : null}
+        <>
+          {draftJobs.length > 0 ? (
+            <div className="jobs-drafts-block">
+              <div className="jobs-section-header">
+                {!draftsCollapsed ? (
+                  <h3 className="vacancy-section-title">Черновики ({draftJobs.length})</h3>
+                ) : (
+                  <span />
+                )}
+                <button type="button" className="link-btn" onClick={handleToggleDrafts}>
+                  {draftsCollapsed
+                    ? `Показать черновики (${draftJobs.length})`
+                    : "Скрыть черновики"}
+                </button>
               </div>
-            </li>
-          ))}
-        </ul>
+              {!draftsCollapsed ? (
+                <ul className="jobs-list">
+                  {draftJobs.map((job) => renderJobItem(job, true))}
+                </ul>
+              ) : null}
+            </div>
+          ) : null}
+
+          {activeJobs.length > 0 ? (
+            <div className="jobs-active-block">
+              {draftJobs.length > 0 ? (
+                <h3 className="vacancy-section-title">Активные</h3>
+              ) : null}
+              <ul className="jobs-list">
+                {activeJobs.map((job) => renderJobItem(job, true))}
+              </ul>
+            </div>
+          ) : null}
+
+          {draftJobs.length > 0 && activeJobs.length === 0 && draftsCollapsed ? (
+            <p className="hint">Черновики скрыты. Активных заявок нет.</p>
+          ) : null}
+        </>
       )}
     </section>
   );
